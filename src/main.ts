@@ -323,4 +323,12 @@ if (typeof window !== 'undefined') {
       transport.toggle();
     }
   });
+  // Expose debug handles for browser console / Bridge inspection.
+  (window as any).__BEATGARDEN__ = {
+    toggleDebug: () => (overlay.enabled = !overlay.enabled),
+    debugEnabled: () => overlay.enabled,
+    getCounts: () => ({ ...judge.currentCounts }),
+    getSnap: () => transport.snapshot(),
+    isAudioUnlocked: () => audioUnlocked,
+  };
 }
