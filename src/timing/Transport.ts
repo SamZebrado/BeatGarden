@@ -33,6 +33,25 @@ export class Transport {
   private transportAnchor: number = 0;
   private _playing: boolean = false;
 
+  // ---- Runtime tempo-change semantics contract ----
+  // GATE 0 PARTIAL Issue 1:
+  //   Runtime `setBpm()` changes while playing would invalidate AudioNodes
+  //   already scheduled into the WebAudio timeline for future beats. Those
+  //   nodes do NOT move when our transport anchors change, so the user
+  //   would hear the old BPM for ~120 ms after setBpm while subsequent
+  //   audio (our JS-side rendering) uses the new BPM → audible misalignment.
+  //
+  // Resolution chosen for v1: OPTION A + OPTION C combined.
+  //   (A) Calling setBpm during the `playing` state THROWS.
+  //   (C) The architecture contract is: v1 stages do NOT support runtime
+  //       tempo changes. Each stage sets a single BPM via buildEvents()/
+  //       onStart() before transport.start(0) is called.
+  //
+  // If a future stage legitimately needs runtime tempo rubato, we must:
+  //   - Cancel / invalidate all future scheduled AudioNodes;
+  //   - Then rebuild schedule; or use scheduled-parameter tempo curves.
+  // Not implemented in v1. -----------------------------------------------------------------------------------
+
   public bpm: number;
   public meter: [number, number];
 
@@ -159,12 +178,27 @@ export class Transport {
 
   setBpm(bpm: number, audioNow?: number): void {
     if (bpm <= 0) throw new Error('BPM must be positive');
+    // ---- GATE 0 PARTIAL Issue 1: state guard ----
+    // AudioNodes scheduled into the WebAudio future queue (≈120 ms window)
+    // cannot be re-timed retroactively. Therefore setBpm() is ONLY permitted
+    // when the transport is NOT playing. In v1, stages set BPM during
+    // onStart() BEFORE transport.start(beat 0).
+    if (this._playing) {
+      throw new Error(
+        'Transport.setBpm: runtime tempo changes are not allowed while playing. ' +
+          'Scheduled AudioNodes cannot be re-timed once submitted to WebAudio. ' +
+          'Call setBpm before start(), or while paused/stopped/reset.',
+      );
+    }
     // Preserve current BEAT position across tempo change (not raw seconds).
     const t = audioNow ?? this.ctxTimeFn();
     const curBeat = this.audioTimeToBeat(t);
     this.bpm = bpm;
     this.audioAnchor = t;
-    // With new bpm: transportSec = beat * newSecondsPerBeat
+    // With new bpm: transportSec = beat * newSecondsPerBeat.
+    // NOTE: when _playing=false, getTransportTime() uses transportAnchor
+    // directly, so assigning transportAnchor here also guarantees that
+    // getTransportTime() → getBeat() gives the same (preserved) curBeat.
     this.transportAnchor = curBeat * this.secondsPerBeat;
   }
 

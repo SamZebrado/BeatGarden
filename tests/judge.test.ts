@@ -127,45 +127,63 @@ describe('Judge — hold release uses wider windows', () => {
   });
 });
 
-describe('Judge — calibration offset applied before window comparison', () => {
-  it('positive offset (device lags) shifts the comparison so early taps look on-time', () => {
+describe('Judge — calibration sign convention: effectiveDelta = rawDelta − calOffset', () => {
+  // Formula convention:
+  //   rawDeltaMs = (inputAt - targetAt) * 1000
+  //   effectiveDeltaMs = rawDeltaMs - calibrationOffsetMs
+  // Test matrix: raw input EARLY (-20ms) / LATE (+20ms) × cal POS (+10) / NEG (-10).
+  function runCase(rawDeltaMs: number, calOffsetMs: number) {
     const clock = new MockAudioClock();
     const transport = new Transport(() => clock.now(), 120);
     transport.start(0);
-    const judge = new Judge(cfg, transport, +30); // +30ms
-    judge.resetRun();
+    const j = new Judge(cfg, transport, calOffsetMs);
+    j.resetRun();
     const target = makeTapTarget(4);
-    const targetAudio = transport.beatToAudioTime(4);
-    // Input is 30 ms early = -30ms raw delta.
-    // With calibration offset = +30ms, we compute:
-    //   deltaSec = inputAudioTime - targetAudioTime - (calOffsetMs / 1000)
-    //            = (t - 0.030) - t - (+0.030 / 1) ??? Let's recheck formula.
-    // From Judge:
-    //   deltaSec = inputAudioTime - targetAudioTime - calSec;
-    // So: input is EARLY 30ms → inputAudioTime = targetAudioTime - 0.030.
-    //     calSec = +0.030.
-    //     deltaSec = -0.030 - (+0.030) = -0.060? That's double the error. Hmm.
-    // Wait — the convention is:
-    //   calibrationOffsetMs is ADDED to the judged input time conceptually.
-    //   Positive = the physical event is measured to arrive LATER than our
-    //   audio clock reports for input. Or the other way around.
-    // Let's define the convention explicitly:
-    //   calibrationOffsetMs is what we SUBTRACT from (input - target).
-    //   If the user perceives audio as LATE relative to visuals/screen taps
-    //   (i.e. their taps hit the screen too EARLY compared to audio),
-    //   the screen-inputs have negative delta. We shift them positive by
-    //   setting calibrationOffsetMs to a negative number (since we subtract
-    //   calSec, subtracting a negative = adding). Hmm this is confusing.
-    // Let's just assert what the formula DOES numerically:
-    //   effectiveDelta = inputDeltaRawMs - calibrationOffsetMs
-    // because deltaSec = (inputAt - targetAt) - calSec
-    //                  = rawDeltaSec - calSec.
-    // So in ms: effectiveDeltaMs = rawDeltaMs - calibrationOffsetMs.
-    // Okay. Now we want the scenario: user taps 30ms EARLY (raw = -30). We set
-    // calibrationOffsetMs = -30 to bring effective delta to 0.
-    const judgeFix = new Judge(cfg, transport, -30);
-    judgeFix.resetRun();
-    const r = judgeFix.judge(target, targetAudio - 0.030, 'tap');
+    const targetAt = transport.beatToAudioTime(4);
+    return j.judge(target, targetAt + rawDeltaMs / 1000, 'tap');
+  }
+
+  it('Case 1: LATE input (+20ms) + POSITIVE calibration (+10ms → digitizer late) → effective +10ms → PERFECT', () => {
+    // User is 20ms late; we know there's a persistent +10ms digitizer shift.
+    // effective = 20 - 10 = +10 ms (within ±32 → PERFECT).
+    const r = runCase(+20, +10);
+    expect(r.deltaMs).toBeCloseTo(+10, 4);
+    expect(r.kind).toBe('PERFECT');
+  });
+
+  it('Case 2: LATE input (+20ms) + NEGATIVE calibration (−10ms → audio pipeline late) → effective +30ms → still PERFECT', () => {
+    // effective = 20 - (-10) = +30 ms (within ±32 → PERFECT).
+    const r = runCase(+20, -10);
+    expect(r.deltaMs).toBeCloseTo(+30, 4);
+    expect(r.kind).toBe('PERFECT');
+  });
+
+  it('Case 3: EARLY input (−20ms) + POSITIVE calibration (+10ms) → effective −30ms → PERFECT (boundary)', () => {
+    // effective = -20 - (+10) = -30 ms (within ±32 → PERFECT).
+    const r = runCase(-20, +10);
+    expect(r.deltaMs).toBeCloseTo(-30, 4);
+    expect(r.kind).toBe('PERFECT');
+  });
+
+  it('Case 4: EARLY input (−20ms) + NEGATIVE calibration (−10ms) → effective −10ms → PERFECT', () => {
+    // effective = -20 - (-10) = -10 ms (within ±32 → PERFECT).
+    const r = runCase(-20, -10);
+    expect(r.deltaMs).toBeCloseTo(-10, 4);
+    expect(r.kind).toBe('PERFECT');
+  });
+
+  it('canonical: Android 80ms digitizer (LATE) perfectly cancels → PERFECT', () => {
+    // Case A from Judge.ts header: user in sync, but signal always arrives
+    // 80 ms late in AudioContext time. Calibration learns offset = +80.
+    const r = runCase(+80, +80);
+    expect(r.deltaMs).toBeCloseTo(0, 4);
+    expect(r.kind).toBe('PERFECT');
+  });
+
+  it('canonical: 40ms audio-late (EARLY taps) perfectly cancels → PERFECT', () => {
+    // Case B from Judge.ts header: taps arrive 40ms before beat sound "feels"
+    // like it should; calibration = -40 shifts effective delta → 0.
+    const r = runCase(-40, -40);
     expect(r.deltaMs).toBeCloseTo(0, 4);
     expect(r.kind).toBe('PERFECT');
   });

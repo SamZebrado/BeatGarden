@@ -147,9 +147,12 @@ export class Scheduler {
   start(): void {
     if (this.timerId !== null) return;
     const tickMs = this.config.lookaheadMs;
+    // Use `globalThis.setTimeout` so it works in DOM (window) AND in Node
+    // vitest tests AND in Web Workers.
+    const gs = globalThis as unknown as { setTimeout: typeof setTimeout };
     const loop = () => {
       this.tick();
-      this.timerId = window.setTimeout(loop, tickMs) as unknown as number;
+      this.timerId = gs.setTimeout(loop, tickMs) as unknown as number;
     };
     loop();
   }
@@ -157,7 +160,8 @@ export class Scheduler {
   /** Stop the timer. Idempotent. */
   stop(): void {
     if (this.timerId !== null) {
-      clearTimeout(this.timerId);
+      const gs = globalThis as unknown as { clearTimeout: typeof clearTimeout };
+      gs.clearTimeout(this.timerId);
       this.timerId = null;
     }
   }

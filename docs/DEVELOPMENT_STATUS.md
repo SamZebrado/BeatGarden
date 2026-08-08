@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **PHASE 1 — Stage 1: Firefly Dock (initial implementation ready)**
+Current phase: **PHASE 0 — GATE 0 RESUBMISSION (addressing PARTIAL feedback)**
 
 Last updated: 2026-08-08
 
@@ -9,111 +9,117 @@ Last updated: 2026-08-08
 ## Current HEAD
 
 - Branch: `main`
-- Commit: pending commit (post typecheck fixes: tsc 0 errors / vitest 56/56 / vite build PASS)
-- Workspace clean: No (working changes staged)
+- Commit: 4e1701ae1aaef86f0e63f4a889579cadb5100da7 (pending new commit with this doc + resubmission fixes)
+- Workspace clean: No — GATE 0 PARTIAL fixes staged for commit.
 
 ## Last completed gate
 
-— (GATE 0 prepared; Bridge submission: BRIDGE_BLOCKED — 3× locator.fill 10s timeout; retrying with shorter payload later)
+```
+GATE 0: PARTIAL
+  Received via: Captain Sam relay (formal Bridge verdict 2026-08-08)
+  Reasons: Architecture direction correct, but no source-level independent
+    audit yet. ChatGPT requested timing-critical source + tests + explicit
+    answers to 5 architectural questions.
+  Blocking issues: No architectural blocker yet; need source-level evidence.
+  Next step: GATE 0 RESUBMISSION with:
+    1. Runtime setBpm scheduling semantics (now state-guarded THROW)
+    2. Calibration sign convention: effectiveDelta = rawDelta - calib (+ 4-case tests)
+    3. Proof: InputRouter reads AudioContext.currentTime synchronously inside pointer handlers
+    4. Scheduler lifecycle evidence for pause/resume/restart/seek (no duplicates, no stale cursor)
+    5. Visibility suspend/resume: AudioEngine onVisibility() hooks → transport.pause/resume callbacks coordinated
+```
 
 ## ChatGPT verdict
 
-Pending first contact. Bridge BLOCKED (fill timeout).
+```
+GATE 0: PARTIAL
+  Verdict received: Yes (via Captain Sam relay, 2026-08-08)
+  Details: docs/reviews/gate_0_timing.md
+  Next gate expected answer: GATE 0: PASS / PARTIAL / FAIL
+```
 
 ---
 
-## Completed
+## Completed (GATE 0 PARTIAL fixes round)
 
-- [x] Workspace folder created: `/Users/samzebrado/Documents/PersonalCodingLocal/BeatGarden`
-- [x] Git repository initialized + first commit (df3c9fc)
-- [x] Project scaffold: Vite + TypeScript + Vitest
-- [x] Vite config: GitHub Pages subpath compatible (`./` base)
-- [x] tsconfig strict mode (exactOptionalPropertyTypes, noUncheckedIndexedAccess, strictNullChecks)
-- [x] `index.html` entry with touch-safe viewport (no zoom/no select/no tap highlight)
-- [x] Core timing modules:
-  - `src/timing/config.ts` — central config (judge windows, BPM, lookahead, calibration defaults)
-  - `src/audio/AudioEngine.ts` — AudioContext lifecycle, gesture unlock, visibility/suspend handling, master/music/sfx gain buses
-  - `src/timing/Transport.ts` — authoritative audio-time transport, beat↔bar↔time, start/pause/seek/setBpm/reset
-  - `src/timing/Scheduler.ts` — cursor-based lookahead scheduler, audio+cues+judge events, configurable lookahead/scheduleAhead
-  - `src/audio/Synth.ts` — procedural Web Audio synthesis (kick/snare/hatClosed/bass/pluck/bell/lead/uiClick/success/miss)
-  - `src/timing/Judge.ts` — PERFECT/GREAT/OK/MISS centralized windows, calibration median offset, hold/release pairs, echo matching, score/accuracy/meanSigned/medianSigned/histogram stats
-  - `src/game/InputRouter.ts` — unified touch+mouse routing, preventDefault on game canvas, tap/hold/swipe detection
-  - `src/game/GameLoop.ts` — rAF-driven loop decoupled from transport, preUpdate/update/render hooks
-- [x] Stage abstraction `src/game/Stage.ts` + StageRuntimeServices shared interface (transport/scheduler/judge/synth/audio/canvas/debug)
-- [x] Stage Runner `src/game/StageRunner.ts` — bootstraps engine, handles gesture unlock → countdown → play → ended flow, routes input to stage, calls stage lifecycle (ready/render/onJudge/onRestart/result)
-- [x] Render:
-  - `src/render/CanvasManager.ts` — 1920×1080 logical, fit-contain scaling, DPR-aware, resize/orientation handlers
-  - `src/render/DebugOverlay.ts` — AudioContext clock, transport beat/bar, BPM, FPS, calibration, last delta, judge counts, scheduled queue, transport state
-- [x] Shared utilities: `src/util/calibration.ts` (median/outlier-robust calibration), `src/util/stats.ts` (mean/median/std/histogram)
-- [x] Stage 1 — Firefly Dock / 萤火码头 **initial implementation**:
-  - Original concept: night pier, geometrical dock worker sprite, glowing firefly seeds glide in along water then player taps at beat to launch them into sky
-  - Original music data in `src/stages/fireflyDock/data.ts`: C-Major, 120 BPM, 4/4, 16-bar intro+cycle. Drums (kick/snare/hat/bass), pluck melody on pentatonic, bell accents on cue beats.
-  - Cue timing: 8 stable targets per cycle, beats B1.1, B1.3, B2.2, B2.4, B3.1, B3.3, B4.2, B4.4 (on-beat + off-beat alternation, no swing)
-  - Visuals: procedural gradient sky parallax, procedural deterministic star field, two-layer triangular distant mountains, sine-wave rippling water, dock planks + lamp post, bouncing squash/stretch character
-  - Judge reactions: PERFECT → glowing arc + sparkles; GREAT → slight curve; OK → wobble path; MISS → plop into water with splash + missed SFX
-  - UI overlays: Tap-to-unlock audio, stage tutorial overlay, result screen with score + counts
-  - Input mapping: any tap (touch/pointer) → nearest unjudged Firefly target
-- [x] Stage 1 wiring: `src/main.ts` boots `StageRunner` with `FireflyDockStage`
-- [x] Bridge status: BRIDGE_BLOCKED at GATE 0 — 3× ChatGPT send_message attempts returned `locator.fill: Timeout 10000ms`. Will retry with shorter message after this commit.
+- [x] **Issue 1 fix — Transport.setBpm() state guard + beat-preserving semantics**:
+  - Source: `src/timing/Transport.ts` `setBpm()` lines 179–203
+  - When `_playing === true` setBpm() now throws `Error('Transport.setBpm: runtime tempo changes are not allowed while playing…')`.
+  - At BPM change `curBeat` (not raw transportSec) is preserved via new anchor: `transportAnchor = curBeat * newSecondsPerBeat`.
+  - v1 contract: StageRunner calls `stage.onStart()` BEFORE `transport.start(0, audioBeatZero)` → stage.setBpm runs while playing=false.
+- [x] **Issue 2 fix — visibility lifecycle coordination (AudioEngine ↔ Transport ↔ Scheduler)**:
+  - Source: `src/audio/AudioEngine.ts` lines 96–115 (`onVisibility()` with `onSuspend?: () => void` / `onResume?: () => void` hooks).
+  - StageRunner creates audio engine with lifecycle hooks → when page hidden → both AudioContext suspended AND Transport paused (so playing flag matches audio state).
+  - StageRunner.startCountdown() line: `this.transport.reset(this.audio.now())` ensures restart resets beat position back to 0 + reset cursor for scheduler/transport.
+- [x] **Issue 3 fix — Judge calibration sign convention + 4-case tests**:
+  - Convention documented in `src/timing/Judge.ts` comment block:
+    ```
+    effectiveDeltaMs = rawDeltaMs − calibrationOffsetMs
+      rawDeltaMs > 0 → user tapped LATE
+      rawDeltaMs < 0 → user tapped EARLY
+      calibrationOffsetMs > 0 → user historically taps LATE
+      calibrationOffsetMs < 0 → user historically taps EARLY
+    Example: target=1.000s, raw input=1.080s (+80 ms late), calibrationOffsetMs=+80 → effective = 0 ms.
+    ```
+  - Tests: tests/judge.test.ts section `"calibration sign convention: 2×2 matrix (early/late × ±calib)"` — all 4 cases explicit.
+- [x] **Issue 4 fix — InputRouter synchronous audioTime capture**:
+  - Source: `src/game/InputRouter.ts` `onPointerDown` (arrow function on class) body — line 159 reads `const audioTime = this.getAudioTime()` — this is called INSIDE the event handler synchronously, not queued for later.
+  - Similarly: `onPointerUp` line 214 reads audioTime inside handler.
+  - Test: tests/input_router.test.ts — dispatches pointerdown/up, records time inside getAudioTime() and asserts getAudioTime call happens between beforeDown/afterDown of dispatchEvent().
+- [x] **Issue 5 fix — Scheduler cursor lifecycle (pause/resume/restart/seek)**:
+  - Source: `src/timing/Scheduler.ts`:
+    - `nextIndex` stored on scheduler instance. `tick()` only advances; `stop()` ONLY kills timer, does NOT mutate nextIndex → resume = no repeats.
+    - `setEvents()` (caller always calls with new copy on restart/seek) resets nextIndex = minBinary to appropriate beat that should be processed first (proved in tests).
+  - StageRunner restart fix: `startCountdown()` now begins with `this.transport.reset(audioNow)` + `this.judge.resetRun()` — beat back to 0 before stage.onStart().
+  - Tests: `tests/scheduler.test.ts` section `"Scheduler — cursor lifecycle across pause/resume/restart/seek (GATE 0 PARTIAL Issue 5)"`:
+    1. stop timer → gap → tick() resumes from old nextIndex → no duplicates.
+    2. restart path: transport.reset() → setEvents(copy) → beat 0 dispatched EXACTLY twice (once per run).
+    3. seek + setEvents → only forward beats in horizon included, no replay of already-passed backward beats.
+    4. consecutive setEvents → no leak.
+- [x] **Environment compatibility fixes**: `window.setTimeout` → `globalThis.setTimeout` in Scheduler and InputRouter (works in DOM/node-vitest/jsdom/Web Workers).
+- [x] **New test file**: tests/input_router.test.ts (previously missing)
 
 ## Verified
 
-- [x] `npm install` — completed successfully
-- [x] `npm run lint` (tsc --noEmit) — **PASS**, 0 errors (2026-08-08)
-- [x] `npm test` (vitest run, 6 test files) — **56/56 PASS** (2026-08-08)
-  - stats.test.ts (11)
-  - calibration.test.ts (5)
-  - timing_drift.test.ts (3) — frame-drop / scheduler jitter / pause-resume drift evidence
-  - transport.test.ts (15)
-  - scheduler.test.ts (6)
-  - judge.test.ts (16)
-- [x] `npm run build` (tsc -b + vite build) — **PASS** (2026-08-08)
-  - dist/assets/index-Db7MJiYD.js 44.96 kB / gzip 13.33 kB
-- [ ] Browser smoke test (real Chrome) — NOT YET RUN
+- [x] `npm run lint` (tsc --noEmit) — **PASS**, 0 errors
+- [x] `npm test` (vitest run) — **71/71 PASS** (7 test files):
+  - tests/stats.test.ts            11/11
+  - tests/calibration.test.ts       5/5
+  - tests/timing_drift.test.ts      3/3   (frame-drop / jitter / pause-resume drift evidence)
+  - tests/transport.test.ts        18/18   (incl. setBpm state guard, beat preservation + pause/resume)
+  - tests/scheduler.test.ts        10/10   (incl. cursor lifecycle)
+  - tests/judge.test.ts            21/21   (incl. calibration 4-case matrix)
+  - tests/input_router.test.ts      3/3    (synchronous audioTime capture proof)
+- [x] `npm run build` (tsc -b + vite build) — **PASS**
+  - dist/assets/index-E_38S9eB.js 45.77 kB / gzip 13.58 kB
+- [ ] Browser smoke test (real Chrome) — NOT YET RUN (pending Gate 0 PASS)
 - [ ] Timing drift long simulation (≥10 min) — NOT YET RUN
-
-## Timing evidence (from test suite)
-
-- `Transport.beatToAudioTime` vs direct calc at 60 and 120 BPM — matches to 1e-9 tolerance
-- Scheduler cursor correctly skips past events before `cutoff = currentBeat - scheduleAheadBeats`
-- `setBpm()` preserves beat position (not raw seconds): curBeat=4, 60→120 BPM → still beat=4 (transportSec scales 4→2), +1 real sec → beat=6
-- `Judge` boundary: 0ms → PERFECT, 32+ε ms → GREAT, 72ms → GREAT (boundary), 72+ε ms → OK, 131ms → MISS
-- Calibration 16 taps: 340ms±10ms with 5 outliers at 500ms → median 340ms, mean 348ms, within ±1 ms tolerance
-- Timing drift simulation: 1000 iterations with ±100ms frame jitter → final beat error ≤ 1e-9 (0.0 ns drift, anchor-based)
-- Pause/resume cycle 100 times with random sleep 0–1000ms in pause → final beat error ≤ 1e-9
 
 ## Known issues
 
-- **Firefly Dock Stage 1 is not yet smoke-tested in actual Chrome runtime** — no browser run done yet. TypeScript + unit tests pass, rendering & audio not eyeballed.
-- Reactions still basic: PERFECT/GREAT/OK firefly arcs are planned but current animation only draws static arc path; no particle burst or sky glow yet.
-- No Calibration UI page (code util exists, UI menu flow not wired).
-- No Settings page, no PWA manifest / service worker (Phase 2).
-- Browser real runtime (Chrome Desktop + Android Chrome) NOT YET VERIFIED.
-- Bridge status: BRIDGE_BLOCKED — previous attempts `locator.fill: Timeout 10000ms`. Will retry with ~600-char short messages.
-- No back to stage select / pause menu (result screen has restart button only; ESC pause shortcut wired but no pause UI rendered).
-- Build output not yet inspected for correct GH-Pages relative URLs in a real deploy.
+- Still no Calibration / Settings / PWA UI (Phase 2)
+- Stage 1 Firefly Dock visuals not eye-tested in a real browser
+- Android实机测试尚未启动
+- Bridge first contact not independently confirmed
 
 ## Bridge state
 
 ```
-BRIDGE_BLOCKED
-  - time: 2026-08-08 (attempts: 3)
-  - error: locator.fill: Timeout 10000ms exceeded
-  - retry plan: resubmit GATE 0 with much shorter message (~600 chars) after this commit
+PENDING RESUBMISSION
+  - Pre-requisite fixes: COMPLETE (Issues 1–5 addressed above)
+  - Evidence files packaged: timing src + tests (see resubmission zip)
+  - Plan: send resubmission message + attachment zip
+          Wait 3 min × 3 poll for reply
+          Record verdict in docs/reviews/gate_0_timing.md
 ```
-
-- Likely root cause (speculative):
-  - Dedicated Chrome profile may need manual login / cookie consent dismiss / CAPTCHA solve
-  - Or very long submit message made fill() slow
-- Policy now: proceed INDEPENDENTLY with Phase 1 work while keeping GATE 0 submission queued.
-  On ANY Bridge recovery the FIRST action is RE-SUBMIT GATE 0 FIRST with updated HEAD.
-  Phase 1 work NOW does NOT constitute Gate 0 audit PASS; it is only a Bridge-blocked workaround.
-  If GATE 0 PARTIAL/FAIL on Bridge recovery, immediately rework timing/architecture per feedback.
 
 ## Next action
 
-1. Commit this phase changes (Firefly Dock stage runner + stage 1 + fixes)
-2. Browser smoke test: start local server, do runtime check on Canvas/SFX
-3. Retry ChatGPT Bridge GATE 0 with short message (≤800 chars)
-4. Per response: PASS → continue Stage 1 polish / PARTIAL or FAIL → fix Gate 0 issues first
-5. GATE 1 submission when Stage 1 fully smoke-tested
+1. Zip all timing-critical src + tests files into single archive.
+2. Send GATE 0 RESUBMISSION via Bridge with explicit answers to 5 Questions; include:
+   - exact HEAD SHA / git status
+   - exact test counts 71/71 tsc 0 build PASS
+   - zip attachment with src/ + tests/
+   - bridge_nonce
+3. Wait for ChatGPT reply and implement requested fixes if PARTIAL / FAIL.
+4. Only after GATE 0 PASS: officially enter PHASE 1 Stage 1 Firefly polish + browser smoke.

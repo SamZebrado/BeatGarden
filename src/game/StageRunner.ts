@@ -102,6 +102,39 @@ export class StageRunner {
       judge: this.judge,
     };
 
+    // ---- GATE 0 PARTIAL Issue 2: visibility lifecycle hooks ----
+    // AudioEngine calls these synchronously inside its visibility/pagehide
+    // handlers. We atomically stop+pause everything so Transport anchors,
+    // Scheduler cursor, and AudioContext state cannot drift apart after a
+    // background tab → foreground transition on Android Chrome/PWA.
+    this.audio.setLifecycleHooks({
+      onSuspend: () => {
+        // Called when document becomes hidden.
+        this.scheduler.stop();
+        if (this.phase === 'playing' || this.phase === 'countdown') {
+          this.transport.pause(this.audio.now());
+        }
+      },
+      onResume: () => {
+        // Called when document comes back to visible and AudioEngine state
+        // transitions from 'suspended' → 'unlocked'.
+        //
+        // IMPORTANT: we do NOT blindly call transport.resume() here. The
+        // user may have intentionally paused via ESC before tabbing away.
+        // We only resume the countdown/playing phases. Stage phases (locked,
+        // ended) stay put. The Transport anchor was updated in onSuspend
+        // via pause(), so re-anchoring here just picks up from the same
+        // beat position — no phase drift even if audio time advanced.
+        if (this.phase === 'playing' || this.phase === 'countdown') {
+          // Restart scheduler tick loop so the refill timer runs again.
+          this.scheduler.start();
+          // Re-anchor transport at the current audio time, carrying forward
+          // the beat position it had when we paused.
+          this.transport.start(undefined, this.audio.now());
+        }
+      },
+    });
+
     this.attachInput();
     this.attachKeyShortcuts();
     this.buildUnlockOverlay();
@@ -267,6 +300,13 @@ cursor: pointer;
 
   private startCountdown(): void {
     // Stage onStart: sets BPM to stage's BPM, calls reset(), builds events & passes to scheduler.
+    // ---- Restart clean-up: beat MUST return to 0 so restart() starts from the
+    // beginning (GATE 0 PARTIAL Issue 5 — restart cursor reset consistency).
+    // reset() puts transport._playing = false → this also satisfies
+    // Transport.setBpm's "not during playing" guard for the stage.onStart
+    // setBpm call below.
+    this.transport.reset(this.audio.now());
+    this.judge.resetRun();
     this.stage.onStart?.(this.services);
     const now = this.audio.now();
     this.countdownStartAudioTime = now + 0.04;

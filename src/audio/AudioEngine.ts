@@ -31,9 +31,35 @@ export class AudioEngine {
   private boundVisibility: (() => void) | null = null;
   private boundPageHide: ((e: PageTransitionEvent) => void) | null = null;
 
+  // ---- GATE 0 PARTIAL Issue 2: visibility lifecycle coordination ----
+  // AudioEngine.onVisibility/pagehide previously only suspended/resumed the
+  // AudioContext itself. That left Transport + Scheduler in an inconsistent
+  // state: transport.playing = true but audio was frozen, so on restore the
+  // two clocks diverged.
+  //
+  // Fix: expose lifecycle hooks that the StageRunner (or any owner) plugs in
+  // to atomically suspend/resume the Transport + Scheduler alongside the
+  // AudioContext. Hooks fire AFTER we've updated AudioEngine._state but
+  // BEFORE any async ctx.resume() settles — the StageRunner uses synchronous
+  // Transport.pause/resume which is purely arithmetic (no audio graph ops).
+  private lifecycleHooks: {
+    onSuspend?: () => void;
+    onResume?: () => void;
+  } = {};
+
   constructor(opts: AudioEngineOptions = {}) {
     this.musicVolumeStart = opts.musicVolume ?? 0.8;
     this.sfxVolumeStart = opts.sfxVolume ?? 0.9;
+  }
+
+  /**
+   * Register synchronous hooks fired when AudioEngine performs a visibility-
+   * driven suspend/resume. Called immediately (synchronously) inside
+   * onVisibility/pagehide so Transport/Scheduler can re-anchor in the same
+   * JS task — before setTimeout / rAF can add jitter.
+   */
+  setLifecycleHooks(hooks: { onSuspend?: () => void; onResume?: () => void }): void {
+    this.lifecycleHooks = { ...hooks };
   }
 
   /** Create context if not yet created. Idempotent. */
@@ -180,13 +206,20 @@ export class AudioEngine {
   private onVisibility(): void {
     if (typeof document === 'undefined' || !this.ctx) return;
     if (document.hidden) {
-      // Best-effort: suspend in background. The Transport is re-anchored on
-      // resume, so phase drift cannot happen.
+      // ---- GATE 0 PARTIAL Issue 2 fix ----
+      // Synchronously notify owner so they can pause Transport + stop
+      // Scheduler in the same task. We still fire ctx.suspend() as best-
+      // effort async; the Transport anchor is what actually preserves time.
       void this.ctx.suspend();
       this._state = 'suspended';
+      this.lifecycleHooks.onSuspend?.();
     } else if (this._state === 'suspended') {
       void this.ctx.resume();
       this._state = 'unlocked';
+      // onResume hooks fires after state → unlocked transition; before any
+      // async ctx.resume() resolves, so re-anchoring and scheduler restart
+      // happen in the same microtask as the visibilitychange event.
+      this.lifecycleHooks.onResume?.();
     }
   }
 
@@ -194,6 +227,7 @@ export class AudioEngine {
     if (this.ctx) {
       void this.ctx.suspend();
       this._state = 'suspended';
+      this.lifecycleHooks.onSuspend?.();
     }
   }
 

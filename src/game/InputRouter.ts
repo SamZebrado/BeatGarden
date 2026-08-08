@@ -128,8 +128,9 @@ export class InputRouter {
     el.removeEventListener('lostpointercapture', this.onPointerCancel);
     el.removeEventListener('selectstart', this.onSelectStart);
     // Cancel any pending hold timers.
+    const gs = globalThis as unknown as { clearTimeout: typeof clearTimeout };
     for (const ap of this.active.values()) {
-      if (ap.holdTimer !== null) clearTimeout(ap.holdTimer);
+      if (ap.holdTimer !== null) gs.clearTimeout(ap.holdTimer);
     }
     this.active.clear();
   }
@@ -170,7 +171,12 @@ export class InputRouter {
     };
     // Arm hold timer. If it fires before pointerup, we treat as holdStart
     // (and subsequent up as holdEnd). Otherwise it's a tap or swipe.
-    ap.holdTimer = window.setTimeout(() => {
+    // Use globalThis so tests in Node (no window) or jsdom both work.
+    const gs = globalThis as unknown as {
+      setTimeout: typeof setTimeout;
+      performance: { now: () => number };
+    };
+    ap.holdTimer = gs.setTimeout(() => {
       if (!this.active.has(ap.pointerId)) return;
       ap.firedHold = true;
       this.emit({
@@ -179,7 +185,7 @@ export class InputRouter {
         y: ap.lastY,
         pointerId: ap.pointerId,
         audioTime: this.getAudioTime(),
-        domTimeMs: performance.now(),
+        domTimeMs: gs.performance.now(),
       });
     }, this.holdThresholdMs);
     this.active.set(e.pointerId, ap);

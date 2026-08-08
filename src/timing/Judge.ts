@@ -3,12 +3,58 @@
 // Every stage routes judgements through here. No stage is allowed to roll
 // its own windows.
 //
+// ============================================================
+// CALIBRATION SIGN CONVENTION (GATE 0 PARTIAL Issue 3, explicit)
+// ============================================================
+//
+// Definitions:
+//   targetAudioTime  = beatToAudioTime(targetBeat)  — audio time when the
+//                      beat would be perfectly on.
+//   rawInputAudioTime = AudioContext.currentTime() captured INSIDE the
+//                       pointerdown/pointerup handler (not later).
+//   rawDeltaMs       = (rawInputAudioTime - targetAudioTime) * 1000
+//                    > 0 → user tapped LATE  (after beat arrived)
+//                    < 0 → user tapped EARLY (before beat arrived)
+//
+//   calibrationOffsetMs  = stored number from Calibration page (median of
+//                          N valid metronome taps).
+//     • Positive value (+X ms) means: historically, the user taps LATE
+//       by X ms relative to metronome audio (e.g. slow Android digitizer).
+//     • Negative value (−X ms) means: historically, the user taps EARLY
+//       by X ms (e.g. audio pipeline reports late relative to screen taps).
+//
+// Effective delta after calibration applied:
+//     effectiveDeltaMs = rawDeltaMs − calibrationOffsetMs
+//
+// This is the ONLY formula. Worked examples:
+//
+//  Case A. Android digitizer + 80 ms latency, user is perfectly in sync
+//          with their physical sensation → the signal we SEE is always
+//          rawDeltaMs = +80 ms.
+//          Calibration produces calibrationOffsetMs = +80 ms.
+//          effectiveDeltaMs = 80 − 80 = 0 → PERFECT. ✓
+//
+//  Case B. Audio engine + 40 ms "early" screen vs speaker, user is perfectly
+//          synced → rawDeltaMs = −40 ms.
+//          CalibrationOffsetMs = −40 ms.
+//          effectiveDeltaMs = −40 − (−40) = 0 → PERFECT. ✓
+//
+//  Case C. User taps 20 ms early (raw = −20) AND there is +80 ms digitizer
+//          (so raw was already shifted +80; "actual" physical user tap was
+//          100 ms early). Not our problem: the calibration captures the
+//          COMBINED shift that best predicts what the user will do on real
+//          gameplay taps relative to the beat sound they hear.
+//
+// We judge effectiveDeltaMs against windows. |effectiveDeltaMs| <= 32 → PERFECT
+// etc. Delta positivity is preserved semantically:
+//   effectiveDeltaMs > 0 → judged LATE.   effectiveDeltaMs < 0 → judged EARLY.
+// ============================================================
+//
 // For a given input arriving at `inputAudioTime` targeting `targetBeat`:
-//   1. Convert targetBeat to targetAudioTime using transport.
-//   2. Apply user calibration offset (subtracted from input time):
-//        deltaMs = (inputAudioTime - targetAudioTime - calibrationOffsetSec) * 1000
-//   3. Compare deltaMs against windows, all expressed relative to zero.
-//      Positive delta = late, Negative delta = early.
+//   1. targetAudioTime = transport.beatToAudioTime(targetBeat)
+//   2. effectiveDeltaMs = (inputAudioTime − targetAudioTime)*1000 − calibrationOffsetMs
+//      [= rawDeltaMs − calibrationOffsetMs]
+//   3. Compare against ±windows. +ve = LATE, −ve = EARLY.
 //
 // For hold release, use the HOLD windows from config. For swipe, use tap
 // windows and additionally validate direction.

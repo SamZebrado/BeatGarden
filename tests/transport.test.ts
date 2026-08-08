@@ -163,7 +163,7 @@ describe('Transport — seek / setBpm / reset keep anchor consistent', () => {
     expect(snap.beat).toBeCloseTo(102, 8);
   });
 
-  it('setBpm preserves current transport position across tempo change', () => {
+  it('setBpm preserves current transport position across tempo change (called while PAUSED per v1 contract)', () => {
     const clock = new MockAudioClock();
     const t = new Transport(() => clock.now(), 60); // 1 beat per second
     t.start(0, clock.now());
@@ -171,6 +171,12 @@ describe('Transport — seek / setBpm / reset keep anchor consistent', () => {
     const before = t.getTransportTime();
     expect(before).toBeCloseTo(4, 8);
     expect(t.snapshot().beat).toBeCloseTo(4, 8);
+
+    // GATE 0 PARTIAL Issue 1: setBpm is NOT allowed while playing. Caller
+    // must pause first. This ensures already-scheduled ~120 ms WebAudio
+    // queue cannot get out of sync with new transport math.
+    t.pause(clock.now());
+    expect(t.playing).toBe(false);
 
     // Switch to 120 BPM (2 beats per second).
     t.setBpm(120, clock.now());
@@ -180,6 +186,9 @@ describe('Transport — seek / setBpm / reset keep anchor consistent', () => {
     expect(afterSet.beat).toBeCloseTo(4, 8);
     expect(afterSet.transportTime).toBeCloseTo(2, 8);
 
+    // Resume playback (from current beat 4, i.e. transport 2 s).
+    t.start(undefined, clock.now());
+    expect(t.playing).toBe(true);
     // 1 more real second = 2 beats now.
     clock.advanceSeconds(1);
     const s = t.snapshot();
@@ -196,5 +205,48 @@ describe('Transport — seek / setBpm / reset keep anchor consistent', () => {
     expect(t.playing).toBe(false);
     expect(t.getTransportTime()).toBeCloseTo(0, 8);
     expect(t.snapshot().beat).toBeCloseTo(0, 8);
+  });
+
+  // ---- GATE 0 PARTIAL Issue 1: runtime setBpm state guard ----
+  it('setBpm while PLAYING throws — runtime tempo changes forbidden (v1 contract)', () => {
+    const clock = new MockAudioClock();
+    const t = new Transport(() => clock.now(), 120);
+    t.start(0, clock.now()); // -> playing = true
+    expect(t.playing).toBe(true);
+    expect(() => t.setBpm(140, clock.now())).toThrow(/runtime tempo changes are not allowed/i);
+    // BPM unchanged after throw.
+    expect(t.bpm).toBe(120);
+  });
+
+  it('setBpm while PAUSED works, beat preserved', () => {
+    const clock = new MockAudioClock();
+    const t = new Transport(() => clock.now(), 60);
+    t.start(0, clock.now());
+    clock.advanceSeconds(4); // 60 BPM -> 4 beats
+    expect(t.snapshot().beat).toBeCloseTo(4, 8);
+    t.pause(clock.now()); // playing = false
+    expect(t.playing).toBe(false);
+    // Now safe to call setBpm.
+    t.setBpm(120, clock.now());
+    expect(t.bpm).toBe(120);
+    // Beat position preserved (GATE 0 setBpm invariant).
+    expect(t.snapshot().beat).toBeCloseTo(4, 8);
+    // Resume, 1 more real second = 2 beats at 120 BPM.
+    t.start(undefined, clock.now());
+    clock.advanceSeconds(1);
+    expect(t.snapshot().beat).toBeCloseTo(6, 8);
+  });
+
+  it('setBpm before start() works (normal stage onStart path)', () => {
+    const clock = new MockAudioClock();
+    const t = new Transport(() => clock.now(), 120);
+    // Default BPM: 120. Not playing yet.
+    expect(t.playing).toBe(false);
+    t.setBpm(96, clock.now());
+    expect(t.bpm).toBe(96);
+    t.start(0, clock.now());
+    clock.advanceSeconds(5);
+    // 96 BPM = 1.6 beats per second → 8 beats after 5 s.
+    expect(t.snapshot().beat).toBeCloseTo(8, 8);
   });
 });
