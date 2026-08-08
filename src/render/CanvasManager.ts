@@ -7,23 +7,64 @@
 import type { TimingConfig } from '../timing/config';
 
 export interface CanvasManagerOptions {
-  canvas: HTMLCanvasElement;
+  canvas?: HTMLCanvasElement;
+  parent?: HTMLElement;
   config: TimingConfig;
 }
 
 export class CanvasManager {
-  private readonly canvas: HTMLCanvasElement;
+  public readonly canvas: HTMLCanvasElement;
   private readonly config: TimingConfig;
+  private lastResizeInfo: {
+    ctx: CanvasRenderingContext2D;
+    dpr: number;
+    scale: number;
+    offsetX: number;
+    offsetY: number;
+    viewW: number;
+    viewH: number;
+  } | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(opts: CanvasManagerOptions) {
-    this.canvas = opts.canvas;
+    if (opts.canvas) {
+      this.canvas = opts.canvas;
+    } else if (opts.parent) {
+      const c = document.createElement('canvas');
+      c.style.cssText = 'display: block; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; outline: none;';
+      opts.parent.appendChild(c);
+      this.canvas = c;
+    } else {
+      throw new Error('CanvasManagerOptions requires canvas or parent');
+    }
     this.config = opts.config;
+    // Auto-attach resize observer if window exists.
+    if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+      this.resizeObserver = new ResizeObserver(() => this.resize());
+      // Observe either canvas direct parent or body.
+      const target = this.canvas.parentElement ?? document.body;
+      this.resizeObserver.observe(target);
+      window.addEventListener('resize', () => this.resize());
+    }
+  }
+
+  get ctx(): CanvasRenderingContext2D {
+    if (!this.lastResizeInfo) this.resize();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return this.lastResizeInfo!.ctx;
   }
 
   get logicalWidth(): number {
     return this.config.logicalWidth;
   }
   get logicalHeight(): number {
+    return this.config.logicalHeight;
+  }
+  /** Aliases used by rendering code. */
+  get logicalW(): number {
+    return this.config.logicalWidth;
+  }
+  get logicalH(): number {
     return this.config.logicalHeight;
   }
 
@@ -88,7 +129,7 @@ export class CanvasManager {
     ctx.setTransform(scale, 0, 0, scale, offsetXCss * dpr, offsetYCss * dpr);
     ctx.imageSmoothingEnabled = true;
 
-    return {
+    this.lastResizeInfo = {
       ctx,
       dpr,
       scale,
@@ -97,5 +138,29 @@ export class CanvasManager {
       viewW: cssViewW,
       viewH: cssViewH,
     };
+    return this.lastResizeInfo;
+  }
+
+  /**
+   * Called before drawing a frame: ensure canvas is sized & transform is
+   * applied, and reset the viewport clip if letterbox area exists.
+   */
+  beginFrame(): void {
+    const info = this.resize();
+    // Clear physical pixels to a safe border color (letterbox outside game area).
+    // Reset transform to full pixel buffer, clear full buffer to black.
+    const canvas = this.canvas;
+    info.ctx.save();
+    info.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    info.ctx.fillStyle = '#000';
+    info.ctx.fillRect(0, 0, canvas.width, canvas.height);
+    info.ctx.restore();
+    // Re-apply logical transform (saved above restores back by endFrame).
+  }
+
+  /** End of frame hook (placeholder for future post-processing). */
+  endFrame(): void {
+    // no-op for now
   }
 }
+

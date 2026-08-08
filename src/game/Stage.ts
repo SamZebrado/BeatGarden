@@ -24,6 +24,8 @@ import type { Judge, StageScore } from '../timing/Judge';
 import type { InputKind, JudgeResult } from '../timing/config';
 import type { PointerAction } from './InputRouter';
 
+export type { StageScore, JudgeResult, Judge, ScheduledJudgeTarget };
+
 export type StagePhase = 'idle' | 'ready' | 'playing' | 'ended';
 
 export interface StageRuntimeServices {

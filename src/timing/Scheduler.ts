@@ -163,6 +163,16 @@ export class Scheduler {
   }
 
   /**
+   * Advance now (useful to call once per game frame to keep the refill
+   * timer in sync even if JS timeout scheduling is delayed — e.g. tab was
+   * backgrounded and timers were throttled). Tick is idempotent per event
+   * because nextIndex moves forward.
+   */
+  advanceIfNeeded(nowAudioOverride?: number): { scheduled: number; firedCues: number } {
+    return this.tick(nowAudioOverride);
+  }
+
+  /**
    * One scheduler tick — exposed publicly so tests can drive it deterministically
    * instead of sleeping.
    */

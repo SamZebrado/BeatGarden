@@ -44,6 +44,10 @@ export class Judge {
   private runActive: boolean = false;
   private counts: Record<JudgementKind, number> = { PERFECT: 0, GREAT: 0, OK: 0, MISS: 0 };
   private deltas: number[] = [];
+  // Already-judged target ids (prevents double-judging a single target).
+  private judgedTargetIds: Set<string> = new Set();
+  // Optional callback invoked whenever a judgement is recorded.
+  private onJudgeCb: ((res: JudgeResult, target: ScheduledJudgeTarget) => void) | undefined;
   // For hold matching: hold start targets waiting for a release.
   private pendingHolds: Map<string, { startedAudioTime: number; startBeat: number }> = new Map();
   // For call-and-response echo matching: received echo targets (beat window).
@@ -51,10 +55,18 @@ export class Judge {
   // push pending echo windows via pushEchoWindow().
   private echoWindows: Array<{ windowStartBeat: number; windowEndBeat: number; consumed: boolean }> = [];
 
-  constructor(config: TimingConfig, transport: Transport, calibrationOffsetMs: number = 0) {
+  constructor(
+    config: TimingConfig,
+    transport: Transport,
+    calibrationOffsetMs: number = 0,
+    opts?: {
+      onJudge?: (res: JudgeResult, target: ScheduledJudgeTarget) => void;
+    },
+  ) {
     this.config = config;
     this.transport = transport;
     this.calibrationOffsetMs = calibrationOffsetMs;
+    this.onJudgeCb = opts?.onJudge;
   }
 
   getCalibrationOffsetMs(): number {
@@ -71,6 +83,7 @@ export class Judge {
     this.deltas = [];
     this.pendingHolds.clear();
     this.echoWindows = [];
+    this.judgedTargetIds.clear();
   }
 
   isRunActive(): boolean {
@@ -89,6 +102,10 @@ export class Judge {
   /**
    * Core judgement. `target` + `inputAudioTime` (authoritative, from AudioContext).
    * Returns the judgement result. Records it in the run if a run is active.
+   * Fires onJudge callback if registered.
+   *
+   * NOTE: does NOT deduplicate multiple calls for the same target id. Use
+   * `judgeTarget()` for idempotent once-per-target calling.
    */
   judge(
     target: ScheduledJudgeTarget,
@@ -131,20 +148,59 @@ export class Judge {
       this.counts[kind]++;
       this.deltas.push(deltaMs);
     }
-    return { kind, deltaMs };
+    const result: JudgeResult = { kind, deltaMs };
+    if (this.onJudgeCb) this.onJudgeCb(result, target);
+    return result;
+  }
+
+  /**
+   * Idempotent judgement. If `target.id` has already been judged (even as a
+   * miss), this returns the existing result as null — the caller should not
+   * double-fire. Useful for stage input routers + auto-miss loop both trying
+   * to judge the same target.
+   */
+  judgeTarget(
+    target: ScheduledJudgeTarget,
+    inputAudioTime: number,
+    inputKindActual: InputKind,
+  ): JudgeResult | null {
+    if (this.judgedTargetIds.has(target.id)) return null;
+    const res = this.judge(target, inputAudioTime, inputKindActual);
+    this.judgedTargetIds.add(target.id);
+    return res;
+  }
+
+  /** Returns true if the target has already been judged. */
+  hasRecorded(targetId: string): boolean {
+    return this.judgedTargetIds.has(targetId);
+  }
+
+  /** Convenience alias for currentCounts. */
+  statsCounts(): Readonly<Record<JudgementKind, number>> {
+    return this.currentCounts;
+  }
+
+  /** Convenience alias for finishRun. */
+  finalScore(): StageScore {
+    return this.finishRun();
   }
 
   /**
    * Special: mark a target as MISS without an input (auto-miss on window expiry).
+   * Idempotent via judgedTargetIds.
    */
-  autoMiss(target: ScheduledJudgeTarget): JudgeResult {
+  autoMiss(target: ScheduledJudgeTarget): JudgeResult | null {
+    if (this.judgedTargetIds.has(target.id)) return null;
+    this.judgedTargetIds.add(target.id);
     const targetAudioTime = this.transport.beatToAudioTime(target.beat);
     const deltaMs = (this.transport.snapshot().audioTime - targetAudioTime) * 1000;
     if (this.runActive) {
       this.counts.MISS++;
       this.deltas.push(deltaMs);
     }
-    return { kind: 'MISS', deltaMs };
+    const result: JudgeResult = { kind: 'MISS', deltaMs };
+    if (this.onJudgeCb) this.onJudgeCb(result, target);
+    return result;
   }
 
   /**

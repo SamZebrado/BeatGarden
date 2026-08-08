@@ -86,6 +86,20 @@ export class DebugOverlay {
     this.snap.counts = { ...counts };
   }
 
+  /** Toggle enabled. Returns new state. */
+  toggle(): boolean {
+    this.enabled = !this.enabled;
+    return this.enabled;
+  }
+
+  enable(): void {
+    this.enabled = true;
+  }
+
+  disable(): void {
+    this.enabled = false;
+  }
+
   /**
    * Render to the canvas 2D context.
    * Draws in top-left corner, using the same transform as stage render.

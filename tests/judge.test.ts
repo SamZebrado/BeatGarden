@@ -206,7 +206,8 @@ describe('Judge — score statistics', () => {
     // Advance clock 5 seconds past the target.
     clock.advanceSeconds(10);
     const r = judge.autoMiss(t);
-    expect(r.kind).toBe('MISS');
+    expect(r).not.toBeNull();
+    expect(r!.kind).toBe('MISS');
     expect(judge.currentCounts.MISS).toBe(1);
   });
 });
