@@ -82,19 +82,26 @@ Pending first contact.
 
 ## Bridge state
 
-- ChatGPT Bridge: **NOT YET CONTACTED — NEXT STEP**
-- Last contact time: —
-- Blocked: No
+- ChatGPT Bridge: **BRIDGE_BLOCKED (send fill timeout)**
+- Attempts so far: 2 (first df3c9fc, then fb73102)
+- Error both times: `locator.fill: Timeout 10000ms` (textarea resolved, fill hangs 10s)
+- Last attempt time: now (blocking not permanent; retry scheduled every 3 min up to 3+)
+- Blocked reason classification: transient UI/page issue (locator resolved = page loaded, fill content too long / cookie banner / profile page blocked by login prompt suspected)
 - Gate pending: GATE 0 (Architecture / Timing Engine)
+- Pending review message: staged locally, verbatim copy recorded above in Bridge msg
+- Work-around policy: continue local independent tasks; retry Bridge every 3 min.
+  - Work does NOT depend on ChatGPT reply: lint/tests/build/browser-smoke/build-subpath/extra-timing-sim
+    / Stage 1 data scaffold / Stage interface validation
 
 ## Next action
 
-1. ~~Run tests and build~~ → **Done: lint 0 errors, tests 56/56, build PASS**
-2. ~~First commit~~ → **Done: df3c9fc on main, workspace clean**
-3. Send initial project takeover message via ChatGPT Bridge to assigned conversation.
-4. Submit GATE 0 audit with evidence (HEAD, tests 56/56, build output, timing evidence summary above).
-5. Await ChatGPT PASS/PARTIAL/FAIL on GATE 0 and act accordingly.
-6. If PASS → proceed to Phase 1 (Firefly Dock).
+1. Retry ChatGPT Bridge GATE 0 message 1+ more times (3 min interval) per user rule.
+2. Local independent work while waiting:
+   - Verify GH-Pages subpath relative URL via static server on `dist/`
+   - Run a real 60-second timing drift observation (not mocked, real AudioContext)
+   - Design Stage 1 (Firefly Dock) music/cue data scaffold files
+3. If Bridge still blocked after N retries → append BRIDGE_BLOCKED record + times + error to DEVELOPMENT_STATUS (already documented) and continue PHASE 1.
+4. On Bridge recovery → re-submit GATE 0 with latest HEAD before declaring GATE 0 PASS.
 
 ## Files changed since init
 
