@@ -51,6 +51,7 @@ export class StageRunner {
   private ended: boolean = false;
   private unlocking: boolean = false;
   private pauseInFlight: Promise<boolean> | null = null;
+  private runtimeStatus!: HTMLOutputElement;
 
   private overlays: {
     unlock: HTMLDivElement | null;
@@ -140,6 +141,13 @@ export class StageRunner {
     this.attachInput();
     this.attachKeyShortcuts();
     this.buildUnlockOverlay();
+    this.buildRuntimeStatus();
+
+    // Runtime smoke seam: deliberately attempt unlock outside a user gesture.
+    // Real Chrome should reject or remain suspended, proving the locked UI path.
+    if (new URLSearchParams(window.location.search).get('runtimeSmoke') === 'auto-unlock') {
+      queueMicrotask(() => void this.onUnlock());
+    }
 
     // Expose debug handles.
     (window as unknown as { __BEATGARDEN__?: unknown }).__BEATGARDEN__ = {
@@ -267,6 +275,39 @@ color: #d9e3ff; font-size: 15px; cursor: pointer;
     d.addEventListener('pointerdown', () => void this.onUnlock());
     document.body.appendChild(d);
     this.overlays.unlock = d;
+  }
+
+  private buildRuntimeStatus(): void {
+    const output = document.createElement('output');
+    output.id = 'beatgarden-runtime-status';
+    output.setAttribute('aria-label', 'BeatGarden runtime status');
+    output.style.cssText = `
+position: fixed; left: -10000px; top: 0; width: 1px; height: 1px;
+overflow: hidden; white-space: pre;
+`;
+    document.body.appendChild(output);
+    this.runtimeStatus = output;
+    this.updateRuntimeStatus();
+  }
+
+  private updateRuntimeStatus(): void {
+    if (!this.runtimeStatus) return;
+    const snap = this.transport.snapshot();
+    const contextState = this.audio.getContext().state;
+    const counts = this.judge.statsCounts();
+    const state = {
+      phase: this.phase,
+      audioEngineState: this.audio.state,
+      audioContextState: contextState,
+      transportPlaying: snap.playing,
+      beat: Number(snap.beat.toFixed(4)),
+      audioTime: Number(snap.audioTime.toFixed(4)),
+      droppedLate: this.scheduler.lastDroppedLateCount,
+      counts,
+    };
+    this.runtimeStatus.dataset.phase = this.phase;
+    this.runtimeStatus.dataset.audioContextState = contextState;
+    this.runtimeStatus.textContent = JSON.stringify(state);
   }
 
   private buildResultOverlay(score: StageScore): void {
@@ -496,6 +537,7 @@ cursor: pointer;
       this.scheduler.advanceIfNeeded();
       this.phasePlayingCheck();
     }
+    this.updateRuntimeStatus();
     // Render.
     const ctx = this.canvasMgr.ctx;
     this.canvasMgr.beginFrame();
