@@ -65,6 +65,41 @@ export type ScheduledEvent = ScheduledAudioEvent | ScheduledCueEvent | Scheduled
 export type CueHandler = (ev: ScheduledCueEvent, audioTime: number, beat: number) => void;
 export type AudioHandler = (ev: ScheduledAudioEvent, audioTime: number) => void;
 
+/**
+ * Disposition returned by Scheduler.dispatch() / tick() per event.
+ *
+ *   'scheduled'   → Audio event was handed to Synth.play() / audioHandler()
+ *                   with a valid startAudioTime >= audioNow − 50 ms.
+ *                   Count this in `scheduled` metrics.
+ *   'dropped-late'→ Audio event's startAudioTime was MORE than 50 ms in the
+ *                   past. Intentionally NOT scheduled. This is a real skip;
+ *                   we must distinguish honestly from 'scheduled' so callers
+ *                   and tests are not lied to about "NO skips".
+ *   'cue'         → Cue event was delivered to cueHandler (no audio).
+ *   'target'      → Judge-target event; scheduler only tracks the beat for
+ *                   Judge, nothing to dispatch in audio graph.
+ *
+ * GATE 0 PARTIAL Round-2: dispatch previously returned void and tick()
+ * unconditionally incremented `scheduled++` for EVERY audio event BEFORE
+ * calling dispatch(). Therefore dropped-late events (the common visibility /
+ * main-thread-starvation case) were still counted in stats. Old Scheduler
+ * test title "NO skips" was therefore provably false vs source code.
+ * Introducing explicit disposition fixes the semantic leak in metrics and
+ * lets us write honest tests.
+ */
+export type DispatchDisposition = 'scheduled' | 'dropped-late' | 'cue' | 'target';
+
+export interface SchedulerTickStats {
+  /** Number of audio events disposition==='scheduled' this tick. */
+  scheduled: number;
+  /** Number of audio events disposition==='dropped-late' this tick. */
+  droppedLate: number;
+  /** Number of cue events disposition==='cue' this tick. */
+  firedCues: number;
+  /** Number of judge-target events disposition==='target' this tick. */
+  touchedTargets: number;
+}
+
 export interface SchedulerOptions {
   config: TimingConfig;
   transport: Transport;
@@ -94,8 +129,13 @@ export class Scheduler {
   // Judge targets: we hand them out on demand. Sorted copy.
   private judgeTargets: ScheduledJudgeTarget[] = [];
 
-  // For metrics: length of audio queue at last tick.
+  // For metrics: length of audio scheduled queue at last tick (honest: only
+  // events that actually got disposition==='scheduled' count here).
   public lastScheduledQueueLength: number = 0;
+  // For metrics: number of audio events DROPPED because >50ms late. This is a
+  // real skip counter; it should be 0 in healthy play and >0 after any
+  // genuine main-thread starvation or multi-second visibility gap.
+  public lastDroppedLateCount: number = 0;
 
   constructor(opts: SchedulerOptions) {
     this.config = opts.config;
@@ -172,7 +212,7 @@ export class Scheduler {
    * backgrounded and timers were throttled). Tick is idempotent per event
    * because nextIndex moves forward.
    */
-  advanceIfNeeded(nowAudioOverride?: number): { scheduled: number; firedCues: number } {
+  advanceIfNeeded(nowAudioOverride?: number): SchedulerTickStats {
     return this.tick(nowAudioOverride);
   }
 
@@ -180,50 +220,79 @@ export class Scheduler {
    * One scheduler tick — exposed publicly so tests can drive it deterministically
    * instead of sleeping.
    */
-  tick(nowAudioOverride?: number): { scheduled: number; firedCues: number } {
+  tick(nowAudioOverride?: number): SchedulerTickStats {
     const audioNow = nowAudioOverride ?? this.transport.snapshot().audioTime;
     const bps = this.transport.beatsPerSecond;
     const scheduleAheadBeats = (this.config.scheduleAheadMs / 1000) * bps;
 
+    // Honest counters. Old buggy version incremented scheduled++ BEFORE the
+    // >50ms late-return guard in dispatch. A dropped late event was still
+    // counted as "scheduled", making all downstream metrics and test titles
+    // (e.g. "NO skips") false. Fix: only increment after dispatch returns
+    // explicit disposition for each event.
     let scheduled = 0;
+    let droppedLate = 0;
     let firedCues = 0;
+    let touchedTargets = 0;
     const snap = this.transport.snapshot(audioNow);
     const horizonBeat = snap.beat + scheduleAheadBeats;
 
     while (this.nextIndex < this.events.length) {
       const ev = this.events[this.nextIndex];
       if (ev.beat > horizonBeat) break; // will pick up on future tick
-      this.dispatch(ev, audioNow);
-      if (ev.type === 'audio') scheduled++;
-      else if (ev.type === 'cue') firedCues++;
+      const disp = this.dispatch(ev, audioNow);
+      switch (disp) {
+        case 'scheduled':
+          scheduled++;
+          break;
+        case 'dropped-late':
+          droppedLate++;
+          break;
+        case 'cue':
+          firedCues++;
+          break;
+        case 'target':
+          touchedTargets++;
+          break;
+      }
       this.nextIndex++;
     }
     this.lastScheduledQueueLength = scheduled;
-    return { scheduled, firedCues };
+    this.lastDroppedLateCount = droppedLate;
+    return { scheduled, droppedLate, firedCues, touchedTargets };
   }
 
-  private dispatch(ev: ScheduledEvent, audioNow: number): void {
+  /**
+   * Dispatch a single event. Returns an explicit disposition so tick() can
+   * accumulate honest counters instead of guessing (or lying) before the
+   * late-drop guard.
+   */
+  private dispatch(ev: ScheduledEvent, audioNow: number): DispatchDisposition {
     switch (ev.type) {
       case 'audio': {
         const startAudioTime = this.transport.beatToAudioTime(ev.beat);
-        if (startAudioTime < audioNow - 0.05) return; // late drop — should not happen in normal play
+        // GATE 0 PARTIAL Round-2: drop events >50 ms late. This is REAL
+        // behaviour — not a bug, but we MUST report it honestly instead of
+        // calling it "no skips" in tests. Return 'dropped-late' so tick()
+        // increments droppedLate counter and NOT scheduled counter.
+        if (startAudioTime < audioNow - 0.05) return 'dropped-late';
         if (this.audioHandler) {
           this.audioHandler(ev, startAudioTime);
         } else if (this.synth) {
           this.synth.play(ev.sound, startAudioTime, ev.freqHz, ev.durationSec, ev.velocity);
         }
-        return;
+        return 'scheduled';
       }
       case 'cue': {
         // Cues fire at or after their target audio time. Stage callback does
         // visual prep; no setTimeout here — stage reads transport time each frame.
         const at = this.transport.beatToAudioTime(ev.beat);
         if (this.cueHandler) this.cueHandler(ev, at, ev.beat);
-        return;
+        return 'cue';
       }
       case 'judge-target': {
         // Nothing to schedule for audio; target lives in the list for Judge.
-        return;
+        return 'target';
       }
     }
   }

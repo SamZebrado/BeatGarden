@@ -21,6 +21,7 @@ import { InputRouter, type PointerAction } from './InputRouter';
 import { TIMING_CONFIG, type TimingConfig } from '../timing/config';
 import { CanvasManager } from '../render/CanvasManager';
 import { DebugOverlay } from '../render/DebugOverlay';
+import { resumeAfterAudioConfirmed } from './playbackLifecycle';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
@@ -28,7 +29,7 @@ export interface StageRunnerOptions {
   config?: TimingConfig;
 }
 
-type Phase = 'locked' | 'countdown' | 'playing' | 'ended';
+type Phase = 'locked' | 'countdown' | 'playing' | 'paused' | 'ended';
 
 export class StageRunner {
   public readonly stage: StageDefinition;
@@ -47,6 +48,8 @@ export class StageRunner {
   private phase: Phase = 'locked';
   private countdownStartAudioTime: number = 0;
   private ended: boolean = false;
+  private unlocking: boolean = false;
+  private pauseInFlight: Promise<boolean> | null = null;
 
   private overlays: {
     unlock: HTMLDivElement | null;
@@ -126,11 +129,9 @@ export class StageRunner {
         // via pause(), so re-anchoring here just picks up from the same
         // beat position — no phase drift even if audio time advanced.
         if (this.phase === 'playing' || this.phase === 'countdown') {
-          // Restart scheduler tick loop so the refill timer runs again.
-          this.scheduler.start();
-          // Re-anchor transport at the current audio time, carrying forward
-          // the beat position it had when we paused.
-          this.transport.start(undefined, this.audio.now());
+          // Scheduler.start() ticks synchronously, so Transport MUST be
+          // re-anchored first. Otherwise the first tick observes playing=false.
+          resumeAfterAudioConfirmed(this.transport, this.scheduler, this.audio.now());
         }
       },
     });
@@ -157,6 +158,14 @@ export class StageRunner {
   private attachInput(): void {
     this.input.addListener((action: PointerAction) => {
       this.debug.reportInput(null, this.audio.now());
+      if (this.audio.state === 'suspended' && this.phase !== 'paused') {
+        // A visibility resume can be rejected by autoplay policy. The next
+        // canvas gesture retries the unified resume contract; onResume then
+        // re-anchors Transport before restarting Scheduler. Do not also judge
+        // this recovery gesture against a frozen timeline.
+        void this.audio.unlockFromUserGesture();
+        return;
+      }
       if (this.phase !== 'playing') return;
       const snap = this.transport.snapshot();
       // Collect pending judge targets (within ± ok+window).
@@ -176,7 +185,21 @@ export class StageRunner {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'd' || e.key === 'D') this.debug.toggle();
       if (e.key === 'Escape') {
-        if (this.phase === 'playing') this.pauseLocal();
+        // ---- GATE 0 PARTIAL Round-2 manual-pause phase toggle ----
+        // Old bug: pauseLocal() was called from playing state but phase
+        // remained 'playing'. Consequently: manual ESC pause → hidden →
+        // visible → onResume saw phase==='playing' → auto-resumed,
+        // violating the player's intentional pause (the exact opposite of
+        // StageRunner.ts's own comment at lines 122–127 that said "we do
+        // NOT blindly resume; player might have intentionally paused").
+        //
+        // Fix: introduce 'paused' phase distinct from 'playing'. ESC
+        // toggles between playing ↔ paused; onResume only auto-resumes
+        // when phase was 'playing' or 'countdown' (auto-running gameplay
+        // that was interrupted by background tab), NOT when 'paused'
+        // (player explicitly said "stop").
+        if (this.phase === 'playing') void this.pauseLocal();
+        else if (this.phase === 'paused') void this.resumeLocal();
       }
       if (e.key === 'r' || e.key === 'R') {
         this.restart();
@@ -214,7 +237,7 @@ box-shadow: 0 10px 30px rgba(80,60,200,0.4);
     hint.textContent = 'Shortcuts: R = Restart, D = Toggle Debug, ESC = Pause';
     hint.style.cssText = 'margin-top: 40px; color: #7a84a8; font-size: 14px;';
     d.appendChild(hint);
-    d.addEventListener('pointerdown', () => this.onUnlock());
+    d.addEventListener('pointerdown', () => void this.onUnlock());
     document.body.appendChild(d);
     this.overlays.unlock = d;
   }
@@ -289,8 +312,12 @@ cursor: pointer;
 
   // -------- Phase transitions --------
 
-  private onUnlock(): void {
-    void this.audio.unlockFromUserGesture();
+  private async onUnlock(): Promise<void> {
+    if (this.unlocking) return;
+    this.unlocking = true;
+    const success = await this.audio.unlockFromUserGesture();
+    this.unlocking = false;
+    if (!success) return;
     if (this.overlays.unlock) {
       this.overlays.unlock.remove();
       this.overlays.unlock = null;
@@ -367,11 +394,46 @@ cursor: pointer;
     this.startCountdown();
   }
 
-  private pauseLocal(): void {
+  private async pauseLocal(): Promise<void> {
+    // ---- GATE 0 PARTIAL Round-2: phase='paused' prevents auto-resume ----
     // Soft pause: stop scheduler advance, pause transport, audible ping.
+    // Phase MUST change to 'paused' here (was omitted before). Otherwise
+    // manual ESC pause → hidden tab → visible return would auto-resume
+    // because onResume() matches phase==='playing'.
+    this.phase = 'paused';
     this.scheduler.stop();
+    this.stage.onPause?.();
+
+    const attempt = this.audio.suspend();
+    this.pauseInFlight = attempt;
+    const suspended = await attempt;
+    if (this.pauseInFlight === attempt) this.pauseInFlight = null;
+    if (this.phase !== 'paused') return;
+    if (!suspended) {
+      // Keep gameplay coherent if the browser rejects suspend: Transport was
+      // never frozen, so restore the scheduler instead of leaving a half-pause.
+      this.phase = 'playing';
+      this.scheduler.start();
+      return;
+    }
+    // AudioContext.currentTime is now frozen. Anchor Transport at that exact
+    // suspended time so wall-clock delay cannot change musical position.
     this.transport.pause(this.audio.now());
-    this.synth.play('miss', this.audio.now() + 0.002);
+  }
+
+  private async resumeLocal(): Promise<void> {
+    if (this.phase !== 'paused') return;
+    if (this.pauseInFlight) await this.pauseInFlight;
+    if (this.phase !== 'paused') return;
+
+    const running = await this.audio.resume();
+    if (!running || this.phase !== 'paused') return;
+
+    // Required order: confirmed running -> Transport re-anchor -> Scheduler
+    // start (whose first tick is synchronous) -> playing phase.
+    resumeAfterAudioConfirmed(this.transport, this.scheduler, this.audio.now());
+    this.phase = 'playing';
+    this.stage.onResume?.();
   }
 
   // -------- Render loop --------

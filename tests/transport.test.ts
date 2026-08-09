@@ -218,22 +218,42 @@ describe('Transport — seek / setBpm / reset keep anchor consistent', () => {
     expect(t.bpm).toBe(120);
   });
 
-  it('setBpm while PAUSED works, beat preserved', () => {
+  it('setBpm while PAUSED works, beat preserved (AC advances during pause → beat STILL frozen at 4)', () => {
+    // ---- GATE 0 PARTIAL Round-2 setBpm paused-gap regression test ----
+    // Scenario exactly specified by source audit:
+    //   60 BPM, start beat 0, play 4 s → beat 4
+    //   PAUSE
+    //   AudioContext advances ANOTHER 5 s (simulating user thought time,
+    //   system idle, menu navigation — things where AC clock keeps ticking
+    //   but our logical transport must NOT advance because playing=false).
+    //   setBpm(120)
+    //   EXPECT beat STILL exactly 4 (no 5-s gap jump to 9).
+    //   Then resume + 1 active second → beat 6.
     const clock = new MockAudioClock();
     const t = new Transport(() => clock.now(), 60);
     t.start(0, clock.now());
-    clock.advanceSeconds(4); // 60 BPM -> 4 beats
+    clock.advanceSeconds(4); // active play 4 s, 60 BPM → beat 4
     expect(t.snapshot().beat).toBeCloseTo(4, 8);
-    t.pause(clock.now()); // playing = false
+    t.pause(clock.now()); // playing = false at t_audio = 4.0, beat 4
     expect(t.playing).toBe(false);
-    // Now safe to call setBpm.
+    // CRITICAL: AudioContext clock advances another 5 s while PAUSED.
+    // This is the exact case the old `curBeat = audioTimeToBeat(t)` got
+    // wrong: audioTimeToBeat would compute transportAnchor + (9-4) * 1 bps
+    // = 4 + 5 = beat 9 (a jump the player never actually played).
+    clock.advanceSeconds(5);
+    // Verify snapshot frozen: audioTime is now 9.0 but beat still 4.0.
+    expect(t.snapshot(9).beat).toBeCloseTo(4, 8);
+    // setBpm now. NEW code uses snapshot().beat → stays 4.0 after setBpm.
     t.setBpm(120, clock.now());
     expect(t.bpm).toBe(120);
-    // Beat position preserved (GATE 0 setBpm invariant).
-    expect(t.snapshot().beat).toBeCloseTo(4, 8);
-    // Resume, 1 more real second = 2 beats at 120 BPM.
+    // PRIMARY ASSERTION for this bug fix:
+    expect(t.snapshot().beat).toBeCloseTo(4, 8); // STILL 4, not 9!
+    // Also raw transportSec matches new BPM: beat 4 @ 120 BPM = 2.0 s.
+    expect(t.snapshot().transportTime).toBeCloseTo(2.0, 8);
+    // Resume play for 1 wall-clock second → 2 beats at new 120 BPM.
     t.start(undefined, clock.now());
     clock.advanceSeconds(1);
+    // Final: 4 (frozen) + 2 (new play) = 6 beats.
     expect(t.snapshot().beat).toBeCloseTo(6, 8);
   });
 

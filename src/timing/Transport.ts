@@ -190,9 +190,19 @@ export class Transport {
           'Call setBpm before start(), or while paused/stopped/reset.',
       );
     }
-    // Preserve current BEAT position across tempo change (not raw seconds).
+    // ---- GATE 0 PARTIAL Round-2: setBpm paused-gap bug fix ----
+    // OLD (buggy): const curBeat = this.audioTimeToBeat(t);
+    //   audioTimeToBeat() does NOT respect playing=false freeze semantics.
+    //   If user pauses at beat 4 and AudioContext advances another 5 seconds
+    //   before setBpm() is called, audioTimeToBeat(now) would return beat 9
+    //   even though the transport is logically frozen at beat 4.
+    // NEW (correct): const curBeat = this.snapshot(t).beat;
+    //   snapshot() routes beat through getTransportTime(), which returns the
+    //   frozen transportAnchor directly when _playing === false. The beat
+    //   position therefore stays exactly 4, independent of AudioContext drift
+    //   during the paused window.
     const t = audioNow ?? this.ctxTimeFn();
-    const curBeat = this.audioTimeToBeat(t);
+    const curBeat = this.snapshot(t).beat;
     this.bpm = bpm;
     this.audioAnchor = t;
     // With new bpm: transportSec = beat * newSecondsPerBeat.

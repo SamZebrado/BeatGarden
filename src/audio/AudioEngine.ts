@@ -30,6 +30,8 @@ export class AudioEngine {
 
   private boundVisibility: (() => void) | null = null;
   private boundPageHide: ((e: PageTransitionEvent) => void) | null = null;
+  private resumeInFlight: Promise<boolean> | null = null;
+  private suspensionCause: 'manual' | 'visibility' | null = null;
 
   // ---- GATE 0 PARTIAL Issue 2: visibility lifecycle coordination ----
   // AudioEngine.onVisibility/pagehide previously only suspended/resumed the
@@ -159,15 +161,11 @@ export class AudioEngine {
    * MUST be called from a user gesture handler. Resumes AudioContext so audio
    * actually plays in all browsers (Chrome, Safari, Firefox mobile).
    */
-  async unlockFromUserGesture(): Promise<void> {
+  async unlockFromUserGesture(): Promise<boolean> {
     const ctx = this.ensureContext();
-    if (ctx.state === 'suspended' || ctx.state === 'running') {
-      try {
-        await ctx.resume();
-      } catch {
-        // ignore — some browsers throw even when state is running
-      }
-    }
+    const running = await this.resumeAndConfirmRunning();
+    if (!running) return false;
+
     // Also schedule a tiny silent buffer so iOS really unlocks.
     try {
       const silent = ctx.createBuffer(1, 128, ctx.sampleRate);
@@ -178,55 +176,85 @@ export class AudioEngine {
     } catch {
       // ignore failures here; not critical
     }
-    this._state = 'unlocked';
+    return true;
   }
 
   /** Manual suspend (e.g., transport pause from menu). */
-  async suspend(): Promise<void> {
+  async suspend(): Promise<boolean> {
     const ctx = this.ensureContext();
     try {
       await ctx.suspend();
+      if (ctx.state !== 'suspended') return false;
       this._state = 'suspended';
+      this.suspensionCause = 'manual';
+      return true;
     } catch {
-      // ignore
+      return false;
     }
   }
 
-  /** Manual resume after manual suspend — NOT user-gesture unlock. */
-  async resume(): Promise<void> {
+  /** Manual resume after manual suspend. Uses the same confirmed-running contract. */
+  async resume(): Promise<boolean> {
+    return this.resumeAndConfirmRunning();
+  }
+
+  /**
+   * The single resume/unlock contract used by initial gestures, manual resume,
+   * visibility recovery, and gesture recovery after an autoplay rejection.
+   * Concurrent callers share one attempt, so a suspended -> unlocked lifecycle
+   * transition can fire at most one onResume hook.
+   */
+  async resumeAndConfirmRunning(): Promise<boolean> {
+    if (this.resumeInFlight) return this.resumeInFlight;
+
     const ctx = this.ensureContext();
-    try {
-      await ctx.resume();
+    const wasSuspended = this._state === 'suspended';
+    const attempt = (async (): Promise<boolean> => {
+      try {
+        await ctx.resume();
+      } catch {
+        return false;
+      }
+      if (ctx.state !== 'running') return false;
+
       this._state = 'unlocked';
-    } catch {
-      // ignore
+      this.suspensionCause = null;
+      if (wasSuspended) this.lifecycleHooks.onResume?.();
+      return true;
+    })();
+    this.resumeInFlight = attempt;
+    try {
+      return await attempt;
+    } finally {
+      if (this.resumeInFlight === attempt) this.resumeInFlight = null;
     }
   }
 
   private onVisibility(): void {
     if (typeof document === 'undefined' || !this.ctx) return;
-    if (document.hidden) {
+    if (document.hidden && this._state === 'unlocked') {
       // ---- GATE 0 PARTIAL Issue 2 fix ----
       // Synchronously notify owner so they can pause Transport + stop
       // Scheduler in the same task. We still fire ctx.suspend() as best-
       // effort async; the Transport anchor is what actually preserves time.
       void this.ctx.suspend();
       this._state = 'suspended';
+      this.suspensionCause = 'visibility';
       this.lifecycleHooks.onSuspend?.();
-    } else if (this._state === 'suspended') {
-      void this.ctx.resume();
-      this._state = 'unlocked';
-      // onResume hooks fires after state → unlocked transition; before any
-      // async ctx.resume() resolves, so re-anchoring and scheduler restart
-      // happen in the same microtask as the visibilitychange event.
-      this.lifecycleHooks.onResume?.();
+    } else if (
+      !document.hidden &&
+      this._state === 'suspended' &&
+      this.suspensionCause === 'visibility'
+    ) {
+      void this.resumeAndConfirmRunning();
     }
   }
 
   private onPageHide(_e: PageTransitionEvent): void {
-    if (this.ctx) {
+    if (this.ctx && this._state === 'unlocked') {
       void this.ctx.suspend();
       this._state = 'suspended';
+      this.suspensionCause = 'visibility';
       this.lifecycleHooks.onSuspend?.();
     }
   }
