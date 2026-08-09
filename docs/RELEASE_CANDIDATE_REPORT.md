@@ -85,11 +85,18 @@ are recorded; `npm audit` reports zero vulnerabilities.
 
 ## Tests
 
-Pending final exact-HEAD count after release-audit commit.
+**PASS at runtime/test SHA `a49c83c`.** `npm ci` succeeded; TypeScript emitted zero
+errors; Vitest passed 121/121 tests in 18 files. Coverage includes a deterministic
+ten-minute mixed-frame simulation locked to the AudioContext clock with zero phase
+drift, plus pause/resume, scheduler jitter, inputs, stages, AutoChart, PWA lifecycle,
+layout, settings, calibration, and teardown contracts.
 
 ## Build
 
-Pending final exact-HEAD production bundle result.
+**PASS at `a49c83c`.** `VITE_BASE=/BeatGarden/ npm run build` produced `dist/index.html`
+(1.58 kB, gzip 0.70 kB), Worker `analysis.worker-DvmQPAok.js` (4.61 kB), and main
+`index-BFOtP3PE.js` (121.93 kB, gzip 35.88 kB). Online `npm audit` reports zero
+vulnerabilities.
 
 ## Browser smoke
 
@@ -106,4 +113,5 @@ PWA, and server-off offline boot. Android: NOT RUN.
 
 ## HEAD
 
-Pending final release-audit commit.
+Runtime/test candidate: `a49c83c`. The later documentation-only release record commit
+does not modify runtime, tests, dependencies, or build inputs.

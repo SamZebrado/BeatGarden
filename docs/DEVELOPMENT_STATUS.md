@@ -11,7 +11,8 @@ Last updated: 2026-08-10
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
 - Latest committed runtime telemetry baseline: `8381333`.
-- Current verified working tree before final RC sweep: tsc 0, 120/120 tests.
+- Runtime/test candidate `a49c83c`: tsc 0, 121/121 tests in 18 files, production
+  `/BeatGarden/` build PASS, online npm audit 0 vulnerabilities.
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
@@ -323,7 +324,8 @@ GATE 0: PARTIAL (Round 2 — source-level independent audit, 198eda0 reviewed)
 - [x] `npm run build` (tsc -b + vite build) — **PASS**
   - dist/assets/index-8k5riOXg.js 55.03 kB / gzip 16.66 kB
 - [x] Browser smoke test (real Chrome) — **PASS A-D**, evidence file above
-- [ ] Timing drift long simulation (≥10 min) — NOT YET RUN
+- [x] Timing drift long simulation (10 min) — deterministic mixed-frame simulation
+  remains exactly locked to the authoritative audio clock at 137 BPM.
 
 ## Known issues
 

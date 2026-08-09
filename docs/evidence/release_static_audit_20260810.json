@@ -1,5 +1,6 @@
 {
   "date": "2026-08-10",
+  "runtimeTestCommit": "a49c83c",
   "scope": "Release Candidate static, dependency, network, provenance, and lifecycle audit",
   "forbiddenIpGrep": {
     "terms": ["Nintendo", "Rhythm Heaven", "Wario", "osu", "Beat Saber", "Guitar Hero", "Mapperator", "BeatNet", "Essentia", "Meyda", "librosa"],
@@ -24,6 +25,18 @@
     "jsdom": { "version": "29.1.1", "license": "MIT" }
   },
   "npmAuditVulnerabilities": 0,
+  "validation": {
+    "npmCi": "PASS",
+    "typescriptErrors": 0,
+    "vitest": { "filesPassed": 18, "testsPassed": 121, "testsFailed": 0 },
+    "tenMinuteTimingDrift": "PASS; zero phase drift at 137 BPM under mixed frame cadence",
+    "productionBuild": {
+      "base": "/BeatGarden/",
+      "mainBytes": 121934,
+      "mainGzipBytes": 35880,
+      "workerBytes": 4612
+    }
+  },
   "lifecycleReview": {
     "AudioEngine": "visibility/pagehide listeners removed and AudioContext closed",
     "StageRunner": "Scheduler/InputRouter/resize/key/rAF/debug/status/canvas/audio teardown verified",
