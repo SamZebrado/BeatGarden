@@ -29,6 +29,7 @@ export interface StageRunnerOptions {
   root: HTMLElement;
   stage: StageDefinition;
   config?: TimingConfig;
+  onExit?: () => void;
 }
 
 type Phase = 'locked' | 'countdown' | 'playing' | 'paused' | 'ended';
@@ -53,6 +54,8 @@ export class StageRunner {
   private unlocking: boolean = false;
   private pauseInFlight: Promise<boolean> | null = null;
   private runtimeStatus!: HTMLOutputElement;
+  private readonly onExit: (() => void) | undefined;
+  private destroyed = false;
   private lifecycleTelemetry = {
     suspends: 0,
     resumes: 0,
@@ -71,6 +74,7 @@ export class StageRunner {
 
   constructor(opts: StageRunnerOptions) {
     this.stage = opts.stage;
+    this.onExit = opts.onExit;
     this.config = opts.config ?? TIMING_CONFIG;
 
     // Build engine / services.
@@ -229,7 +233,10 @@ export class StageRunner {
   }
 
   private attachKeyShortcuts(): void {
-    window.addEventListener('keydown', (e) => {
+    window.addEventListener('keydown', this.onKeyDown);
+  }
+
+  private onKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'd' || e.key === 'D') this.debug.toggle();
       if (e.key === 'Escape') {
         // ---- GATE 0 PARTIAL Round-2 manual-pause phase toggle ----
@@ -251,8 +258,7 @@ export class StageRunner {
       if (e.key === 'r' || e.key === 'R') {
         this.restart();
       }
-    });
-  }
+  };
 
   // -------- DOM overlays --------
 
@@ -454,9 +460,13 @@ background: rgba(255,255,255,0.08); color: #c9d3ff; border: 1px solid rgba(255,2
 cursor: pointer;
 `;
     bBack.addEventListener('click', () => {
-      this.removeResultOverlay();
-      this.buildUnlockOverlay();
-      this.phase = 'locked';
+      if (this.onExit) {
+        void this.destroy().then(this.onExit);
+      } else {
+        this.removeResultOverlay();
+        this.buildUnlockOverlay();
+        this.phase = 'locked';
+      }
     });
     row.appendChild(bBack);
     d.appendChild(row);
@@ -608,12 +618,27 @@ cursor: pointer;
 
   private startRaf(): void {
     const loop = () => {
+      if (this.destroyed) return;
       this.tick();
       this._raf = requestAnimationFrame(loop);
     };
     this._raf = requestAnimationFrame(loop);
     // ensure TS sees `_raf` as read (kept for potential cleanup)
     void this._raf;
+  }
+
+  async destroy(): Promise<void> {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this._raf !== null) cancelAnimationFrame(this._raf);
+    this.scheduler.stop();
+    this.input.detach();
+    window.removeEventListener('keydown', this.onKeyDown);
+    this.removeResultOverlay();
+    this.overlays.unlock?.remove();
+    this.runtimeStatus?.remove();
+    this.canvasMgr.destroy();
+    await this.audio.close();
   }
 
   private tick(): void {

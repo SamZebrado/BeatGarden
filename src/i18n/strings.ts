@@ -20,7 +20,7 @@ const zhCN = {
   'result.meanError': '平均时间误差',
   'result.medianError': '时间误差中位数',
   'action.restart': '重新开始',
-  'action.back': '返回标题',
+  'action.back': '返回关卡选择',
   'tutorial.action': '光种进入光圈时，点击或触摸！',
   'tutorial.watch': '跟着移动的光种，瞄准中央光圈',
   'tutorial.stage': '互动教学 · 前四次会逐步提示',
@@ -73,6 +73,14 @@ const zhCN = {
   'autogarden.start': '点击或触摸，开始播放本地音乐',
   'autogarden.wait': '再等等：跟随正在靠近的光点',
   'autogarden.paused': '已暂停 · 再按 Esc 继续',
+  'menu.tagline': '种下节拍，让花园回应你的每一次操作。',
+  'menu.original': '原创关卡',
+  'menu.originalDetail': '游玩 BeatGarden 原创音乐与互动场景',
+  'menu.yourMusic': '你的音乐',
+  'menu.yourMusicDetail': '在本地分析音频并生成谱面',
+  'menu.stageSelect': '选择原创关卡',
+  'menu.fireflyDetail': '互动教学 · 点击光种 · 原创程序音乐',
+  'menu.back': '返回主菜单',
 } as const;
 
 const en: Record<keyof typeof zhCN, string> = {
@@ -95,7 +103,7 @@ const en: Record<keyof typeof zhCN, string> = {
   'result.meanError': 'Mean timing error',
   'result.medianError': 'Median timing error',
   'action.restart': 'Restart',
-  'action.back': 'Back to title',
+  'action.back': 'Back to stage select',
   'tutorial.action': 'Click or touch when the seed enters the ring!',
   'tutorial.watch': 'Follow the moving seed toward the center ring',
   'tutorial.stage': 'Interactive tutorial · the first four cues are guided',
@@ -148,6 +156,14 @@ const en: Record<keyof typeof zhCN, string> = {
   'autogarden.start': 'Click or touch to play local music',
   'autogarden.wait': 'Not yet — follow the approaching light',
   'autogarden.paused': 'Paused · press Esc to continue',
+  'menu.tagline': 'Plant the beat and let the garden answer every move.',
+  'menu.original': 'Original Stages',
+  'menu.originalDetail': 'Play BeatGarden original music and interactive scenes',
+  'menu.yourMusic': 'Your Music',
+  'menu.yourMusicDetail': 'Analyze local audio and generate a chart on this device',
+  'menu.stageSelect': 'Choose an Original Stage',
+  'menu.fireflyDetail': 'Interactive tutorial · tap glowing seeds · original procedural music',
+  'menu.back': 'Back to main menu',
 };
 
 export type StringKey = keyof typeof zhCN;

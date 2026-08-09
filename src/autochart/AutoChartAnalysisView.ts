@@ -17,7 +17,7 @@ export class AutoChartAnalysisView {
   private waveform: number[] = [];
   private decodedBuffer: AudioBuffer | null = null;
 
-  constructor(private readonly root: HTMLElement) {
+  constructor(private readonly root: HTMLElement, private readonly onBack?: () => void) {
     this.render();
     if (new URLSearchParams(window.location.search).get('runtimeSmoke') === 'autochart-fixture') {
       queueMicrotask(() => void this.analyzeFile(buildSyntheticFixtureFile()));
@@ -31,7 +31,7 @@ export class AutoChartAnalysisView {
     page.style.cssText = 'min-height:100%;max-width:1100px;margin:0 auto;padding:32px 24px 64px;color:#fff;font-family:system-ui;';
     page.innerHTML = `
       <div style="display:flex;justify-content:space-between;gap:16px;align-items:center">
-        <a href="./" style="color:#b9c9ff;text-decoration:none;font-size:16px">← ${t('autochart.back')}</a>
+        <button data-role="back" style="color:#b9c9ff;border:0;background:transparent;font-size:16px;cursor:pointer">← ${t('menu.back')}</button>
         <button data-role="language" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">${t('language.switch')}</button>
       </div>
       <h1 style="font-size:48px;margin-top:38px">${t('autochart.title')}</h1>
@@ -48,6 +48,7 @@ export class AutoChartAnalysisView {
       <section data-role="results"></section>
     `;
     page.querySelector<HTMLInputElement>('[data-role="file"]')!.addEventListener('change', (event) => void this.onFile(event));
+    page.querySelector<HTMLButtonElement>('[data-role="back"]')!.addEventListener('click', () => void this.exit());
     page.querySelector<HTMLButtonElement>('[data-role="language"]')!.addEventListener('click', () => {
       toggleLocale();
       this.render();
@@ -125,10 +126,19 @@ export class AutoChartAnalysisView {
       this.regenerate(panel);
     });
     panel.querySelector<HTMLButtonElement>('[data-role="play"]')!.addEventListener('click', () => {
-      if (this.decodedBuffer && this.chart) new PulseGardenRunner(this.root, this.audio, this.decodedBuffer, this.chart);
+      if (this.decodedBuffer && this.chart) {
+        new PulseGardenRunner(this.root, this.audio, this.decodedBuffer, this.chart, this.onBack);
+      }
     });
     results.appendChild(panel);
     this.drawAnalysis(panel.querySelector<HTMLCanvasElement>('[data-role="analysis-canvas"]')!);
+  }
+
+  private async exit(): Promise<void> {
+    this.worker.terminate();
+    await this.audio.close();
+    if (this.onBack) this.onBack();
+    else window.location.href = './';
   }
 
   private regenerate(panel: HTMLElement): void {

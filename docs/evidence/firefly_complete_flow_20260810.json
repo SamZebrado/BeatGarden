@@ -1,0 +1,33 @@
+{
+  "date": "2026-08-10",
+  "browser": "real Chrome via Codex browser extension",
+  "flow": "main menu to original stages to Firefly Dock to result to restart to result to stage select",
+  "firstRun": {
+    "finalPhase": "ended",
+    "beat": 68.9963,
+    "targets": 20,
+    "droppedLate": 0,
+    "resultOverlay": "PASS"
+  },
+  "restart": {
+    "phase": "countdown",
+    "beat": -0.8842,
+    "countsReset": true,
+    "audioContextState": "running",
+    "transportPlaying": true
+  },
+  "secondRun": {
+    "finalPhase": "ended",
+    "beat": 69.0195,
+    "targets": 20,
+    "droppedLate": 0
+  },
+  "exitCleanup": {
+    "destination": "stage select",
+    "canvasCount": 0,
+    "runtimeTelemetryElementCount": 0,
+    "inputDetached": "implementation verified",
+    "rafCancelled": "implementation verified",
+    "audioContextClosed": "implementation verified"
+  }
+}

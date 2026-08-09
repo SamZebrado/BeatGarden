@@ -29,12 +29,15 @@ export class PulseGardenRunner {
   private bloomPulse = 0;
   private resultShown = false;
   private readonly runtimeStatus: HTMLOutputElement;
+  private raf: number | null = null;
+  private destroyed = false;
 
   constructor(
     private readonly root: HTMLElement,
     private readonly audio: AudioEngine,
     private readonly buffer: AudioBuffer,
     chart: GeneratedAutoChart,
+    private readonly onExit?: () => void,
   ) {
     root.replaceChildren();
     root.style.cssText = 'width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#07142a;';
@@ -144,6 +147,7 @@ export class PulseGardenRunner {
   }
 
   private frame = (): void => {
+    if (this.destroyed) return;
     const snapshot = this.timeline.snapshot();
     if (this.phase === 'playing') {
       const expiry = snapshot.songTimeSec - TIMING_CONFIG.okWindowMs / 1000 - 0.01;
@@ -153,7 +157,7 @@ export class PulseGardenRunner {
       if (snapshot.songTimeSec >= this.buffer.duration + 0.3 && !this.resultShown) this.finish();
     }
     this.render(snapshot.songTimeSec);
-    requestAnimationFrame(this.frame);
+    this.raf = requestAnimationFrame(this.frame);
   };
 
   private render(songTime: number): void {
@@ -229,9 +233,25 @@ export class PulseGardenRunner {
     const overlay = document.createElement('div');
     overlay.dataset.role = 'autogarden-result';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:50;background:rgba(3,8,20,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:system-ui;text-align:center;';
-    overlay.innerHTML = `<h2 style="font-size:44px">${t('result.title')}</h2><p style="font-size:28px;margin-top:18px">${t('result.score')}: ${score.score} · ${t('result.accuracy')}: ${(score.accuracy * 100).toFixed(1)}%</p><button data-role="restart" style="margin-top:28px;padding:15px 24px;border:0;border-radius:12px;background:#4dcb9a;font-size:18px;font-weight:800">${t('action.restart')}</button>`;
-    overlay.querySelector('button')!.addEventListener('click', () => void this.restart());
+    overlay.innerHTML = `<h2 style="font-size:44px">${t('result.title')}</h2><p style="font-size:28px;margin-top:18px">${t('result.score')}: ${score.score} · ${t('result.accuracy')}: ${(score.accuracy * 100).toFixed(1)}%</p><div style="display:flex;gap:14px"><button data-role="restart" style="margin-top:28px;padding:15px 24px;border:0;border-radius:12px;background:#4dcb9a;font-size:18px;font-weight:800">${t('action.restart')}</button><button data-role="back" style="margin-top:28px;padding:15px 24px;border:1px solid #65739c;border-radius:12px;background:#17203f;color:#fff;font-size:18px">${t('menu.back')}</button></div>`;
+    overlay.querySelector<HTMLButtonElement>('[data-role="restart"]')!.addEventListener('click', () => void this.restart());
+    overlay.querySelector<HTMLButtonElement>('[data-role="back"]')!.addEventListener('click', () => void this.exit());
     this.root.appendChild(overlay);
+  }
+
+  private async exit(): Promise<void> {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this.raf !== null) cancelAnimationFrame(this.raf);
+    this.player.stop();
+    this.input.detach();
+    window.removeEventListener('keydown', this.onKeyDown);
+    this.canvasManager.destroy();
+    this.runtimeStatus.remove();
+    await this.audio.close();
+    this.root.replaceChildren();
+    if (this.onExit) this.onExit();
+    else window.location.href = './';
   }
 }
 

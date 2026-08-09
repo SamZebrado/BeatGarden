@@ -25,6 +25,7 @@ export class CanvasManager {
     viewH: number;
   } | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private readonly onWindowResize = (): void => { this.resize(); };
 
   constructor(opts: CanvasManagerOptions) {
     if (opts.canvas) {
@@ -44,7 +45,7 @@ export class CanvasManager {
       // Observe either canvas direct parent or body.
       const target = this.canvas.parentElement ?? document.body;
       this.resizeObserver.observe(target);
-      window.addEventListener('resize', () => this.resize());
+      window.addEventListener('resize', this.onWindowResize);
     }
   }
 
@@ -162,5 +163,11 @@ export class CanvasManager {
   endFrame(): void {
     // no-op for now
   }
-}
 
+  destroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    if (typeof window !== 'undefined') window.removeEventListener('resize', this.onWindowResize);
+    this.canvas.remove();
+  }
+}

@@ -49,6 +49,10 @@ Required fixes: None for GATE 0.
 - [x] Fixed a browser-discovered early-auto-MISS bug: expiry no longer includes a
   future `+1 beat` lookahead. Added two regression tests.
 - [x] First-time player can understand within 10 seconds without README: **YES**.
+- [x] Main menu -> original stage select -> Firefly Dock -> result -> restart -> result
+  -> stage select completed in real Chrome; both runs had `droppedLate=0`.
+- [x] Exit cleanup left zero canvases and zero runtime telemetry nodes; StageRunner
+  cancels rAF, stops Scheduler, detaches InputRouter/resize listener, and closes audio.
 
 ## AutoChart foundation (in progress)
 
