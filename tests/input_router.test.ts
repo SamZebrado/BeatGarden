@@ -174,6 +174,38 @@ describe('InputRouter — audioTime captured synchronously inside pointer handle
     expect(gotTap!.audioTime).not.toBe(AFTER_HANDLER_AUDIO_TIME);
   });
 
+  it.each(['mouse', 'touch'] as const)(
+    '%s pointer down/up emits the same tap action contract',
+    (pointerType) => {
+      const actions: PointerAction[] = [];
+      router.addListener((action) => actions.push(action));
+      const pointerId = pointerType === 'mouse' ? 41 : 42;
+      el.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        pointerId,
+        pointerType,
+        button: 0,
+        clientX: 80,
+        clientY: 90,
+      }));
+      el.dispatchEvent(new PointerEvent('pointerup', {
+        bubbles: true,
+        cancelable: true,
+        pointerId,
+        pointerType,
+        button: 0,
+        clientX: 80,
+        clientY: 90,
+      }));
+
+      expect(actions).toHaveLength(1);
+      expect(actions[0]?.type).toBe('tap');
+      expect(actions[0]?.x).toBe(80);
+      expect(actions[0]?.y).toBe(90);
+    },
+  );
+
   it('source audit: InputRouter.onPointerDown calls getAudioTime() directly inside the handler body', () => {
     // Static / inspection-level assertion: we read the router source to
     // confirm that `const audioTime = this.getAudioTime()` appears inside

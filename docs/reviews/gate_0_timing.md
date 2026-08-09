@@ -35,6 +35,38 @@ Next step status: Implementing fixes for Issues 1–5 locally.
 
 ---
 
+## Round 3 — Codex lifecycle delta verdict (2026-08-09)
+
+Official verdict:
+
+```
+GATE 0: PARTIAL
+```
+
+Bridge evidence:
+
+- request id: `msls2az0-dw4molc0`
+- request nonce: `MSG_codex_gate0_1310965_20260809a`
+- send state: `MESSAGE_CONFIRMED_IN_THREAD`
+- nonce ownership: PASS; one match in the immediately preceding user bubble
+- reply state: settled
+
+Accepted/unchanged: prior Q1/Q3/Q4, Scheduler, and Synth areas.
+
+Remaining blockers:
+
+1. ChatGPT could not independently inspect the Round-3 lifecycle source/tests.
+   The Bridge security reviewer rejected external upload of the private ZIP;
+   Codex did not attempt any workaround.
+2. Real Chrome lifecycle smoke is still missing because the Codex Chrome
+   extension is not connected. Required smoke cases are initial unlock success,
+   initial unlock rejection, multi-second manual pause/resume, and visibility
+   failure followed by exactly-once gesture recovery.
+
+Do not claim GATE 0 PASS until both blockers are closed and ChatGPT re-reviews.
+
+---
+
 ## Implemented fixes for PARTIAL Issues 1–5 (this round)
 
 Issue 1 (setBpm semantics) STATUS = IMPLEMENTED + TESTED:
@@ -197,4 +229,3 @@ Plan:
   (b) restart → cursor reset, (c) seek → cursor reset, (d) visibility suspend → resume
   scheduler restart clean.
 - Resubmit GATE 0 RESUBMISSION with ZIP of required source files.
-

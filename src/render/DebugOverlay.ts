@@ -13,6 +13,7 @@
 
 import type { TransportSnapshot } from '../timing/Transport';
 import type { JudgeResult, JudgementKind } from '../timing/config';
+import { t } from '../i18n/strings';
 
 export interface DebugOverlaySnapshot {
   audioTime: number;
@@ -124,25 +125,37 @@ export class DebugOverlay {
     ctx.textBaseline = 'top';
 
     const s = this.snap;
+    const judgement = s.lastJudgement
+      ? `${judgementText(s.lastJudgement.kind)}  Δ=${s.lastJudgement.deltaMs.toFixed(1)}ms`
+      : '—';
     const lines = [
-      `BeatGarden  TIMING DEBUG`,
-      `audioTime       : ${s.audioTime.toFixed(4)} s`,
-      `transportTime   : ${s.transportTime.toFixed(4)} s`,
-      `transportBeat   : ${s.transportBeat.toFixed(4)} (bpm=${s.bpm.toFixed(2)})`,
-      `FPS (EMA)       : ${s.fps.toFixed(1)}`,
-      `calibration offs: ${s.calibrationOffsetMs.toFixed(1)} ms`,
-      `last input Δ    : ${s.lastInputDeltaMs !== null ? s.lastInputDeltaMs.toFixed(1) + ' ms' : '—'}`,
-      `last input t_a  : ${s.lastInputAudioTime !== null ? s.lastInputAudioTime.toFixed(4) + ' s' : '—'}`,
-      `last target beat: ${s.lastTargetBeat !== null ? s.lastTargetBeat.toFixed(4) : '—'}`,
-      `last target t_a : ${s.lastTargetAudioTime !== null ? s.lastTargetAudioTime.toFixed(4) + ' s' : '—'}`,
-      `last judgement  : ${s.lastJudgement ? s.lastJudgement.kind + '  Δ=' + s.lastJudgement.deltaMs.toFixed(1) + 'ms' : '—'}`,
-      `scheduler queue : ${s.scheduledQueueLength} events (last tick)`,
-      `counts          : P=${s.counts.PERFECT}  G=${s.counts.GREAT}  OK=${s.counts.OK}  M=${s.counts.MISS}`,
+      t('debug.title'),
+      `${t('debug.audioTime')}: ${s.audioTime.toFixed(4)} s`,
+      `${t('debug.transportTime')}: ${s.transportTime.toFixed(4)} s`,
+      `${t('debug.transportBeat')}: ${s.transportBeat.toFixed(4)} (${s.bpm.toFixed(2)} BPM)`,
+      `${t('debug.frameRate')}: ${s.fps.toFixed(1)} FPS`,
+      `${t('debug.calibration')}: ${s.calibrationOffsetMs.toFixed(1)} ms`,
+      `${t('debug.lastInputDelta')}: ${s.lastInputDeltaMs !== null ? s.lastInputDeltaMs.toFixed(1) + ' ms' : '—'}`,
+      `${t('debug.lastInputTime')}: ${s.lastInputAudioTime !== null ? s.lastInputAudioTime.toFixed(4) + ' s' : '—'}`,
+      `${t('debug.lastTargetBeat')}: ${s.lastTargetBeat !== null ? s.lastTargetBeat.toFixed(4) : '—'}`,
+      `${t('debug.lastTargetTime')}: ${s.lastTargetAudioTime !== null ? s.lastTargetAudioTime.toFixed(4) + ' s' : '—'}`,
+      `${t('debug.lastJudgement')}: ${judgement}`,
+      `${t('debug.schedulerQueue')}: ${s.scheduledQueueLength} ${t('debug.events')}`,
+      `${t('debug.counts')}: ${t('result.perfect')}=${s.counts.PERFECT}  ${t('result.great')}=${s.counts.GREAT}  ${t('result.ok')}=${s.counts.OK}  ${t('result.miss')}=${s.counts.MISS}`,
     ];
     const lineH = 22;
     for (let i = 0; i < lines.length; i++) {
       ctx.fillText(lines[i], x + 14, y + 14 + i * lineH);
     }
     ctx.restore();
+  }
+}
+
+function judgementText(kind: JudgementKind): string {
+  switch (kind) {
+    case 'PERFECT': return t('result.perfect');
+    case 'GREAT': return t('result.great');
+    case 'OK': return t('result.ok');
+    case 'MISS': return t('result.miss');
   }
 }

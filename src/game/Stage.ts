@@ -23,6 +23,7 @@ import type { Scheduler, ScheduledEvent, ScheduledJudgeTarget } from '../timing/
 import type { Judge, StageScore } from '../timing/Judge';
 import type { InputKind, JudgeResult } from '../timing/config';
 import type { PointerAction } from './InputRouter';
+import type { StringKey } from '../i18n/strings';
 
 export type { StageScore, JudgeResult, Judge, ScheduledJudgeTarget };
 
@@ -37,10 +38,9 @@ export interface StageRuntimeServices {
 export interface StageDefinition {
   /** Stable id, used in stage select + localStorage best scores. */
   id: string;
-  /** Human-readable title shown in menus. */
-  title: string;
-  /** Short one-liner explaining the mechanic. */
-  tagline: string;
+  /** Locale keys used by menus and overlays. */
+  titleKey: StringKey;
+  taglineKey: StringKey;
 
   /**
    * Build the immutable event list (audio + cue + judge targets) for one
@@ -74,6 +74,8 @@ export interface StageDefinition {
    * (arc of light, wobble, etc.).
    */
   onJudge?(result: JudgeResult, target: ScheduledJudgeTarget): void;
+  /** Immediate causal feedback when a pointer action has no live target. */
+  onUnmatchedInput?(action: PointerAction): void;
 
   /** Lifecycle hooks. */
   onStart?(services: StageRuntimeServices): void;

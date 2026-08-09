@@ -22,6 +22,7 @@ import { TIMING_CONFIG, type TimingConfig } from '../timing/config';
 import { CanvasManager } from '../render/CanvasManager';
 import { DebugOverlay } from '../render/DebugOverlay';
 import { resumeAfterAudioConfirmed } from './playbackLifecycle';
+import { getLocale, t, toggleLocale } from '../i18n/strings';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
@@ -147,6 +148,7 @@ export class StageRunner {
       getSnap: () => this.transport.snapshot(),
       isAudioUnlocked: () => this.audio.state === 'unlocked' || this.audio.state === 'suspended',
       getPhase: () => this.phase,
+      getLocale: () => getLocale(),
       restart: () => this.restart(),
     };
 
@@ -177,6 +179,9 @@ export class StageRunner {
       const mapped = this.stage.mapInputToTarget(action, targets, snap);
       if (mapped) {
         this.judge.judgeTarget(mapped.target, action.audioTime, mapped.inputKind);
+      } else {
+        this.synth.play('uiClick', this.audio.now() + 0.002, undefined, 0.05, 0.25);
+        this.stage.onUnmatchedInput?.(action);
       }
     });
   }
@@ -210,33 +215,55 @@ export class StageRunner {
   // -------- DOM overlays --------
 
   private buildUnlockOverlay(): void {
+    this.overlays.unlock?.remove();
     const d = document.createElement('div');
     d.style.cssText = `
 position: fixed; inset: 0; background: #0a0c20;
 display: flex; align-items: center; justify-content: center;
 flex-direction: column; z-index: 50; color: #fff;
 font-family: system-ui, -apple-system, sans-serif; cursor: pointer;
-`;
+    `;
     const title = document.createElement('div');
-    title.textContent = this.stage.title;
+    title.textContent = t(this.stage.titleKey);
     title.style.cssText = 'font-size: 44px; font-weight: 700; margin-bottom: 12px;';
     d.appendChild(title);
     const tag = document.createElement('div');
-    tag.textContent = this.stage.tagline;
+    tag.textContent = t(this.stage.taglineKey);
     tag.style.cssText = 'font-size: 20px; color: #c9d3ff; margin-bottom: 36px;';
     d.appendChild(tag);
     const tap = document.createElement('div');
-    tap.textContent = 'Tap anywhere to enable audio';
+    tap.dataset.role = 'unlock-action';
+    tap.textContent = t('audio.enable');
     tap.style.cssText = `
 font-size: 22px; padding: 18px 34px; border-radius: 999px;
 background: linear-gradient(180deg, #3d63ff, #5b3dff);
 box-shadow: 0 10px 30px rgba(80,60,200,0.4);
-`;
+    `;
     d.appendChild(tap);
+    const inputHint = document.createElement('div');
+    inputHint.textContent = t('input.howTo');
+    inputHint.style.cssText = 'margin-top: 22px; color: #d9e3ff; font-size: 18px;';
+    d.appendChild(inputHint);
     const hint = document.createElement('div');
-    hint.textContent = 'Shortcuts: R = Restart, D = Toggle Debug, ESC = Pause';
-    hint.style.cssText = 'margin-top: 40px; color: #7a84a8; font-size: 14px;';
+    hint.textContent = t('shortcuts');
+    hint.style.cssText = 'margin-top: 18px; color: #7a84a8; font-size: 14px;';
     d.appendChild(hint);
+    const language = document.createElement('button');
+    language.type = 'button';
+    language.textContent = t('language.switch');
+    language.setAttribute('aria-label', t('language.switch'));
+    language.style.cssText = `
+margin-top: 28px; padding: 10px 18px; border-radius: 999px;
+border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);
+color: #d9e3ff; font-size: 15px; cursor: pointer;
+`;
+    language.addEventListener('pointerdown', (event) => event.stopPropagation());
+    language.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleLocale();
+      this.buildUnlockOverlay();
+    });
+    d.appendChild(language);
     d.addEventListener('pointerdown', () => void this.onUnlock());
     document.body.appendChild(d);
     this.overlays.unlock = d;
@@ -252,29 +279,34 @@ font-family: system-ui, -apple-system, sans-serif; padding: 32px;
 backdrop-filter: blur(4px);
 `;
     const title = document.createElement('div');
-    title.textContent = 'Result';
+    title.textContent = t('result.title');
     title.style.cssText = 'font-size: 40px; font-weight: 700; margin-bottom: 18px;';
     d.appendChild(title);
     const s = document.createElement('div');
     const max = score.total * 300;
-    s.textContent = `Score: ${score.score} / ${max}   ·   Accuracy: ${(score.accuracy * 100).toFixed(2)}%`;
+    s.textContent = `${t('result.score')}: ${score.score} / ${max}   ·   ${t('result.accuracy')}: ${(score.accuracy * 100).toFixed(2)}%`;
     s.style.cssText = 'font-size: 28px; margin-bottom: 24px; color: #d0e0ff;';
     d.appendChild(s);
     const counts = document.createElement('div');
     counts.style.cssText = 'font-size: 22px; margin-bottom: 40px; color: #b9c7ee; line-height: 1.8;';
-    counts.innerHTML = `
-Perfect: ${score.counts.PERFECT}<br/>
-Great: ${score.counts.GREAT}<br/>
-OK: ${score.counts.OK}<br/>
-Miss: ${score.counts.MISS}<br/>
-Mean signed error: ${score.meanSignedErrorMs.toFixed(1)} ms<br/>
-Median signed error: ${score.medianSignedErrorMs.toFixed(1)} ms
-`;
+    const countLines = [
+      `${t('result.perfect')}: ${score.counts.PERFECT}`,
+      `${t('result.great')}: ${score.counts.GREAT}`,
+      `${t('result.ok')}: ${score.counts.OK}`,
+      `${t('result.miss')}: ${score.counts.MISS}`,
+      `${t('result.meanError')}: ${score.meanSignedErrorMs.toFixed(1)} ms`,
+      `${t('result.medianError')}: ${score.medianSignedErrorMs.toFixed(1)} ms`,
+    ];
+    counts.replaceChildren(...countLines.flatMap((line, index) => {
+      const nodes: Node[] = [document.createTextNode(line)];
+      if (index < countLines.length - 1) nodes.push(document.createElement('br'));
+      return nodes;
+    }));
     d.appendChild(counts);
     const row = document.createElement('div');
     row.style.cssText = 'display: flex; gap: 18px; flex-wrap: wrap; justify-content: center;';
     const bRestart = document.createElement('button');
-    bRestart.textContent = 'Restart';
+    bRestart.textContent = t('action.restart');
     bRestart.style.cssText = `
 font-size: 20px; padding: 14px 26px; border-radius: 999px; border: 0;
 background: linear-gradient(180deg, #3d63ff, #5b3dff); color: white;
@@ -286,7 +318,7 @@ cursor: pointer; box-shadow: 0 8px 24px rgba(80,60,200,0.35);
     });
     row.appendChild(bRestart);
     const bBack = document.createElement('button');
-    bBack.textContent = 'Back to Stage Select (placeholder)';
+    bBack.textContent = t('action.back');
     bBack.style.cssText = `
 font-size: 18px; padding: 14px 24px; border-radius: 999px;
 background: rgba(255,255,255,0.08); color: #c9d3ff; border: 1px solid rgba(255,255,255,0.15);
@@ -317,7 +349,11 @@ cursor: pointer;
     this.unlocking = true;
     const success = await this.audio.unlockFromUserGesture();
     this.unlocking = false;
-    if (!success) return;
+    if (!success) {
+      const action = this.overlays.unlock?.querySelector<HTMLElement>('[data-role="unlock-action"]');
+      if (action) action.textContent = t('audio.enableFailed');
+      return;
+    }
     if (this.overlays.unlock) {
       this.overlays.unlock.remove();
       this.overlays.unlock = null;
@@ -465,10 +501,16 @@ cursor: pointer;
     this.canvasMgr.beginFrame();
     ctx.fillStyle = '#07081a';
     ctx.fillRect(0, 0, this.canvasMgr.logicalW, this.canvasMgr.logicalH);
-    if (this.phase === 'playing' || this.phase === 'countdown' || this.phase === 'ended') {
+    if (
+      this.phase === 'playing' ||
+      this.phase === 'countdown' ||
+      this.phase === 'paused' ||
+      this.phase === 'ended'
+    ) {
       const snap = this.transport.snapshot();
       this.stage.render(ctx, snap);
       this.drawCountdownOverlay(ctx);
+      this.drawPausedOverlay(ctx);
       this.debug.render(ctx);
     } else {
       this.drawIdleBackground(ctx);
@@ -508,6 +550,19 @@ cursor: pointer;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(which), 0, 0);
+    ctx.restore();
+  }
+
+  private drawPausedOverlay(ctx: CanvasRenderingContext2D): void {
+    if (this.phase !== 'paused') return;
+    ctx.save();
+    ctx.fillStyle = 'rgba(5, 7, 24, 0.72)';
+    ctx.fillRect(0, 0, this.canvasMgr.logicalW, this.canvasMgr.logicalH);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 68px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(t('status.paused'), this.canvasMgr.logicalW / 2, this.canvasMgr.logicalH / 2);
     ctx.restore();
   }
 

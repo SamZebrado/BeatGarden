@@ -41,6 +41,7 @@ import type {
 import type { PointerAction } from '../../game/InputRouter';
 import type { TransportSnapshot } from '../../timing/Transport';
 import { JudgementKind } from '../../timing/config';
+import { t } from '../../i18n/strings';
 import {
   FIREFLY_BPM,
   FIREFLY_METER,
@@ -88,8 +89,8 @@ type ActiveFx = LaunchFx | SplashFx;
 
 export class FireflyDockStage implements StageDefinition {
   public readonly id = 'firefly-dock';
-  public readonly title = 'Firefly Dock / 萤火码头';
-  public readonly tagline = 'Tap when the glowing seed reaches the pier centre.';
+  public readonly titleKey = 'stage.firefly.title' as const;
+  public readonly taglineKey = 'stage.firefly.tagline' as const;
 
   // Runtime refs set via onStart.
   private services: StageRuntimeServices | null = null;
@@ -98,12 +99,14 @@ export class FireflyDockStage implements StageDefinition {
   private fx: ActiveFx[] = [];
   private consumed = new Set<string>(); // target ids consumed by judge
   private lastMissBubbleText: { x: number; y: number; t0: number; text: string } | null = null;
+  private feedback: { kind: JudgementKind | 'WAIT'; t0: number } | null = null;
+  private workerActionT0: number | null = null;
 
   public buildEvents(): readonly ScheduledEvent[] {
     const musicEvents = buildFireflyDockMusicEvents();
     const cuesAndTargets: ScheduledEvent[] = [];
     // Convert cue beats → 1 visual cue (seed arrives) + 1 judge tap target.
-    // Add a cue 1 beat before each tap for the stage to start moving the seed
+    // Add a cue 2 beats before each tap for the stage to start moving the seed
     // from left toward the post, plus a separate cue at beat 0 for intro.
     const intro: ScheduledEvent = {
       type: 'cue', beat: -0.01, name: 'tutorial-intro',
@@ -111,9 +114,9 @@ export class FireflyDockStage implements StageDefinition {
     cuesAndTargets.push(intro);
     for (const c of FIREFLY_CUE_BEATS_IN_CYCLE) {
       const targetBeat = c.bar * 4 + c.beatInBar;
-      // Cue event 1 beat BEFORE target (approach-enter visual).
+      // Cue event 2 beats BEFORE target so a first-time player can track it.
       cuesAndTargets.push({
-        type: 'cue', beat: targetBeat - 1, name: 'seed-approach',
+        type: 'cue', beat: targetBeat - 2, name: 'seed-approach',
         payload: { id: c.id, targetBeat },
       });
       // Cue event exactly at target beat (centre arrival).
@@ -154,6 +157,8 @@ export class FireflyDockStage implements StageDefinition {
     this.consumed.clear();
     this.fx = [];
     this.lastMissBubbleText = null;
+    this.feedback = null;
+    this.workerActionT0 = null;
   }
 
   public onEnd(_score: StageScore): void {
@@ -196,6 +201,8 @@ export class FireflyDockStage implements StageDefinition {
     this.consumed.add(target.id);
     if (!this.services) return;
     const t0 = this.services.transport.snapshot().audioTime;
+    this.feedback = { kind: result.kind, t0 };
+    this.workerActionT0 = t0;
     if (result.kind === 'MISS') {
       // Splashes at bottom of the post near water.
       const splashX = LAYOUT.postX + (Math.random() - 0.5) * 40;
@@ -219,6 +226,13 @@ export class FireflyDockStage implements StageDefinition {
     }
   }
 
+  public onUnmatchedInput(_action: PointerAction): void {
+    if (!this.services) return;
+    const t0 = this.services.transport.snapshot().audioTime;
+    this.feedback = { kind: 'WAIT', t0 };
+    this.workerActionT0 = t0;
+  }
+
   // -------- Rendering --------
 
   public render(ctx: CanvasRenderingContext2D, snap: TransportSnapshot): void {
@@ -228,10 +242,12 @@ export class FireflyDockStage implements StageDefinition {
     this.drawStars(ctx, W, H, snap);
     this.drawDistantMountains(ctx, W, H);
     this.drawWater(ctx, W, H, snap);
-    this.drawDockPost(ctx);
+    this.drawApproachGuide(ctx, snap);
+    this.drawDockPost(ctx, snap);
     this.drawDockWorker(ctx, snap);
     this.drawSeedsAndTargets(ctx, snap);
     this.drawFx(ctx, snap);
+    this.drawImmediateFeedback(ctx, snap);
     this.drawTutorialOverlay(ctx, snap);
   }
 
@@ -330,7 +346,7 @@ export class FireflyDockStage implements StageDefinition {
     }
   }
 
-  private drawDockPost(ctx: CanvasRenderingContext2D) {
+  private drawDockPost(ctx: CanvasRenderingContext2D, snap: TransportSnapshot) {
     // Centre post: trapezoid wooden plank with bevel top.
     const x = LAYOUT.postX - LAYOUT.postW / 2;
     const y = LAYOUT.postY;
@@ -369,7 +385,9 @@ export class FireflyDockStage implements StageDefinition {
 
     // Target ring on the cap.
     ctx.translate(LAYOUT.postX, y - 60);
-    const ringPulse = 0.8 + 0.2 * Math.sin(performance.now() / 1000 * 1.5);
+    const distance = this.nearestTargetDistanceBeats(snap.beat);
+    const approachStrength = Math.max(0, 1 - distance / 2);
+    const timingPulse = 0.55 + approachStrength * 0.45;
     // Outer glow
     const rg = ctx.createRadialGradient(0, 0, 8, 0, 0, LAYOUT.targetR + 24);
     rg.addColorStop(0, 'rgba(180, 255, 220, 0.35)');
@@ -378,10 +396,10 @@ export class FireflyDockStage implements StageDefinition {
     ctx.beginPath();
     ctx.arc(0, 0, LAYOUT.targetR + 24, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = `rgba(200, 255, 230, ${0.7 * ringPulse})`;
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = approachStrength > 0.82 ? '#ffffff' : `rgba(200, 255, 230, ${timingPulse})`;
+    ctx.lineWidth = 4 + approachStrength * 8;
     ctx.beginPath();
-    ctx.arc(0, 0, LAYOUT.targetR, 0, Math.PI * 2);
+    ctx.arc(0, 0, LAYOUT.targetR + distance * 8, 0, Math.PI * 2);
     ctx.stroke();
     ctx.strokeStyle = 'rgba(200, 255, 230, 0.45)';
     ctx.lineWidth = 2;
@@ -392,6 +410,14 @@ export class FireflyDockStage implements StageDefinition {
     ctx.beginPath();
     ctx.arc(0, 0, 6, 0, Math.PI * 2);
     ctx.fill();
+
+    if (distance < 0.28) {
+      ctx.font = 'bold 28px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(t('tutorial.action'), 0, -LAYOUT.targetR - 34);
+    }
 
     ctx.restore();
   }
@@ -404,6 +430,10 @@ export class FireflyDockStage implements StageDefinition {
     const bob = Math.abs(Math.sin(beat * Math.PI * 0.5)) * 6;
     const cx = LAYOUT.postX;
     const cy = LAYOUT.postY + 18 - bob;
+    const actionAge = this.workerActionT0 === null ? Infinity : snap.audioTime - this.workerActionT0;
+    const action = actionAge >= 0 && actionAge < 0.32
+      ? Math.sin((actionAge / 0.32) * Math.PI)
+      : 0;
     ctx.save();
     // Body.
     ctx.fillStyle = '#e08855';
@@ -425,6 +455,51 @@ export class FireflyDockStage implements StageDefinition {
     // Little scarf / collar.
     ctx.fillStyle = '#a23f3f';
     ctx.fillRect(cx - 22, cy + 6, 44, 8);
+    // The lever and arm only swing after player input, making cause/effect explicit.
+    ctx.save();
+    ctx.translate(cx + 28, cy + 10);
+    ctx.rotate(-0.55 + action * 1.15);
+    ctx.strokeStyle = '#ffd2a8';
+    ctx.lineWidth = 12;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(48, -22);
+    ctx.stroke();
+    ctx.strokeStyle = '#8ad8ff';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(44, -20);
+    ctx.lineTo(74, -58);
+    ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
+
+  private drawApproachGuide(ctx: CanvasRenderingContext2D, snap: TransportSnapshot): void {
+    const targetY = LAYOUT.postY - 60;
+    const strength = Math.max(0.25, 1 - this.nearestTargetDistanceBeats(snap.beat) / 2);
+    ctx.save();
+    ctx.strokeStyle = `rgba(130, 235, 220, ${0.28 + strength * 0.42})`;
+    ctx.lineWidth = 12;
+    ctx.setLineDash([28, 22]);
+    ctx.beginPath();
+    ctx.moveTo(LAYOUT.approachFromX, LAYOUT.approachY);
+    ctx.lineTo(LAYOUT.postX, targetY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (let i = 1; i <= 4; i++) {
+      const p = i / 5;
+      const x = LAYOUT.approachFromX + (LAYOUT.postX - LAYOUT.approachFromX) * p;
+      const y = LAYOUT.approachY + (targetY - LAYOUT.approachY) * p;
+      ctx.fillStyle = `rgba(205,255,240,${0.25 + strength * 0.55})`;
+      ctx.beginPath();
+      ctx.moveTo(x + 18, y);
+      ctx.lineTo(x - 14, y - 14);
+      ctx.lineTo(x - 14, y + 14);
+      ctx.closePath();
+      ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -439,8 +514,8 @@ export class FireflyDockStage implements StageDefinition {
       if (targetBeat < currentBeat - 1 || targetBeat > currentBeat + 12) continue;
       const targetId = 'target-' + c.id;
       if (this.consumed.has(targetId)) continue;
-      // progress: 0 at (targetBeat - 1 approach start) 1 at targetBeat.
-      const progFromApproach = (currentBeat - (targetBeat - 1)) / 1; // 1 beat window
+      // progress: 0 two beats early, 1 exactly at the hit zone.
+      const progFromApproach = (currentBeat - (targetBeat - 2)) / 2;
       const prog = Math.max(0, Math.min(1.5, progFromApproach));
       if (prog > 1.25) continue; // already past (scheduled as miss later)
       // Linear approach approachX -> postX at post cap level.
@@ -453,6 +528,15 @@ export class FireflyDockStage implements StageDefinition {
         y = lerpY + over * over * 500; // accelerate down (miss)
       }
       this.drawSeed(ctx, lerpX, y, 1);
+      if (prog >= 0.72 && prog <= 1.08) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(255,255,255,${0.35 + Math.max(0, 1 - Math.abs(1 - prog) * 3) * 0.65})`;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(lerpX, y, 42 + Math.abs(1 - prog) * 70, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 
@@ -600,11 +684,11 @@ export class FireflyDockStage implements StageDefinition {
 
   private drawTutorialOverlay(ctx: CanvasRenderingContext2D, snap: TransportSnapshot) {
     if (!this.services) return;
-    // Only show tutorial text until the 3rd cue target has passed.
-    const firstThreeTargetBeats = FIREFLY_CUE_BEATS_IN_CYCLE.slice(0, 3).map(
+    // The first four targets (beats 2,4,6,8) form an interactive tutorial.
+    const tutorialTargetBeats = FIREFLY_CUE_BEATS_IN_CYCLE.slice(0, 4).map(
       (c) => c.bar * 4 + c.beatInBar,
     );
-    const lastBeat = firstThreeTargetBeats[2]! + 1;
+    const lastBeat = tutorialTargetBeats[3]! + 1;
     if (snap.beat > lastBeat) return;
     const cx = LAYOUT.postX;
     const cy = 320;
@@ -617,12 +701,45 @@ export class FireflyDockStage implements StageDefinition {
     ctx.font = 'bold 44px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Tap when the GLOWING SEED reaches the', cx, cy - 20);
-    ctx.fillText('CENTRE RING on the pier', cx, cy + 40);
+    ctx.fillText(t('tutorial.action'), cx, cy - 20);
+    ctx.font = '32px system-ui, sans-serif';
+    ctx.fillText(t('tutorial.watch'), cx, cy + 38);
     ctx.font = '28px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(210, 230, 255, 0.9)';
-    ctx.fillText('Stage 1 · Firefly Dock', cx, cy + 100);
+    ctx.fillText(t('tutorial.stage'), cx, cy + 96);
     ctx.restore();
+  }
+
+  private drawImmediateFeedback(ctx: CanvasRenderingContext2D, snap: TransportSnapshot): void {
+    if (!this.feedback) return;
+    const age = snap.audioTime - this.feedback.t0;
+    if (age < 0 || age > 0.9) return;
+    const alpha = Math.min(1, age * 10) * (1 - age / 0.9);
+    const key = this.feedback.kind === 'WAIT'
+      ? 'tutorial.wait'
+      : `feedback.${this.feedback.kind}` as const;
+    const color = this.feedback.kind === 'MISS' || this.feedback.kind === 'WAIT'
+      ? '#ffd27a'
+      : '#d9fff2';
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '900 66px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(8,10,30,0.7)';
+    ctx.fillRect(520, 120, 880, 112);
+    ctx.fillStyle = color;
+    ctx.fillText(t(key), LAYOUT.postX, 176 - age * 18);
+    ctx.restore();
+  }
+
+  private nearestTargetDistanceBeats(currentBeat: number): number {
+    let nearest = 2;
+    for (const cue of FIREFLY_CUE_BEATS_IN_CYCLE) {
+      if (this.consumed.has('target-' + cue.id)) continue;
+      nearest = Math.min(nearest, Math.abs(cue.bar * 4 + cue.beatInBar - currentBeat));
+    }
+    return nearest;
   }
 }
 

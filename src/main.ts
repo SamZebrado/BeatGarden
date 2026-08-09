@@ -6,11 +6,12 @@
 
 import { StageRunner } from './game/StageRunner';
 import { FireflyDockStage } from './stages/fireflyDock/FireflyDockStage';
+import { t } from './i18n/strings';
 
 function boot(): void {
   const root = document.getElementById('app');
   if (!root) {
-    document.body.innerHTML = '<div style="padding:24px;color:#fff;font-family:sans-serif">Missing #app root in index.html</div>';
+    document.body.innerHTML = `<div style="padding:24px;color:#fff;font-family:sans-serif">${t('error.missingRoot')}</div>`;
     return;
   }
   // StageRunner creates canvas inside root, handles audio unlock overlay, etc.

@@ -52,9 +52,12 @@ export const FIREFLY_CHORDS: Array<{
  * beat fractional positions: 0 = downbeat, 1 = beat 2, etc.
  */
 export const FIREFLY_CUE_BEATS_IN_CYCLE: Array<{ bar: number; beatInBar: number; id: string }> = [
-  // Cycle A (bars 0–7): simple on-beat → syncopation ramp
+  // Interactive onboarding: four guided cues on beats 2, 4, 6, 8.
+  { bar: 0, beatInBar: 2, id: 'tutorial-1' },
   { bar: 1, beatInBar: 0, id: 'a-1-1' },
+  { bar: 1, beatInBar: 2, id: 'tutorial-3' },
   { bar: 2, beatInBar: 0, id: 'a-2-1' },
+  // Cycle A (bars 2–7): simple on-beat → syncopation ramp
   { bar: 3, beatInBar: 2, id: 'a-3-3' },                 // off-beat 3
   { bar: 4, beatInBar: 0, id: 'a-4-1' },
   { bar: 5, beatInBar: 1.5, id: 'a-5-2&' },              // & of 2

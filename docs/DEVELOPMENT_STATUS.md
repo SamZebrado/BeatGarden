@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **PHASE 0 — GATE 0 LIFECYCLE DELTA READY FOR INDEPENDENT REVIEW**
+Current phase: **PHASE 0 — GATE 0 PARTIAL ROUND 3; USER-COMPREHENSION IMPLEMENTED, BROWSER GATE BLOCKED**
 
 Last updated: 2026-08-09
 
@@ -9,8 +9,23 @@ Last updated: 2026-08-09
 ## Current HEAD
 
 - Branch: `main`
-- Base commit: `198eda0`
-- Workspace: Codex takeover Gate 0 lifecycle delta ready for first Codex commit.
+- HEAD: `1310965` — first Codex takeover commit; Gate 0 lifecycle delta.
+- Workspace: USER-COMPREHENSION + i18n implementation is uncommitted pending final static verification.
+
+## Latest independent verdict (Round 3)
+
+```
+GATE 0: PARTIAL
+  Bridge request_id: msls2az0-dw4molc0
+  request_nonce: MSG_codex_gate0_1310965_20260809a
+  Ownership: PASS (nonce confirmed in immediately preceding user bubble)
+  Remaining blockers:
+    1. Source/test delta could not be independently read because the security
+       reviewer rejected external upload of the private ZIP.
+    2. Real Chrome lifecycle smoke A-D remains blocked because the Codex Chrome
+       extension is not connected.
+  Accepted/unchanged: prior Q1/Q3/Q4, Scheduler, and Synth findings.
+```
 
 ## Last completed gate
 
@@ -129,18 +144,19 @@ GATE 0: PARTIAL (Round 2 — source-level independent audit, 198eda0 reviewed)
 ## Verified
 
 - [x] `npm run lint` (tsc --noEmit) — **PASS**, 0 errors
-- [x] `npm test` (vitest run) — **79/79 PASS** (9 test files):
+- [x] `npm test` (vitest run) — **85/85 PASS** (10 test files):
   - tests/stats.test.ts            11/11
   - tests/calibration.test.ts       5/5
   - tests/timing_drift.test.ts      3/3   (frame-drop / jitter / pause-resume drift evidence)
   - tests/transport.test.ts        18/18   (incl. setBpm state guard, beat preservation + pause/resume)
   - tests/scheduler.test.ts        12/12   (incl. honest dropped-late + cursor lifecycle)
   - tests/judge.test.ts            21/21   (incl. calibration 4-case matrix)
-  - tests/input_router.test.ts      3/3    (synchronous audioTime capture proof)
+  - tests/input_router.test.ts      5/5    (synchronous capture + mouse/touch tap equivalence)
   - tests/audio_engine.test.ts      4/4    (rejection, state confirmation, recovery, hook dedup)
   - tests/playback_lifecycle.test.ts 2/2   (first-tick order + 5-second manual-pause lifecycle)
+  - tests/firefly_readability.test.ts 4/4  (beats 2/4/6/8 tutorial + i18n feedback)
 - [x] `npm run build` (tsc -b + vite build) — **PASS**
-  - dist/assets/index-CldvJIO-.js 47.29 kB / gzip 13.99 kB
+  - dist/assets/index-8k5riOXg.js 55.03 kB / gzip 16.66 kB
 - [ ] Browser smoke test (real Chrome) — **BLOCKED: Chrome extension not connected**
 - [ ] Timing drift long simulation (≥10 min) — NOT YET RUN
 
@@ -148,32 +164,44 @@ GATE 0: PARTIAL (Round 2 — source-level independent audit, 198eda0 reviewed)
 
 - Still no Calibration / Settings / PWA UI (Phase 2)
 - Stage 1 Firefly Dock visuals not eye-tested in a real browser
-- USER-COMPREHENSION GATE not yet implemented or browser-verified; no additional
+- USER-COMPREHENSION implementation is complete but not browser-verified; no additional
   stages or AutoChart product UI may proceed until desktop mouse + touch/pointer
   smoke both answer first-player comprehension with an explicit YES.
+
+## USER-COMPREHENSION implementation (browser verdict still pending)
+
+- [x] First four guided targets occur at beats 2, 4, 6, and 8.
+- [x] Approaching seed begins two beats early on an explicit dashed cue path.
+- [x] Hit zone pulse derives from authoritative Transport beat distance.
+- [x] Player input visibly swings the worker's lever; no random autonomous firing.
+- [x] Immediate localized PERFECT/GREAT/OK/MISS feedback.
+- [x] Early/unmatched input produces localized wait feedback plus quiet click SFX.
+- [x] Default Simplified Chinese i18n; complete English replacement strings.
+- [x] Unlock, result, score, restart, back, shortcuts, tutorial, pause, and debug
+  labels migrated to locale strings.
+- [x] Unlock screen explicitly states desktop left-click and Android touch controls.
+- [ ] Desktop mouse real-browser smoke — BLOCKED (Chrome extension unavailable).
+- [ ] Touch/pointer real-browser smoke — BLOCKED (Chrome extension unavailable).
+- [ ] First-player comprehension answer — NOT YET YES; gate remains PARTIAL/BLOCKED.
 - Android实机测试尚未启动
-- Bridge first contact not independently confirmed
+- Bridge Round-3 reply fetched and recorded; verdict remains PARTIAL.
 
 ## Bridge state
 
 ```
-PENDING RESUBMISSION
-  - Pre-requisite fixes: COMPLETE (Issues 1–5 addressed above)
-  - Evidence files packaged: timing src + tests (see resubmission zip)
-  - Plan: send resubmission message + attachment zip
-          Wait 3 min × 3 poll for reply
-          Record verdict in docs/reviews/gate_0_timing.md
+ROUND 3 PARTIAL RECEIVED
+  - text-only send: MESSAGE_CONFIRMED_IN_THREAD
+  - reply: settled
+  - private ZIP upload: REJECTED BY SECURITY REVIEW; no workaround attempted
+  - next resubmission requires explicit source-export authorization + Chrome A-D smoke
 ```
 
 ## Next action
 
-1. Zip all timing-critical src + tests files into single archive.
-2. Send GATE 0 RESUBMISSION via Bridge with explicit answers to 5 Questions; include:
-   - exact HEAD SHA / git status
-   - exact test counts 79/79 tsc 0 build PASS
-   - zip attachment with src/ + tests/
-   - bridge_nonce
-3. Wait for ChatGPT reply and implement requested fixes if PARTIAL / FAIL.
-4. Continue non-dependent work while Bridge review is pending.
-5. After GATE 0 PASS, complete USER-COMPREHENSION GATE + i18n, then run desktop
-   mouse and touch/pointer browser smoke before any additional Stage expansion.
+1. Obtain explicit authorization for the exact private lifecycle source/test files
+   before any Bridge upload; do not bypass the rejected security review.
+2. Connect the Codex Chrome extension and run the required lifecycle A-D smoke.
+3. Resubmit GATE 0 delta with exact test/build/HEAD evidence, then run desktop mouse
+   and touch/pointer comprehension smoke.
+4. Only after both Gate 0 PASS and USER-COMPREHENSION explicit YES, begin AutoChart
+   product work or additional Stage expansion.
