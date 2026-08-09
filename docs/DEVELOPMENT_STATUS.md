@@ -6,11 +6,12 @@ Last updated: 2026-08-09
 
 ---
 
-## Current HEAD
+## Current repository state
 
 - Branch: `main`
-- HEAD: `1310965` — first Codex takeover commit; Gate 0 lifecycle delta.
-- Workspace: USER-COMPREHENSION + i18n implementation is uncommitted pending final static verification.
+- Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
+- Latest implementation commit: `3d34b14` — localized Firefly onboarding/readability gate.
+- Static verification after `3d34b14`: tsc 0, 85/85 tests, production build PASS.
 
 ## Latest independent verdict (Round 3)
 
