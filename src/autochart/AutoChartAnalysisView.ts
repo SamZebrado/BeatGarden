@@ -151,7 +151,14 @@ export class AutoChartAnalysisView {
     });
     panel.querySelector<HTMLButtonElement>('[data-role="play"]')!.addEventListener('click', () => {
       if (this.decodedBuffer && this.chart) {
-        new PulseGardenRunner(this.root, this.audio, this.decodedBuffer, this.chart, this.onBack);
+        new PulseGardenRunner(
+          this.root,
+          this.audio,
+          this.decodedBuffer,
+          this.chart,
+          this.onBack,
+          () => new AutoChartAnalysisView(this.root, this.onBack),
+        );
       }
     });
     results.appendChild(panel);

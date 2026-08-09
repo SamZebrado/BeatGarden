@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ImportedTrackTimeline } from '../src/autochart/ImportedTrackTimeline';
+import { targetExpirySongTime, targetOkWindowSec } from '../src/autochart/PulseGardenRunner';
 import { Judge } from '../src/timing/Judge';
 import { Transport } from '../src/timing/Transport';
 import { TIMING_CONFIG } from '../src/timing/config';
@@ -43,3 +44,16 @@ describe('ImportedTrackTimeline songTimeSec authority', () => {
   });
 });
 
+describe('Pulse Garden target expiry semantics', () => {
+  it('keeps holdStart alive through the shared recognition threshold', () => {
+    const hold = { type: 'judge-target', id: 'h', beat: 1, songTimeSec: 2, inputKind: 'holdStart' } as ScheduledJudgeTarget;
+    expect(targetExpirySongTime(hold)).toBeCloseTo(2.36, 8);
+  });
+
+  it('uses the wider release window only for holdRelease', () => {
+    const tap = { type: 'judge-target', id: 't', beat: 1, songTimeSec: 2, inputKind: 'tap' } as ScheduledJudgeTarget;
+    const release = { ...tap, id: 'r', inputKind: 'holdRelease' } as ScheduledJudgeTarget;
+    expect(targetOkWindowSec(tap)).toBe(.13);
+    expect(targetOkWindowSec(release)).toBe(.16);
+  });
+});

@@ -20,6 +20,13 @@
     "resumeSongTimeSecAfter0_45Seconds": -0.5778
   },
   "restart": "PASS; old one-shot source stopped and new source created by implementation contract",
-  "result": "PASS; score and accuracy overlay rendered",
+  "result": {
+    "phase": "ended",
+    "songTimeSec": 10.3124,
+    "sourcePlaying": false,
+    "targets": 14,
+    "overlay": "score, accuracy, restart, regenerate/change-song, and main-menu actions"
+  },
+  "holdLifecycleFix": "holdStart automatic expiry includes the shared 220 ms recognition threshold; holdRelease uses its 160 ms window",
   "nativeFilePicker": "NOT RUN due connected browser file-upload API limitation"
 }

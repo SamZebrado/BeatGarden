@@ -10,7 +10,8 @@
     "timingMode": "beat-grid",
     "onsetCandidates": 20,
     "normalNotes": 14,
-    "consoleErrors": 0
+    "consoleErrors": 0,
+    "latestEndToEndElapsedMs": 4027
   },
   "timing": {
     "authoritativeField": "songTimeSec",
@@ -19,11 +20,17 @@
     "sharedJudgeTargetResolverTest": "PASS"
   },
   "tests": {
-    "total": "96/96 PASS",
-    "files": 13,
+    "total": "115/115 PASS",
+    "files": 18,
     "autochart": "6/6",
     "importedTimeline": "2/2"
   },
-  "build": "PASS; Worker emitted as separate 4.72 kB asset",
+  "resourceBounds": {
+    "maxFileBytes": 104857600,
+    "maxDurationSeconds": 900,
+    "analysisCancellation": "chunk-boundary cancellation token plus Worker termination",
+    "concurrentFileInput": "disabled during one analysis run"
+  },
+  "build": "PASS; Worker emitted as a separate production asset",
   "nativeFilePickerSmoke": "NOT RUN: connected browser API cannot set file inputs; Chrome correctly rejected programmatic path assignment"
 }

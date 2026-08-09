@@ -39,6 +39,7 @@ export class PulseGardenRunner {
     private readonly buffer: AudioBuffer,
     chart: GeneratedAutoChart,
     private readonly onExit?: () => void,
+    private readonly onChangeSong?: () => void,
   ) {
     root.replaceChildren();
     root.style.cssText = 'width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#07142a;';
@@ -97,11 +98,11 @@ export class PulseGardenRunner {
   private onInput(action: PointerAction): void {
     if (this.phase !== 'playing') return;
     const actual = actionToInputKind(action);
-    const okSec = TIMING_CONFIG.okWindowMs / 1000 + 0.035;
     let best: PulseTarget | null = null;
     let bestDistance = Infinity;
     for (const target of this.targets) {
       if (this.judge.hasRecorded(target.id) || !semanticCompatible(target.inputKind, actual)) continue;
+      const okSec = targetOkWindowSec(target) + 0.035;
       const distance = Math.abs(action.audioTime - this.timeline.songTimeToAudioTime(target.songTimeSec));
       if (distance <= okSec && distance < bestDistance) {
         best = target;
@@ -151,9 +152,9 @@ export class PulseGardenRunner {
     if (this.destroyed) return;
     const snapshot = this.timeline.snapshot();
     if (this.phase === 'playing') {
-      const expiry = snapshot.songTimeSec - TIMING_CONFIG.okWindowMs / 1000 - 0.01;
       for (const target of this.targets) {
-        if (target.songTimeSec < expiry && !this.judge.hasRecorded(target.id)) this.judge.autoMiss(target);
+        const expiryTime = targetExpirySongTime(target);
+        if (snapshot.songTimeSec > expiryTime && !this.judge.hasRecorded(target.id)) this.judge.autoMiss(target);
       }
       if (snapshot.songTimeSec >= this.buffer.duration + 0.3 && !this.resultShown) this.finish();
     }
@@ -234,13 +235,14 @@ export class PulseGardenRunner {
     const overlay = document.createElement('div');
     overlay.dataset.role = 'autogarden-result';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:50;background:rgba(3,8,20,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:system-ui;text-align:center;';
-    overlay.innerHTML = `<h2 style="font-size:44px">${t('result.title')}</h2><p style="font-size:28px;margin-top:18px">${t('result.score')}: ${score.score} · ${t('result.accuracy')}: ${(score.accuracy * 100).toFixed(1)}%</p><div style="display:flex;gap:14px"><button data-role="restart" style="margin-top:28px;padding:15px 24px;border:0;border-radius:12px;background:#4dcb9a;font-size:18px;font-weight:800">${t('action.restart')}</button><button data-role="back" style="margin-top:28px;padding:15px 24px;border:1px solid #65739c;border-radius:12px;background:#17203f;color:#fff;font-size:18px">${t('menu.back')}</button></div>`;
+    overlay.innerHTML = `<h2 style="font-size:44px">${t('result.title')}</h2><p style="font-size:28px;margin-top:18px">${t('result.score')}: ${score.score} · ${t('result.accuracy')}: ${(score.accuracy * 100).toFixed(1)}%</p><div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center"><button data-role="restart" style="margin-top:28px;padding:15px 24px;border:0;border-radius:12px;background:#4dcb9a;font-size:18px;font-weight:800">${t('action.restart')}</button><button data-role="change" style="margin-top:28px;padding:15px 24px;border:1px solid #ffd16d;border-radius:12px;background:#3b3018;color:#fff;font-size:18px">${t('autochart.changeSong')}</button><button data-role="back" style="margin-top:28px;padding:15px 24px;border:1px solid #65739c;border-radius:12px;background:#17203f;color:#fff;font-size:18px">${t('menu.back')}</button></div>`;
     overlay.querySelector<HTMLButtonElement>('[data-role="restart"]')!.addEventListener('click', () => void this.restart());
+    overlay.querySelector<HTMLButtonElement>('[data-role="change"]')!.addEventListener('click', () => void this.exit(this.onChangeSong));
     overlay.querySelector<HTMLButtonElement>('[data-role="back"]')!.addEventListener('click', () => void this.exit());
     this.root.appendChild(overlay);
   }
 
-  private async exit(): Promise<void> {
+  private async exit(destination = this.onExit): Promise<void> {
     if (this.destroyed) return;
     this.destroyed = true;
     if (this.raf !== null) cancelAnimationFrame(this.raf);
@@ -251,9 +253,18 @@ export class PulseGardenRunner {
     this.runtimeStatus.remove();
     await this.audio.close();
     this.root.replaceChildren();
-    if (this.onExit) this.onExit();
+    if (destination) destination();
     else window.location.href = './';
   }
+}
+
+export function targetOkWindowSec(target: ScheduledJudgeTarget): number {
+  return (target.inputKind === 'holdRelease' ? TIMING_CONFIG.holdReleaseOkMs : TIMING_CONFIG.okWindowMs) / 1000;
+}
+
+export function targetExpirySongTime(target: ScheduledJudgeTarget): number {
+  const recognitionDelay = target.inputKind === 'holdStart' ? TIMING_CONFIG.holdThresholdMs / 1000 : 0;
+  return (target.songTimeSec ?? 0) + targetOkWindowSec(target) + recognitionDelay + 0.01;
 }
 
 function buildTargets(notes: readonly AutoChartNote[]): PulseTarget[] {
