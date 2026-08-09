@@ -11,7 +11,7 @@ import { ImportedTrackTimeline } from './ImportedTrackTimeline';
 import type { AutoChartNote, GeneratedAutoChart } from './types';
 import { loadSettings } from '../settings/settings';
 
-type Phase = 'ready' | 'playing' | 'paused' | 'ended';
+type Phase = 'ready' | 'playing' | 'pausing' | 'paused' | 'ended';
 
 interface PulseTarget extends ScheduledJudgeTarget {
   songTimeSec: number;
@@ -123,8 +123,11 @@ export class PulseGardenRunner {
   };
 
   private async pause(): Promise<void> {
-    this.phase = 'paused';
-    if (await this.audio.suspend()) this.timeline.pause(this.audio.now());
+    await transitionToImportedPause({
+      suspend: () => this.audio.suspend(),
+      pauseTimeline: () => this.timeline.pause(this.audio.now()),
+      setPhase: (phase) => { this.phase = phase; },
+    });
   }
 
   private async resume(): Promise<void> {
@@ -265,6 +268,21 @@ export function targetOkWindowSec(target: ScheduledJudgeTarget): number {
 export function targetExpirySongTime(target: ScheduledJudgeTarget): number {
   const recognitionDelay = target.inputKind === 'holdStart' ? TIMING_CONFIG.holdThresholdMs / 1000 : 0;
   return (target.songTimeSec ?? 0) + targetOkWindowSec(target) + recognitionDelay + 0.01;
+}
+
+export async function transitionToImportedPause(options: {
+  suspend: () => Promise<boolean>;
+  pauseTimeline: () => void;
+  setPhase: (phase: 'playing' | 'pausing' | 'paused') => void;
+}): Promise<boolean> {
+  options.setPhase('pausing');
+  if (!await options.suspend()) {
+    options.setPhase('playing');
+    return false;
+  }
+  options.pauseTimeline();
+  options.setPhase('paused');
+  return true;
 }
 
 function buildTargets(notes: readonly AutoChartNote[]): PulseTarget[] {

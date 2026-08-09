@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **GATE 2 PARTIAL (ANDROID EXTERNAL); GATE 3 / RC IN PROGRESS**
+Current phase: **GATE 2 PARTIAL (ANDROID EXTERNAL); GATE 3 PARTIAL FIXED; RC IN PROGRESS**
 
 Last updated: 2026-08-10
 
@@ -11,7 +11,7 @@ Last updated: 2026-08-10
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
 - Latest committed runtime telemetry baseline: `8381333`.
-- Current verified working tree: tsc 0, 102/102 tests, production build PASS.
+- Current verified working tree before final RC sweep: tsc 0, 120/120 tests.
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
@@ -22,6 +22,19 @@ Last updated: 2026-08-10
 - `adb devices -l` reports no connected device, so the remaining real Android tablet
   blocker is explicitly external and `ANDROID UNVERIFIED` remains the honest status.
 - Development continues through GATE 3/4 and all work independent of that device.
+
+## Official GATE 3 verdict — PARTIAL; blockers fixed (2026-08-10)
+
+- Bridge request id `msm4st0h-6yrlp85y`, message id `zpupehtc6dk5rexrgoe7z8`,
+  nonce `MSG_codex_gate3_autochart_c4caa4b_20260810a`.
+- Imported playback now exposes `pausing` and pauses its timeline only after
+  `AudioContext.suspend()` is confirmed; failed suspension rolls back to `playing`.
+- Original-stage judgement feedback is fully localized; connected Chinese Chrome
+  visibly rendered `错过！`, and zh-CN/en regression tests cover all four labels.
+- Pointer actions now carry local surface dimensions; Bubble lane selection no longer
+  depends on `window.innerWidth`. All three lanes scored PERFECT in touch smoke with
+  `droppedLate=0`.
+- Exact-SHA delta submission is being prepared; work continues into GATE 4 regardless.
 
 ## Official GATE 1 verdict — PASS (2026-08-10)
 

@@ -12,11 +12,13 @@
 import type { TimingConfig } from '../timing/config';
 
 export type PointerAction =
-  | { type: 'tap'; x: number; y: number; audioTime: number; domTimeMs: number }
+  | { type: 'tap'; x: number; y: number; surfaceWidth: number; surfaceHeight: number; audioTime: number; domTimeMs: number }
   | {
       type: 'holdStart';
       x: number;
       y: number;
+      surfaceWidth: number;
+      surfaceHeight: number;
       pointerId: number;
       audioTime: number;
       domTimeMs: number;
@@ -25,6 +27,8 @@ export type PointerAction =
       type: 'holdEnd';
       x: number;
       y: number;
+      surfaceWidth: number;
+      surfaceHeight: number;
       pointerId: number;
       audioTime: number;
       domTimeMs: number;
@@ -34,6 +38,8 @@ export type PointerAction =
       direction: 'left' | 'right' | 'up' | 'down';
       x: number;
       y: number;
+      surfaceWidth: number;
+      surfaceHeight: number;
       dx: number;
       dy: number;
       audioTime: number;
@@ -64,6 +70,8 @@ interface ActivePointer {
   firedHold: boolean;
   lastX: number;
   lastY: number;
+  surfaceWidth: number;
+  surfaceHeight: number;
 }
 
 export class InputRouter {
@@ -170,6 +178,8 @@ export class InputRouter {
       firedHold: false,
       lastX: e.clientX - rect.left,
       lastY: e.clientY - rect.top,
+      surfaceWidth: rect.width,
+      surfaceHeight: rect.height,
     };
     // Arm hold timer. If it fires before pointerup, we treat as holdStart
     // (and subsequent up as holdEnd). Otherwise it's a tap or swipe.
@@ -185,6 +195,8 @@ export class InputRouter {
         type: 'holdStart',
         x: ap.lastX,
         y: ap.lastY,
+        surfaceWidth: ap.surfaceWidth,
+        surfaceHeight: ap.surfaceHeight,
         pointerId: ap.pointerId,
         // Judge the start at the authoritative pointer-down time, not when
         // the hold threshold timer happens to fire on a busy main thread.
@@ -238,6 +250,8 @@ export class InputRouter {
         direction: dir,
         x: endX,
         y: endY,
+        surfaceWidth: rect.width,
+        surfaceHeight: rect.height,
         dx,
         dy,
         audioTime,
@@ -252,6 +266,8 @@ export class InputRouter {
         type: 'holdEnd',
         x: endX,
         y: endY,
+        surfaceWidth: rect.width,
+        surfaceHeight: rect.height,
         pointerId: ap.pointerId,
         audioTime,
         domTimeMs,
@@ -260,7 +276,7 @@ export class InputRouter {
     }
 
     // Otherwise: Tap.
-    this.emit({ type: 'tap', x: endX, y: endY, audioTime, domTimeMs });
+    this.emit({ type: 'tap', x: endX, y: endY, surfaceWidth: rect.width, surfaceHeight: rect.height, audioTime, domTimeMs });
   };
 
   private onPointerCancel = (e: PointerEvent): void => {

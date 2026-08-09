@@ -88,5 +88,13 @@ describe('AutoChart deterministic DSP', () => {
     expect(easy.notes.length).toBeLessThan(hard.notes.length);
     expect(easy.notes.every((note) => note.type !== 'swipe')).toBe(true);
   });
-});
 
+  it('analyzes a one-minute fixture with bounded frame and chart storage', () => {
+    const analysis = analyzeMonoPcm(rhythmicBursts(60, 0.5, 90), SAMPLE_RATE);
+    const chart = generateAutoChart(analysis, 'hard', 17);
+    expect(analysis.frames.length).toBeGreaterThan(5_000);
+    expect(analysis.frames.length).toBeLessThan(5_300);
+    expect(analysis.onsets.length).toBeLessThan(140);
+    expect(chart.notes.length).toBeLessThanOrEqual(analysis.onsets.length);
+  });
+});

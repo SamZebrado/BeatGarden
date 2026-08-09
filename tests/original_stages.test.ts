@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage } from '../src/stages/original/GardenStages';
+import { afterEach, describe, expect, it } from 'vitest';
+import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage, laneFromSurfaceX, localizedGardenFeedback } from '../src/stages/original/GardenStages';
+import { setLocale } from '../src/i18n/strings';
 
 const stages = [new BubbleKitchenStage(), new CloudPostStage(), new SleepyGreenhouseStage()];
 
 describe('additional original stage content', () => {
+  afterEach(() => setLocale('zh-CN'));
   it('provides four built-in stages total with unique stable identities', () => {
     expect(stages.map((stage) => stage.id)).toEqual(['bubble-kitchen', 'cloud-post', 'sleepy-greenhouse']);
     expect(new Set(stages.map((stage) => stage.id)).size).toBe(3);
@@ -36,6 +38,28 @@ describe('additional original stage content', () => {
     for (const target of targets.filter((item) => item.inputKind === 'holdStart')) {
       expect(target.pairedId).toBeTruthy();
       expect(ids.has(target.pairedId!)).toBe(true);
+    }
+  });
+
+  it('maps all three visual lane centers and boundaries in canvas-local CSS coordinates', () => {
+    for (const width of [1200, 960]) {
+      const visualCenters = [420, 960, 1500].map((logicalX) => logicalX / 1920 * width);
+      expect(visualCenters.map((x) => laneFromSurfaceX(x, width))).toEqual([0, 1, 2]);
+      expect(laneFromSurfaceX(width / 3 - .01, width)).toBe(0);
+      expect(laneFromSurfaceX(width / 3, width)).toBe(1);
+      expect(laneFromSurfaceX(width * 2 / 3 - .01, width)).toBe(1);
+      expect(laneFromSurfaceX(width * 2 / 3, width)).toBe(2);
+    }
+  });
+
+  it('fully replaces judgement feedback for every original stage locale', () => {
+    for (const _stage of stages) {
+      setLocale('zh-CN');
+      expect(['PERFECT', 'GREAT', 'OK', 'MISS'].map((kind) => localizedGardenFeedback(kind as 'PERFECT')))
+        .toEqual(['完美！', '很棒！', '可以！', '错过！']);
+      setLocale('en');
+      expect(['PERFECT', 'GREAT', 'OK', 'MISS'].map((kind) => localizedGardenFeedback(kind as 'PERFECT')))
+        .toEqual(['PERFECT!', 'GREAT!', 'OK!', 'MISS!']);
     }
   });
 });

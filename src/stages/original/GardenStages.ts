@@ -2,7 +2,8 @@ import type { PointerAction } from '../../game/InputRouter';
 import type { StageDefinition, StageRuntimeServices, JudgeResult } from '../../game/Stage';
 import type { ScheduledEvent, ScheduledJudgeTarget } from '../../timing/Scheduler';
 import type { TransportSnapshot } from '../../timing/Transport';
-import type { InputKind, JudgementKind } from '../../timing/config';
+import { TIMING_CONFIG, type InputKind, type JudgementKind } from '../../timing/config';
+import { t } from '../../i18n/strings';
 
 type StageId = 'bubble-kitchen' | 'cloud-post' | 'sleepy-greenhouse';
 type Palette = readonly [string, string, string, string];
@@ -17,6 +18,14 @@ type Profile = {
   palette: Palette;
   mechanic: 'laneTap' | 'swipe' | 'hold';
 };
+
+export function laneFromSurfaceX(x: number, surfaceWidth: number): number {
+  return Math.max(0, Math.min(2, Math.floor((x / Math.max(1, surfaceWidth)) * 3)));
+}
+
+export function localizedGardenFeedback(kind: JudgementKind): string {
+  return t(`feedback.${kind}` as 'feedback.PERFECT');
+}
 
 const PROFILES: Record<StageId, Profile> = {
   'bubble-kitchen': {
@@ -110,7 +119,7 @@ abstract class GardenStage implements StageDefinition {
           : action.direction === 'left' ? 'swipeLeft'
             : action.direction === 'right' ? 'swipeRight' : null;
     if (!actual) return null;
-    const actionLane = Math.max(0, Math.min(2, Math.floor((action.x / Math.max(1, window.innerWidth)) * 3)));
+    const actionLane = laneFromSurfaceX(action.x, action.surfaceWidth);
     let best: ScheduledJudgeTarget | null = null;
     let distance = Infinity;
     for (const target of live) {
@@ -136,7 +145,7 @@ abstract class GardenStage implements StageDefinition {
   }
 
   public render(ctx: CanvasRenderingContext2D, snap: TransportSnapshot): void {
-    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const W = TIMING_CONFIG.logicalWidth, H = TIMING_CONFIG.logicalHeight;
     const [top, bottom, accent, secondary] = this.profile.palette;
     const gradient = ctx.createLinearGradient(0, 0, 0, H);
     gradient.addColorStop(0, top); gradient.addColorStop(1, bottom);
@@ -206,7 +215,7 @@ abstract class GardenStage implements StageDefinition {
     if (this.feedback && now - this.feedback.at < .85) {
       ctx.fillStyle = this.feedback.kind === 'MISS' || this.feedback.kind === 'WAIT' ? '#ff8c9e' : '#fff';
       ctx.font = '900 68px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText(this.feedback.kind === 'WAIT' ? '…' : this.feedback.kind, 960, 170);
+      ctx.fillText(this.feedback.kind === 'WAIT' ? '…' : localizedGardenFeedback(this.feedback.kind), 960, 170);
     }
   }
 }

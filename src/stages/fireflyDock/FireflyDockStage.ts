@@ -7,10 +7,8 @@
  *   - A small glowing firefly-seed orb travels horizontally toward the centre
  *     post on each cue beat; when it perfectly overlaps the centre target,
  *     player taps to launch it skyward.
- *   - Player is NOT "WarioWare / Rhythm Heaven" character — the dock worker is
- *     a simple geometric circle sprite wearing a cap (two stacked circles
- *     + cap arc) that bobbles gently. No Nintendo-esque eyes, proportions, or
- *     copied poses.
+ *   - The dock worker is an original abstract geometric circle sprite wearing
+ *     a cap (two stacked circles + cap arc) that bobbles gently.
  *
  * Judgement visual reactions (ORIGINAL):
  *   - PERFECT: steady cyan→white glow firefly travels a clean quadratic arc
@@ -40,7 +38,7 @@ import type {
 } from '../../timing/Scheduler';
 import type { PointerAction } from '../../game/InputRouter';
 import type { TransportSnapshot } from '../../timing/Transport';
-import { JudgementKind } from '../../timing/config';
+import { JudgementKind, TIMING_CONFIG } from '../../timing/config';
 import { t } from '../../i18n/strings';
 import {
   FIREFLY_BPM,
@@ -238,8 +236,8 @@ export class FireflyDockStage implements StageDefinition {
   // -------- Rendering --------
 
   public render(ctx: CanvasRenderingContext2D, snap: TransportSnapshot): void {
-    const W = ctx.canvas.width; // logical width = 1920
-    const H = ctx.canvas.height; // logical height = 1080
+    const W = TIMING_CONFIG.logicalWidth;
+    const H = TIMING_CONFIG.logicalHeight;
     this.drawSky(ctx, W, H, snap);
     this.drawStars(ctx, W, H, snap);
     this.drawDistantMountains(ctx, W, H);
@@ -426,8 +424,7 @@ export class FireflyDockStage implements StageDefinition {
 
   private drawDockWorker(ctx: CanvasRenderingContext2D, snap: TransportSnapshot) {
     // Small original geometric sprite: body circle + cap half-circle, no
-    // eyes drawn on purpose (stick with abstract geometric figure to avoid
-    // any resemblance to known Nintendo character designs).
+    // eyes drawn on purpose; the figure stays abstract and geometric.
     const beat = snap.beatInBar;
     const bob = Math.abs(Math.sin(beat * Math.PI * 0.5)) * 6;
     const cx = LAYOUT.postX;

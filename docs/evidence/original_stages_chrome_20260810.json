@@ -15,7 +15,16 @@
     "droppedLate": 0,
     "visual": "three distinct cauldrons, matching lane cue, approach ring, bubbles",
     "completeRun": { "phase": "ended", "beat": 58.7097, "MISS": 23, "droppedLate": 0 },
-    "restart": { "phase": "playing", "beat": 0.5402, "countsReset": true }
+    "restart": { "phase": "playing", "beat": 0.5402, "countsReset": true },
+    "gate3Delta": {
+      "surfaceMapping": "PointerAction local surfaceWidth; independent of viewport letterboxing",
+      "touchLaneSmoke": [
+        { "lane": 0, "beat": 4.1765, "cumulativePerfect": 1, "droppedLate": 0 },
+        { "lane": 1, "beat": 7.0813, "cumulativePerfect": 2, "droppedLate": 0 },
+        { "lane": 2, "beat": 10.1429, "cumulativePerfect": 3, "droppedLate": 0 }
+      ],
+      "localizedFeedback": "zh-CN connected-Chrome canvas visibly rendered 错过！; no raw English judgement label"
+    }
   },
   "cloudPost": {
     "input": "URL-gated touch PointerEvent left swipe through InputRouter",

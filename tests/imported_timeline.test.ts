@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ImportedTrackTimeline } from '../src/autochart/ImportedTrackTimeline';
-import { targetExpirySongTime, targetOkWindowSec } from '../src/autochart/PulseGardenRunner';
+import { targetExpirySongTime, targetOkWindowSec, transitionToImportedPause } from '../src/autochart/PulseGardenRunner';
 import { Judge } from '../src/timing/Judge';
 import { Transport } from '../src/timing/Transport';
 import { TIMING_CONFIG } from '../src/timing/config';
@@ -55,5 +55,31 @@ describe('Pulse Garden target expiry semantics', () => {
     const release = { ...tap, id: 'r', inputKind: 'holdRelease' } as ScheduledJudgeTarget;
     expect(targetOkWindowSec(tap)).toBe(.13);
     expect(targetOkWindowSec(release)).toBe(.16);
+  });
+});
+
+describe('Pulse Garden confirmed pause transition', () => {
+  it('rolls back to playing and never pauses timeline when suspend fails', async () => {
+    const phases: string[] = [];
+    let timelinePauses = 0;
+    const ok = await transitionToImportedPause({
+      suspend: async () => false,
+      pauseTimeline: () => { timelinePauses++; },
+      setPhase: (phase) => { phases.push(phase); },
+    });
+    expect(ok).toBe(false);
+    expect(phases).toEqual(['pausing', 'playing']);
+    expect(timelinePauses).toBe(0);
+  });
+
+  it('enters paused only after confirmed suspend and timeline freeze', async () => {
+    const order: string[] = [];
+    const ok = await transitionToImportedPause({
+      suspend: async () => { order.push('suspend-confirmed'); return true; },
+      pauseTimeline: () => { order.push('timeline-paused'); },
+      setPhase: (phase) => { order.push(phase); },
+    });
+    expect(ok).toBe(true);
+    expect(order).toEqual(['pausing', 'suspend-confirmed', 'timeline-paused', 'paused']);
   });
 });

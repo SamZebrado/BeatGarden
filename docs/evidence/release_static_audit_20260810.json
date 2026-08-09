@@ -1,0 +1,40 @@
+{
+  "date": "2026-08-10",
+  "scope": "Release Candidate static, dependency, network, provenance, and lifecycle audit",
+  "forbiddenIpGrep": {
+    "terms": ["Nintendo", "Rhythm Heaven", "Wario", "osu", "Beat Saber", "Guitar Hero", "Mapperator", "BeatNet", "Essentia", "Meyda", "librosa"],
+    "productionSourceMatches": 0
+  },
+  "externalNetworkGrep": {
+    "runtimeHttpUrls": 0,
+    "networkApis": ["service-worker fetch"],
+    "serviceWorkerGuard": "GET and same-origin only",
+    "svgXmlns": "namespace declaration only; not a request"
+  },
+  "creativeAssets": [
+    "original public/icons/beatgarden.svg",
+    "deterministic 192 PNG export from the original SVG",
+    "deterministic 512 PNG export from the original SVG"
+  ],
+  "runtimeDependencies": 0,
+  "directDevelopmentDependencies": {
+    "typescript": { "version": "7.0.2", "license": "Apache-2.0" },
+    "vite": { "version": "8.2.1", "license": "MIT" },
+    "vitest": { "version": "4.1.10", "license": "MIT" },
+    "jsdom": { "version": "29.1.1", "license": "MIT" }
+  },
+  "npmAuditVulnerabilities": 0,
+  "lifecycleReview": {
+    "AudioEngine": "visibility/pagehide listeners removed and AudioContext closed",
+    "StageRunner": "Scheduler/InputRouter/resize/key/rAF/debug/status/canvas/audio teardown verified",
+    "PulseGardenRunner": "one-shot source stopped, InputRouter/key/rAF/canvas/status/audio released",
+    "AutoChartWorker": "terminated before replacement and on complete/error/cancel/exit",
+    "Calibration": "rAF/InputRouter/audio released on back",
+    "serviceWorker": "canonical cache writes awaited in the navigation respondWith lifecycle"
+  },
+  "browserCleanupEvidence": "Cloud Post and Sleepy Greenhouse exits each left canvasCount=0, runtimeCount=0, smokeCount=0, debugHandlePresent=false",
+  "remainingExternalBlockers": [
+    "No Android device is connected; real tablet runtime is UNVERIFIED.",
+    "The local repository has no git remote, the connected GitHub installation contains no BeatGarden repository, and gh authentication is invalid; public GitHub Pages deployment is UNVERIFIED."
+  ]
+}

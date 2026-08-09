@@ -1,6 +1,24 @@
 # GATE 3 — AutoChart + Multi-stage Content Review Record
 
-Status: implementation complete; final exact-SHA validation and Bridge submission pending.
+Status: official verdict `GATE 3: PARTIAL`; all three reported code blockers fixed and
+delta validation/submission in progress.
+
+## Official PARTIAL verdict and blocker closure
+
+- Bridge request id: `msm4st0h-6yrlp85y`
+- Message id: `zpupehtc6dk5rexrgoe7z8`
+- Nonce: `MSG_codex_gate3_autochart_c4caa4b_20260810a`
+- Blocker 1 — imported pause entered a half-paused state when WebAudio suspend was
+  not confirmed: fixed with an explicit `pausing` phase and rollback to `playing`;
+  the timeline pauses only after confirmed suspension, with true/false regression tests.
+- Blocker 2 — original-stage feedback bypassed i18n: fixed by routing all four
+  PERFECT/GREAT/OK/MISS labels through locale strings, with zh-CN and en tests and
+  connected-Chrome Chinese `错过！` visual confirmation.
+- Blocker 3 — Bubble lane input used viewport width instead of the canvas surface:
+  fixed by recording local surface dimensions in every `PointerAction` and mapping
+  against `surfaceWidth`; 1200 and 960 logical-width boundary/center tests pass.
+- Connected-Chrome delta smoke tapped all three Bubble lanes with touch PointerEvents:
+  lane 0/1/2 each incremented PERFECT and retained `droppedLate=0`.
 
 ## Content completeness
 
