@@ -2,6 +2,7 @@
   "date": "2026-08-10",
   "browser": "connected desktop Chrome",
   "productionUrl": "http://127.0.0.1:8789/BeatGarden/",
+  "exactRetestedHead": "5776efb",
   "buildBase": "/BeatGarden/",
   "online": {
     "registered": true,
@@ -19,6 +20,12 @@
     "mainMenuVisible": true,
     "serviceWorkerController": true,
     "cacheNames": ["beatgarden-shell-v3"]
+  },
+  "exactHeadRetest": {
+    "serverStoppedBeforeNavigation": true,
+    "url": "http://127.0.0.1:8789/BeatGarden/?offline-head=5776efb",
+    "navigationError": null,
+    "mainMenuVisible": true
   },
   "browserDiscoveredFix": "Online navigation now refreshes canonical ./index.html so the offline fallback references the current hashed bundle.",
   "responsiveEvidence": {

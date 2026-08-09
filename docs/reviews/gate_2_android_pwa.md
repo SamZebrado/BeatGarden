@@ -19,3 +19,12 @@ Outstanding before submission:
 - Android tablet real-device smoke (`ANDROID UNVERIFIED`)
 
 Requested verdict: `GATE 2: PASS / PARTIAL / FAIL`, with concrete blockers only.
+
+Exact pre-submission verification at code HEAD `5776efb`:
+- `npm ci`: PASS
+- `npm run lint`: PASS
+- `npm test -- --run`: 113/113 PASS (18 files)
+- `VITE_BASE=/BeatGarden/ npm run build`: PASS
+- production bundle: 120.78 kB / gzip 35.56 kB; Worker 4.61 kB
+- `npm audit --json`: 0 vulnerabilities
+- online controlled PWA then server-off new-URL navigation: PASS
