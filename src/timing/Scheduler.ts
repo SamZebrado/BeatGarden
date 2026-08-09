@@ -50,6 +50,8 @@ export interface ScheduledCueEvent {
 export interface ScheduledJudgeTarget {
   type: 'judge-target';
   beat: number;
+  /** Imported charts keep beat as annotation but judge against this song time. */
+  songTimeSec?: number;
   /** Unique id within one stage play. Stable across scheduler ticks. */
   id: string;
   /** tap / holdStart / holdRelease / swipeLeft / swipeRight / callEcho */

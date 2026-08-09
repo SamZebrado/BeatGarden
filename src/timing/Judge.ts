@@ -94,6 +94,7 @@ export class Judge {
   private judgedTargetIds: Set<string> = new Set();
   // Optional callback invoked whenever a judgement is recorded.
   private onJudgeCb: ((res: JudgeResult, target: ScheduledJudgeTarget) => void) | undefined;
+  private readonly targetAudioTime: (target: ScheduledJudgeTarget) => number;
   // For hold matching: hold start targets waiting for a release.
   private pendingHolds: Map<string, { startedAudioTime: number; startBeat: number }> = new Map();
   // For call-and-response echo matching: received echo targets (beat window).
@@ -105,14 +106,16 @@ export class Judge {
     config: TimingConfig,
     transport: Transport,
     calibrationOffsetMs: number = 0,
-    opts?: {
+  opts?: {
       onJudge?: (res: JudgeResult, target: ScheduledJudgeTarget) => void;
+      targetAudioTime?: (target: ScheduledJudgeTarget) => number;
     },
   ) {
     this.config = config;
     this.transport = transport;
     this.calibrationOffsetMs = calibrationOffsetMs;
     this.onJudgeCb = opts?.onJudge;
+    this.targetAudioTime = opts?.targetAudioTime ?? ((target) => this.transport.beatToAudioTime(target.beat));
   }
 
   getCalibrationOffsetMs(): number {
@@ -161,7 +164,7 @@ export class Judge {
     // Direction/semantic mismatch => MISS without consuming score windows?
     // Treat as MISS but still record delta (if timing window matched).
     const semanticOk = this.semanticMatch(target, inputKindActual);
-    const targetAudioTime = this.transport.beatToAudioTime(target.beat);
+    const targetAudioTime = this.targetAudioTime(target);
     const calSec = this.calibrationOffsetMs / 1000;
     const deltaSec = inputAudioTime - targetAudioTime - calSec;
     const deltaMs = deltaSec * 1000;
@@ -238,7 +241,7 @@ export class Judge {
   autoMiss(target: ScheduledJudgeTarget): JudgeResult | null {
     if (this.judgedTargetIds.has(target.id)) return null;
     this.judgedTargetIds.add(target.id);
-    const targetAudioTime = this.transport.beatToAudioTime(target.beat);
+    const targetAudioTime = this.targetAudioTime(target);
     const deltaMs = (this.transport.snapshot().audioTime - targetAudioTime) * 1000;
     if (this.runActive) {
       this.counts.MISS++;

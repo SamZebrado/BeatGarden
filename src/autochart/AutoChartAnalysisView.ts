@@ -1,0 +1,215 @@
+import { AudioEngine } from '../audio/AudioEngine';
+import { getLocale, t, toggleLocale } from '../i18n/strings';
+import { AUTOCHART_CONFIG } from './config';
+import { AutoChartWorkerClient } from './AutoChartWorkerClient';
+import { generateAutoChart } from './generateChart';
+import { prepareMonoForAnalysis } from './prepareAudio';
+import type { AutoChartAnalysis, AutoChartDifficulty, GeneratedAutoChart } from './types';
+
+export class AutoChartAnalysisView {
+  private readonly audio = new AudioEngine();
+  private readonly worker = new AutoChartWorkerClient();
+  private analysis: AutoChartAnalysis | null = null;
+  private chart: GeneratedAutoChart | null = null;
+  private difficulty: AutoChartDifficulty = 'normal';
+  private seed = 1;
+  private waveform: number[] = [];
+
+  constructor(private readonly root: HTMLElement) {
+    this.render();
+    if (new URLSearchParams(window.location.search).get('runtimeSmoke') === 'autochart-fixture') {
+      queueMicrotask(() => void this.analyzeFile(buildSyntheticFixtureFile()));
+    }
+  }
+
+  private render(): void {
+    this.root.replaceChildren();
+    this.root.style.cssText = 'width:100%;height:100%;overflow:auto;display:block;touch-action:pan-y;background:#090d20;';
+    const page = document.createElement('main');
+    page.style.cssText = 'min-height:100%;max-width:1100px;margin:0 auto;padding:32px 24px 64px;color:#fff;font-family:system-ui;';
+    page.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:center">
+        <a href="./" style="color:#b9c9ff;text-decoration:none;font-size:16px">← ${t('autochart.back')}</a>
+        <button data-role="language" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">${t('language.switch')}</button>
+      </div>
+      <h1 style="font-size:48px;margin-top:38px">${t('autochart.title')}</h1>
+      <p style="font-size:20px;color:#cbd4f5;margin-top:12px">${t('autochart.subtitle')}</p>
+      <section style="margin-top:30px;padding:22px;border-radius:18px;background:#121a35;border:1px solid #2c3968">
+        <label style="display:inline-flex;align-items:center;padding:16px 22px;border-radius:14px;background:#526fff;font-weight:800;cursor:pointer">
+          ${t('autochart.choose')}
+          <input data-role="file" type="file" accept="audio/*" style="position:absolute;opacity:0;width:1px;height:1px" />
+        </label>
+        <p style="margin-top:16px;color:#b8c9ee">${t('autochart.privacy')}</p>
+        <p style="margin-top:8px;color:#ffcf91">${t('autochart.rights')}</p>
+      </section>
+      <div data-role="status" aria-live="polite" style="min-height:52px;margin-top:24px;font-size:19px;color:#d9e4ff"></div>
+      <section data-role="results"></section>
+    `;
+    page.querySelector<HTMLInputElement>('[data-role="file"]')!.addEventListener('change', (event) => void this.onFile(event));
+    page.querySelector<HTMLButtonElement>('[data-role="language"]')!.addEventListener('click', () => {
+      toggleLocale();
+      this.render();
+    });
+    this.root.appendChild(page);
+  }
+
+  private async onFile(event: Event): Promise<void> {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    await this.analyzeFile(file);
+  }
+
+  private async analyzeFile(file: File): Promise<void> {
+    const status = this.root.querySelector<HTMLElement>('[data-role="status"]')!;
+    const results = this.root.querySelector<HTMLElement>('[data-role="results"]')!;
+    results.replaceChildren();
+    try {
+      status.textContent = `${t('autochart.preparing')} 0%`;
+      const data = await file.arrayBuffer();
+      const decoded = await this.audio.getContext().decodeAudioData(data.slice(0));
+      const mono = await prepareMonoForAnalysis(decoded, AUTOCHART_CONFIG.analysisSampleRate, ({ processedFrames, totalFrames }) => {
+        status.textContent = `${t('autochart.preparing')} ${Math.round(processedFrames / totalFrames * 100)}%`;
+      });
+      this.waveform = downsampleWaveform(mono, 900);
+      status.textContent = `${t('autochart.analyzing')} 0%`;
+      this.analysis = await this.worker.analyze(mono, AUTOCHART_CONFIG.analysisSampleRate, (progress) => {
+        status.textContent = `${t('autochart.analyzing')} ${Math.round(progress * 100)}%`;
+      });
+      this.chart = generateAutoChart(this.analysis, this.difficulty, this.seed);
+      status.textContent = file.name;
+      this.renderResults();
+    } catch (error) {
+      console.error(error);
+      status.textContent = t('autochart.failed');
+    }
+  }
+
+  private renderResults(): void {
+    if (!this.analysis || !this.chart) return;
+    const results = this.root.querySelector<HTMLElement>('[data-role="results"]')!;
+    results.replaceChildren();
+    const panel = document.createElement('section');
+    panel.style.cssText = 'margin-top:8px;padding:22px;border-radius:18px;background:#121a35;border:1px solid #2c3968;';
+    const bpm = this.analysis.tempo.bpm?.toFixed(1) ?? '—';
+    const mode = this.analysis.tempo.mode === 'beat-grid' ? t('autochart.beatMode') : t('autochart.localMode');
+    panel.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
+        <div><small>${t('autochart.tempo')}</small><strong style="display:block;font-size:28px">${bpm}</strong></div>
+        <div><small>${t('autochart.confidence')}</small><strong style="display:block;font-size:28px">${Math.round(this.analysis.tempo.confidence * 100)}%</strong></div>
+        <div><small>${t('autochart.mode')}</small><strong style="display:block;font-size:20px">${mode}</strong></div>
+        <div><small>${t('autochart.onsets')}</small><strong style="display:block;font-size:28px">${this.analysis.onsets.length}</strong></div>
+        <div><small>${t('autochart.notes')}</small><strong data-role="note-count" style="display:block;font-size:28px">${this.chart.notes.length}</strong></div>
+      </div>
+      <canvas data-role="analysis-canvas" width="1000" height="300" style="width:100%;margin-top:22px;border-radius:12px;background:#080c1d"></canvas>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin-top:22px">
+        <label>${t('autochart.difficulty')}<select data-role="difficulty" style="display:block;margin-top:6px;padding:12px;background:#080c1d;color:#fff;border:1px solid #53618d;border-radius:10px">
+          <option value="easy">${t('autochart.easy')}</option><option value="normal">${t('autochart.normal')}</option><option value="hard">${t('autochart.hard')}</option>
+        </select></label>
+        <label>${t('autochart.seed')}<input data-role="seed" type="number" value="${this.seed}" min="0" max="999999" style="display:block;margin-top:6px;padding:12px;width:130px;background:#080c1d;color:#fff;border:1px solid #53618d;border-radius:10px" /></label>
+        <button data-role="regenerate" style="padding:13px 18px;border:0;border-radius:11px;background:#4dcb9a;color:#07150f;font-weight:800">${t('autochart.regenerate')}</button>
+      </div>
+    `;
+    const difficulty = panel.querySelector<HTMLSelectElement>('[data-role="difficulty"]')!;
+    difficulty.value = this.difficulty;
+    difficulty.addEventListener('change', () => {
+      this.difficulty = difficulty.value as AutoChartDifficulty;
+      this.regenerate(panel);
+    });
+    panel.querySelector<HTMLButtonElement>('[data-role="regenerate"]')!.addEventListener('click', () => {
+      this.seed = Number(panel.querySelector<HTMLInputElement>('[data-role="seed"]')!.value) || 0;
+      this.regenerate(panel);
+    });
+    results.appendChild(panel);
+    this.drawAnalysis(panel.querySelector<HTMLCanvasElement>('[data-role="analysis-canvas"]')!);
+  }
+
+  private regenerate(panel: HTMLElement): void {
+    if (!this.analysis) return;
+    this.chart = generateAutoChart(this.analysis, this.difficulty, this.seed);
+    panel.querySelector<HTMLElement>('[data-role="note-count"]')!.textContent = String(this.chart.notes.length);
+    this.drawAnalysis(panel.querySelector<HTMLCanvasElement>('[data-role="analysis-canvas"]')!);
+  }
+
+  private drawAnalysis(canvas: HTMLCanvasElement): void {
+    if (!this.analysis || !this.chart) return;
+    const ctx = canvas.getContext('2d')!;
+    const width = canvas.width;
+    const height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+    ctx.strokeStyle = '#6075ba';
+    ctx.beginPath();
+    this.waveform.forEach((value, index) => {
+      const x = index / Math.max(1, this.waveform.length - 1) * width;
+      const y = height * 0.36 - value * height * 0.28;
+      if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    const duration = Math.max(0.001, this.analysis.durationSec);
+    for (const onset of this.analysis.onsets) {
+      const x = onset.timeSec / duration * width;
+      ctx.fillStyle = onset.band === 'low' ? '#ffb15c' : onset.band === 'high' ? '#91dfff' : '#85efb7';
+      ctx.fillRect(x, height * 0.55, 2, height * 0.18);
+    }
+    for (const note of this.chart.notes) {
+      const x = note.songTimeSec / duration * width;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x, height * 0.84, note.type === 'swipe' ? 5 : 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function downsampleWaveform(samples: Float32Array, points: number): number[] {
+  const output: number[] = [];
+  const stride = Math.max(1, Math.floor(samples.length / points));
+  for (let start = 0; start < samples.length; start += stride) {
+    let peak = 0;
+    for (let i = start; i < Math.min(samples.length, start + stride); i++) {
+      if (Math.abs(samples[i]) > Math.abs(peak)) peak = samples[i];
+    }
+    output.push(peak);
+  }
+  return output;
+}
+
+export function autoChartLocale(): string {
+  return getLocale();
+}
+
+function buildSyntheticFixtureFile(): File {
+  const sampleRate = 22_050;
+  const durationSec = 10;
+  const samples = new Float32Array(sampleRate * durationSec);
+  for (let time = 0; time < durationSec; time += 0.5) {
+    const start = Math.floor(time * sampleRate);
+    for (let i = 0; i < sampleRate * 0.05 && start + i < samples.length; i++) {
+      const envelope = Math.exp(-i / (sampleRate * 0.012));
+      samples[start + i] += Math.sin(2 * Math.PI * 90 * i / sampleRate) * envelope * 0.75;
+    }
+  }
+  const dataBytes = samples.length * 2;
+  const buffer = new ArrayBuffer(44 + dataBytes);
+  const view = new DataView(buffer);
+  writeAscii(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataBytes, true);
+  writeAscii(view, 8, 'WAVEfmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, 'data');
+  view.setUint32(40, dataBytes, true);
+  for (let i = 0; i < samples.length; i++) {
+    view.setInt16(44 + i * 2, Math.max(-32768, Math.min(32767, Math.round(samples[i] * 32767))), true);
+  }
+  return new File([buffer], 'BeatGarden-120BPM-original-fixture.wav', { type: 'audio/wav' });
+}
+
+function writeAscii(view: DataView, offset: number, text: string): void {
+  for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+}

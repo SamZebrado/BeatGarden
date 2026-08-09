@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **PHASE 0 — GATE 0 RUNTIME EVIDENCE SUBMISSION; USER-COMPREHENSION: YES**
+Current phase: **GATE 0 PASS; USER-COMPREHENSION YES; AUTOCHART FOUNDATION IN PROGRESS**
 
 Last updated: 2026-08-10
 
@@ -11,10 +11,26 @@ Last updated: 2026-08-10
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
 - Latest committed runtime telemetry baseline: `8381333`.
-- Current verified working tree: tsc 0, 88/88 tests, production build PASS.
+- Current verified working tree: tsc 0, 96/96 tests, production build PASS.
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
+
+## Official GATE 0 verdict — PASS (2026-08-10)
+
+```
+GATE 0: PASS
+Nonce ownership: PASS
+Blocking issues: None.
+Required fixes: None for GATE 0.
+```
+
+- Bridge request id: `msm1u6pf-yyfvbk3u`
+- Message id: `2vwbsojs64ipcszqqcg8hh`
+- Nonce: `MSG_codex_gate0_runtime_47cfe6c_20260810a`
+- Attachments: six of six acknowledged and independently reviewed.
+- This is not final acceptance. Development continues automatically into AutoChart,
+  complete product flow, content, PWA, performance, and GATE 1–4.
 
 ## 2026-08-10 runtime closeout
 
@@ -33,6 +49,27 @@ Last updated: 2026-08-10
 - [x] Fixed a browser-discovered early-auto-MISS bug: expiry no longer includes a
   future `+1 beat` lookahead. Added two regression tests.
 - [x] First-time player can understand within 10 seconds without README: **YES**.
+
+## AutoChart foundation (in progress)
+
+- [x] No third-party DSP/runtime CDN; deterministic local TypeScript FFT and features.
+- [x] Frame features: RMS, centroid, rolloff, four energy bands, global/low/mid/high
+  positive spectral flux, and local dynamic range.
+- [x] Rolling median/MAD onset normalization, local maxima, refractory interval.
+- [x] Tempo autocorrelation, phase search, confidence, and onset-timed fallback.
+- [x] Difficulty density/minimum-gap/gesture profiles plus seeded deterministic variation.
+- [x] Imported targets carry authoritative `songTimeSec`; beat remains annotation.
+- [x] Shared Judge accepts an injected songTime-to-AudioContext resolver; no second Judge.
+- [x] Imported timeline pause/resume/seek/restart mapping tests.
+- [x] AudioBuffer mono/downsample preparation yields between chunks.
+- [x] FFT analysis runs in a transferable Web Worker with progress and termination.
+- [x] Local analysis UI shows privacy/rights warning, waveform, envelopes/markers, tempo,
+  confidence, timing mode, difficulty, seed, and note count.
+- [x] Real Chrome in-memory WAV smoke: expected 120 BPM, detected 119.0 BPM, confidence
+  68%, 20 onsets, 14 normal notes, no observed console error.
+- [ ] Native file-picker upload smoke: NOT RUN because the connected browser API has no
+  file-upload operation and Chrome rejected programmatic path assignment.
+- [ ] Imported-track AudioBufferSource playback and playable Pulse Garden are pending.
 
 ## Historical independent verdict (Round 3, superseded by source PASS)
 
@@ -186,7 +223,7 @@ GATE 0: PARTIAL (Round 2 — source-level independent audit, 198eda0 reviewed)
 ## Known issues
 
 - Still no Calibration / Settings / PWA UI (Phase 2)
-- GATE 0 overall PASS is still pending ChatGPT's review of the submitted A-D evidence.
+- AutoChart worker/UI/playback and the remaining original stages are still incomplete.
 
 ## USER-COMPREHENSION implementation (browser verdict still pending)
 
@@ -214,13 +251,13 @@ ROUND 4 SOURCE REVIEW PASS RECEIVED
   - attachment ACK: PASS
   - nonce ownership: PASS
   - source blockers: none
-  - real Chrome A-D runtime evidence: complete, pending overall verdict submission
+  - real Chrome A-D runtime evidence: independently accepted
+  - overall verdict: GATE 0 PASS
 ```
 
 ## Next action
 
-1. Commit the browser-discovered fixes and evidence.
-2. Submit exact A-D runtime observations to the owning ChatGPT conversation.
-3. If overall GATE 0 is PASS, immediately proceed to the next authorized phase.
-4. USER-COMPREHENSION is already YES, so AutoChart and additional Stage work may begin
-   after the overall Gate 0 verdict.
+1. Implement AutoChart DSP, worker analysis, imported-song playback, and analysis UI.
+2. Keep `songTimeSec` authoritative and share Judge/calibration/InputRouter/Stats.
+3. Complete Firefly result/restart/stage-select flow and then additional stages.
+4. Continue through GATE 1–4 and FINAL_ACCEPTANCE without stopping at phase boundaries.

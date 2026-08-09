@@ -1,0 +1,29 @@
+{
+  "date": "2026-08-10",
+  "scope": "AutoChart deterministic DSP foundation and browser Worker smoke",
+  "privacy": "local File to decodeAudioData to mono PCM to transferable Worker; no upload or backend",
+  "synthetic_browser_fixture": {
+    "source": "in-memory original 10-second WAV, 90 Hz burst every 0.5 seconds",
+    "detectedBpm": 119.0,
+    "expectedBpm": 120,
+    "confidence": 0.68,
+    "timingMode": "beat-grid",
+    "onsetCandidates": 20,
+    "normalNotes": 14,
+    "consoleErrors": 0
+  },
+  "timing": {
+    "authoritativeField": "songTimeSec",
+    "beatGrid": "annotation only",
+    "pauseResumeSeekRestartTests": "PASS",
+    "sharedJudgeTargetResolverTest": "PASS"
+  },
+  "tests": {
+    "total": "96/96 PASS",
+    "files": 13,
+    "autochart": "6/6",
+    "importedTimeline": "2/2"
+  },
+  "build": "PASS; Worker emitted as separate 4.72 kB asset",
+  "nativeFilePickerSmoke": "NOT RUN: connected browser API cannot set file inputs; Chrome correctly rejected programmatic path assignment"
+}
