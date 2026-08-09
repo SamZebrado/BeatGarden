@@ -1,9 +1,17 @@
 # GATE 3 — AutoChart + Multi-stage Content Review Record
 
-Status: official verdict `GATE 3: PARTIAL`; all three reported code blockers fixed and
-delta validation/submission in progress.
+Status: official verdict `GATE 3: PASS`; this is not final acceptance.
 
-## Official PARTIAL verdict and blocker closure
+## Official PASS verdict
+
+- Delta request id: `msm58d7v-pywqhko2`
+- Delta message id: `4nqa2bv5v86sokgecq64ws`
+- Delta nonce: `MSG_codex_gate3_fix_1007325_20260810a`
+- Seven of seven attachments acknowledged.
+- Independent reviewer verdict: `GATE 3: PASS`; concrete blockers: none.
+- Android hardware remains a GATE 2 external proof and did not block GATE 3.
+
+## Superseded PARTIAL verdict and blocker closure
 
 - Bridge request id: `msm4st0h-6yrlp85y`
 - Message id: `zpupehtc6dk5rexrgoe7z8`

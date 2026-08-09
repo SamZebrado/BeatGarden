@@ -1,6 +1,11 @@
 # GATE 4 — Release Candidate / Full Project Review Record
 
-Status: release package complete; Bridge submission pending.
+Status: release package submitted; independent verdict pending.
+
+- Request id: `msm5bks4-9xgt95kb`
+- Message id: `dxut5vd7vwljfg7pktu6`
+- Nonce: `MSG_codex_gate4_rc_91744e2_20260810a`
+- Ten of ten attachments confirmed in the thread.
 
 Review package will use:
 - `docs/RELEASE_CANDIDATE_REPORT.md`

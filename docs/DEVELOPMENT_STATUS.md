@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **GATE 2 PARTIAL (ANDROID EXTERNAL); GATE 3 PARTIAL FIXED; RC IN PROGRESS**
+Current phase: **GATE 2 PARTIAL (ANDROID EXTERNAL); GATE 3 PASS; GATE 4 SUBMITTED**
 
 Last updated: 2026-08-10
 
@@ -24,7 +24,15 @@ Last updated: 2026-08-10
   blocker is explicitly external and `ANDROID UNVERIFIED` remains the honest status.
 - Development continues through GATE 3/4 and all work independent of that device.
 
-## Official GATE 3 verdict — PARTIAL; blockers fixed (2026-08-10)
+## Official GATE 3 verdict — PASS (2026-08-10)
+
+- Delta request id `msm58d7v-pywqhko2`, message id `4nqa2bv5v86sokgecq64ws`,
+  nonce `MSG_codex_gate3_fix_1007325_20260810a`.
+- Seven of seven attachments acknowledged; independent reviewer reported no blockers.
+- Android hardware remains an external GATE 2 proof and did not block GATE 3.
+- This is not final acceptance; GATE 4 is already submitted and development continues.
+
+### Superseded PARTIAL and fixes
 
 - Bridge request id `msm4st0h-6yrlp85y`, message id `zpupehtc6dk5rexrgoe7z8`,
   nonce `MSG_codex_gate3_autochart_c4caa4b_20260810a`.
@@ -35,7 +43,14 @@ Last updated: 2026-08-10
 - Pointer actions now carry local surface dimensions; Bubble lane selection no longer
   depends on `window.innerWidth`. All three lanes scored PERFECT in touch smoke with
   `droppedLate=0`.
-- Exact-SHA delta submission is being prepared; work continues into GATE 4 regardless.
+- Exact-SHA delta at `1007325` was independently accepted.
+
+## GATE 4 submission (2026-08-10)
+
+- Request id `msm5bks4-9xgt95kb`, message id `dxut5vd7vwljfg7pktu6`,
+  nonce `MSG_codex_gate4_rc_91744e2_20260810a`.
+- Ten of ten release-package attachments were confirmed in the ChatGPT thread.
+- Verdict pending; independent work and evidence consolidation continue.
 
 ## Official GATE 1 verdict — PASS (2026-08-10)
 
