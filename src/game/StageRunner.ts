@@ -24,6 +24,7 @@ import { DebugOverlay } from '../render/DebugOverlay';
 import { resumeAfterAudioConfirmed } from './playbackLifecycle';
 import { expiredJudgeBeat } from './judgementExpiry';
 import { getLocale, t, toggleLocale } from '../i18n/strings';
+import { loadSettings } from '../settings/settings';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
@@ -80,10 +81,11 @@ export class StageRunner {
     // Build engine / services.
     this.canvasMgr = new CanvasManager({ parent: opts.root, config: this.config });
     const runtimeSmoke = new URLSearchParams(window.location.search).get('runtimeSmoke');
+    const settings = loadSettings();
     let resumeAttemptCount = 0;
     this.audio = new AudioEngine({
-      musicVolume: this.config.musicVolumeDefault,
-      sfxVolume: this.config.sfxVolumeDefault,
+      musicVolume: settings.musicVolume,
+      sfxVolume: settings.sfxVolume,
       ...(runtimeSmoke === 'visibility-reject'
         ? { resumeAttempt: async (ctx: AudioContext) => {
             resumeAttemptCount++;
@@ -99,7 +101,7 @@ export class StageRunner {
       config: this.config,
       synth: this.synth,
     });
-    this.judge = new Judge(this.config, this.transport, this.config.calibrationDefaultOffsetMs, {
+    this.judge = new Judge(this.config, this.transport, settings.calibrationOffsetMs, {
       onJudge: (res, target) => {
         this.debug.reportJudgement(res);
         const targetAudioTime = this.transport.beatToAudioTime(target.beat);

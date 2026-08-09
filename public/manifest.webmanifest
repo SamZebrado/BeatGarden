@@ -1,0 +1,22 @@
+{
+  "name": "BeatGarden",
+  "short_name": "BeatGarden",
+  "description": "Original touch-first rhythm gardens and private local AutoChart.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#080b1c",
+  "theme_color": "#17295a",
+  "lang": "zh-CN",
+  "categories": ["games", "music"],
+  "icons": [
+    {
+      "src": "./icons/beatgarden.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

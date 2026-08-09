@@ -2,6 +2,8 @@ import { AutoChartAnalysisView } from '../autochart/AutoChartAnalysisView';
 import { StageRunner } from '../game/StageRunner';
 import { t, toggleLocale } from '../i18n/strings';
 import { FireflyDockStage } from '../stages/fireflyDock/FireflyDockStage';
+import { CalibrationView } from '../settings/CalibrationView';
+import { SettingsView } from '../settings/SettingsView';
 
 export class AppController {
   constructor(private readonly root: HTMLElement) {}
@@ -26,8 +28,14 @@ export class AppController {
         <button data-role="original" style="min-height:170px;padding:25px;border-radius:22px;border:1px solid #4e67b8;background:linear-gradient(145deg,#17295a,#1b2046);color:#fff;text-align:left;cursor:pointer"><strong style="font-size:28px">${t('menu.original')}</strong><span style="display:block;color:#c9d7ff;font-size:17px;line-height:1.5;margin-top:12px">${t('menu.originalDetail')}</span></button>
         <button data-role="autochart" style="min-height:170px;padding:25px;border-radius:22px;border:1px solid #4e9b80;background:linear-gradient(145deg,#123d38,#172e45);color:#fff;text-align:left;cursor:pointer"><strong style="font-size:28px">${t('menu.yourMusic')}</strong><span style="display:block;color:#d2f5e6;font-size:17px;line-height:1.5;margin-top:12px">${t('menu.yourMusicDetail')}</span></button>
       </div>`;
+    const utilities = document.createElement('div');
+    utilities.style.cssText = 'display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:22px';
+    utilities.innerHTML = `<button data-role="calibration" style="padding:14px 18px;border:1px solid #59678e;border-radius:14px;background:#151c38;color:#fff"><strong>${t('menu.calibration')}</strong><span style="display:block;color:#aebbe4;margin-top:5px">${t('menu.calibrationDetail')}</span></button><button data-role="settings" style="padding:14px 18px;border:1px solid #59678e;border-radius:14px;background:#151c38;color:#fff"><strong>${t('menu.settings')}</strong><span style="display:block;color:#aebbe4;margin-top:5px">${t('menu.settingsDetail')}</span></button>`;
+    page.appendChild(utilities);
     page.querySelector<HTMLButtonElement>('[data-role="original"]')!.addEventListener('click', this.showStageSelect);
     page.querySelector<HTMLButtonElement>('[data-role="autochart"]')!.addEventListener('click', this.showAutoChart);
+    utilities.querySelector<HTMLButtonElement>('[data-role="calibration"]')!.addEventListener('click', this.showCalibration);
+    utilities.querySelector<HTMLButtonElement>('[data-role="settings"]')!.addEventListener('click', this.showSettings);
     page.querySelector<HTMLButtonElement>('[data-role="language"]')!.addEventListener('click', () => { toggleLocale(); this.showMenu(); });
     this.root.appendChild(page);
   };
@@ -47,6 +55,16 @@ export class AppController {
     new AutoChartAnalysisView(this.root, this.showMenu);
   };
 
+  showCalibration = (): void => {
+    this.prepareRoot();
+    new CalibrationView(this.root, this.showMenu);
+  };
+
+  showSettings = (): void => {
+    this.prepareRoot();
+    new SettingsView(this.root, this.showMenu);
+  };
+
   playFirefly = (): void => {
     this.prepareRoot();
     new StageRunner({ root: this.root, stage: new FireflyDockStage(), onExit: this.showStageSelect });
@@ -57,4 +75,3 @@ export class AppController {
     this.root.style.cssText = 'width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 20%,#18244d,#080b1c 70%);';
   }
 }
-

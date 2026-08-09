@@ -9,6 +9,7 @@ import { TIMING_CONFIG, type InputKind, type JudgementKind } from '../timing/con
 import { ImportedTrackPlayer } from './ImportedTrackPlayer';
 import { ImportedTrackTimeline } from './ImportedTrackTimeline';
 import type { AutoChartNote, GeneratedAutoChart } from './types';
+import { loadSettings } from '../settings/settings';
 
 type Phase = 'ready' | 'playing' | 'paused' | 'ended';
 
@@ -45,7 +46,7 @@ export class PulseGardenRunner {
     this.timeline = new ImportedTrackTimeline(() => audio.now());
     this.player = new ImportedTrackPlayer({ context: audio.getContext(), destination: audio.getMusicBus() });
     const transport = new Transport(() => audio.now(), chart.bpm ?? 120, [4, 4]);
-    this.judge = new Judge(TIMING_CONFIG, transport, 0, {
+    this.judge = new Judge(TIMING_CONFIG, transport, loadSettings().calibrationOffsetMs, {
       targetAudioTime: (target) => this.timeline.songTimeToAudioTime(target.songTimeSec!),
       onJudge: (result) => {
         this.feedback = { kind: result.kind, at: this.audio.now() };

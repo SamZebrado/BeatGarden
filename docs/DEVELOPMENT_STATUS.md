@@ -11,7 +11,7 @@ Last updated: 2026-08-10
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
 - Latest committed runtime telemetry baseline: `8381333`.
-- Current verified working tree: tsc 0, 99/99 tests, production build PASS.
+- Current verified working tree: tsc 0, 101/101 tests, production build PASS.
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
@@ -80,6 +80,20 @@ Required fixes: None for GATE 0.
 - [x] Real Chrome Pulse Garden smoke: target song time 0.499229 s, mouse input song
   time 0.502 s -> PERFECT; pause froze song time exactly for 1.3 s.
 - [ ] Native file-picker smoke and a complete real-song manual play remain pending.
+
+## Calibration / Settings / PWA (in progress)
+
+- [x] Real product calibration page schedules WebAudio ticks and captures InputRouter
+  audio timestamps; 16 valid Chrome clicks saved `+6.3 ms`.
+- [x] Calibration offset is loaded into built-in and imported-song Judge instances.
+- [x] Music/SFX volume, calibration, and reduced-motion preference persist locally.
+- [x] Manifest, original maskable SVG icon, service worker, offline shell, and runtime
+  same-origin asset caching implemented without a CDN.
+- [x] `/BeatGarden/` static mount returned correct HTTP 200/MIME for index, hashed JS,
+  Worker, manifest, and service worker.
+- [ ] Real-browser production install/offline reload: NOT RUN because this managed shell
+  terminates temporary servers between browser tool calls.
+- [ ] Android tablet real-device runtime: UNVERIFIED.
 
 ## Historical independent verdict (Round 3, superseded by source PASS)
 

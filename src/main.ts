@@ -6,6 +6,7 @@
 
 import { t } from './i18n/strings';
 import { AppController } from './app/AppController';
+import { registerServiceWorker } from './pwa/registerServiceWorker';
 
 function boot(): void {
   const root = document.getElementById('app');
@@ -21,3 +22,5 @@ if (document.readyState === 'loading') {
 } else {
   boot();
 }
+
+registerServiceWorker();

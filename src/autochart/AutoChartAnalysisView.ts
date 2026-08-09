@@ -6,9 +6,13 @@ import { generateAutoChart } from './generateChart';
 import { prepareMonoForAnalysis } from './prepareAudio';
 import type { AutoChartAnalysis, AutoChartDifficulty, GeneratedAutoChart } from './types';
 import { PulseGardenRunner } from './PulseGardenRunner';
+import { loadSettings } from '../settings/settings';
 
 export class AutoChartAnalysisView {
-  private readonly audio = new AudioEngine();
+  private readonly audio = new AudioEngine({
+    musicVolume: loadSettings().musicVolume,
+    sfxVolume: loadSettings().sfxVolume,
+  });
   private readonly worker = new AutoChartWorkerClient();
   private analysis: AutoChartAnalysis | null = null;
   private chart: GeneratedAutoChart | null = null;

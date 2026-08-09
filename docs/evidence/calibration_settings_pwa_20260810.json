@@ -1,0 +1,33 @@
+{
+  "date": "2026-08-10",
+  "calibration": {
+    "browser": "real Chrome",
+    "validInputs": 16,
+    "savedOffsetMs": 6.3265,
+    "audioContextState": "running",
+    "failureTimeoutBugFoundAndFixed": true,
+    "navigationPreventDefaultBugFoundAndFixed": true
+  },
+  "settings": {
+    "musicVolumePersisted": 0.25,
+    "sfxVolumePersisted": 0.35,
+    "reducedMotionPersisted": true,
+    "calibrationAppliedToBuiltInAndImportedJudge": true
+  },
+  "githubPagesSubpath": {
+    "buildBase": "/BeatGarden/",
+    "index": "200 text/html",
+    "hashedJs": "200 text/javascript",
+    "analysisWorker": "200 text/javascript",
+    "manifest": "200 application/manifest+json",
+    "serviceWorker": "200 text/javascript"
+  },
+  "pwa": {
+    "manifest": "implemented",
+    "serviceWorker": "implemented",
+    "offlineShell": "implemented; runtime cache for hashed assets",
+    "realBrowserProductionInstall": "NOT RUN: managed shell terminates temporary server between browser tool calls",
+    "offlineReload": "NOT RUN"
+  },
+  "android": "UNVERIFIED"
+}

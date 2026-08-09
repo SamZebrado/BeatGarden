@@ -8,8 +8,8 @@
 //   - Use median (not mean) so a few stray taps don't skew result.
 
 import { describe, it, expect } from 'vitest';
-import { median, removeOutliers } from '../src/utils/stats';
 import { TIMING_CONFIG } from '../src/timing/config';
+import { calculateCalibrationOffset } from '../src/settings/calibration';
 
 /**
  * Simulate a calibration run. Inputs: `rawTapDeltasMs` = raw deltaMs between
@@ -20,13 +20,7 @@ import { TIMING_CONFIG } from '../src/timing/config';
  * Convention: effectiveDeltaMs = rawDeltaMs - calibrationOffsetMs.
  * To make median(effectiveDeltaMs) ≈ 0: calibrationOffsetMs = median(rawDeltaMs).
  */
-function simulateCalibration(rawTapDeltasMs: number[]): number | null {
-  const cfg = TIMING_CONFIG;
-  if (rawTapDeltasMs.length < cfg.calibrationMinSamples) return null;
-  const { kept } = removeOutliers(rawTapDeltasMs, cfg.calibrationOutlierStdDevMul);
-  if (kept.length < Math.max(8, Math.floor(cfg.calibrationMinSamples * 0.6))) return null;
-  return median(kept);
-}
+const simulateCalibration = calculateCalibrationOffset;
 
 describe('Calibration — median + outlier removal robust', () => {
   it('all taps perfectly centered: offset ≈ 0', () => {
