@@ -38,6 +38,27 @@ describe('Timing drift — renderer frame drops do not shift music phase', () =>
     // Another 15 s → 70 beats total.
     expect(finalSnap.beat).toBeCloseTo(70, 4);
   });
+
+  it('ten-minute mixed-frame simulation stays locked to the audio clock', () => {
+    const clock = new MockAudioClock();
+    const transport = new Transport(() => clock.now(), 137);
+    transport.start(0, clock.now());
+
+    const framePattern = [1 / 60, 1 / 30, 1 / 120, .075, 1 / 60];
+    let elapsed = 0;
+    let frame = 0;
+    while (elapsed < 600) {
+      const step = Math.min(framePattern[frame % framePattern.length], 600 - elapsed);
+      clock.advanceSeconds(step);
+      elapsed += step;
+      if (frame % 9 !== 0) void transport.snapshot();
+      frame++;
+    }
+
+    const snapshot = transport.snapshot();
+    expect(snapshot.transportTime).toBeCloseTo(600, 8);
+    expect(snapshot.beat).toBeCloseTo(600 * 137 / 60, 8);
+  });
 });
 
 describe('Timing drift — JS scheduler tick jitter does not make note onsets jitter', () => {
