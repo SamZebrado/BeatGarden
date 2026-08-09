@@ -22,7 +22,7 @@ Goal for v1: 0 third-party files imported as binary assets.
 | typescript    | 7.0.2   | Apache-2.0 | Build type checking       |
 | vite          | 8.2.1   | MIT        | Dev server + bundler       |
 | vitest        | 4.1.10  | MIT        | Unit tests                 |
-| jsdom         | 30.0.1  | MIT        | Test-only DOM environment  |
+| jsdom         | 29.1.1  | MIT        | Test-only DOM environment  |
 
 These are **code dependencies**, not creative assets (music/sfx/art/fonts).
 
