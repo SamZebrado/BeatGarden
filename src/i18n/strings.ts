@@ -67,6 +67,12 @@ const zhCN = {
   'autochart.localMode': '起音直接计时',
   'autochart.beatMode': '节拍网格辅助',
   'autochart.back': '返回萤火码头',
+  'autochart.play': '进入脉冲花园',
+  'autogarden.title': '脉冲花园',
+  'autogarden.instructions': '光点进入中央花环时操作：圆点点击，箭头滑动，长条按住。',
+  'autogarden.start': '点击或触摸，开始播放本地音乐',
+  'autogarden.wait': '再等等：跟随正在靠近的光点',
+  'autogarden.paused': '已暂停 · 再按 Esc 继续',
 } as const;
 
 const en: Record<keyof typeof zhCN, string> = {
@@ -136,6 +142,12 @@ const en: Record<keyof typeof zhCN, string> = {
   'autochart.localMode': 'Direct onset timing',
   'autochart.beatMode': 'Beat-grid assisted',
   'autochart.back': 'Back to Firefly Dock',
+  'autochart.play': 'Enter Pulse Garden',
+  'autogarden.title': 'Pulse Garden',
+  'autogarden.instructions': 'Act when a light enters the center wreath: tap circles, swipe arrows, hold bars.',
+  'autogarden.start': 'Click or touch to play local music',
+  'autogarden.wait': 'Not yet — follow the approaching light',
+  'autogarden.paused': 'Paused · press Esc to continue',
 };
 
 export type StringKey = keyof typeof zhCN;

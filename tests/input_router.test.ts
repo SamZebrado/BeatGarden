@@ -22,7 +22,7 @@
 //     synchronous) → payload would contain read #2 or later.
 // The payload's audioTime must be the FIRST read.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { InputRouter, type PointerAction } from '../src/game/InputRouter';
 import { TIMING_CONFIG } from '../src/timing/config';
 
@@ -257,5 +257,27 @@ describe('InputRouter — audioTime captured synchronously inside pointer handle
     expect(observedAudioTime).toBeGreaterThan(0);
     expect(readTimes[0] / 1000).toBeGreaterThanOrEqual(beforeDown / 1000 - 1);
     expect(readTimes[0] / 1000).toBeLessThanOrEqual(afterDown / 1000 + 1);
+  });
+
+  it('holdStart keeps the pointer-down audio timestamp despite timer delay', () => {
+    vi.useFakeTimers();
+    let audioNow = 5;
+    const actions: PointerAction[] = [];
+    const holdRouter = new InputRouter({
+      config: TIMING_CONFIG,
+      getAudioTime: () => audioNow,
+      el,
+      holdThresholdMs: 20,
+      aggressiveDefaults: false,
+    });
+    holdRouter.addListener((action) => actions.push(action));
+    el.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, pointerId: 81, pointerType: 'touch', clientX: 20, clientY: 30,
+    }));
+    audioNow = 9;
+    vi.advanceTimersByTime(20);
+    expect(actions[0]).toMatchObject({ type: 'holdStart', audioTime: 5 });
+    holdRouter.detach();
+    vi.useRealTimers();
   });
 });

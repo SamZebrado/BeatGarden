@@ -1,0 +1,25 @@
+{
+  "date": "2026-08-10",
+  "browser": "real Chrome via Codex browser extension",
+  "fixture": "in-memory original 120 BPM WAV",
+  "flow": "decode to resample to Worker analysis to chart generation to AudioBufferSource playback to result",
+  "playback": {
+    "audioContextState": "running",
+    "sourcePlaying": true,
+    "leadInSeconds": 2,
+    "firstTargetSongTimeSec": 0.499229,
+    "mouseInputSongTimeSec": 0.502,
+    "judgement": "PERFECT",
+    "countsAfterInput": { "PERFECT": 1, "GREAT": 0, "OK": 0, "MISS": 0 }
+  },
+  "pauseResume": {
+    "pauseStartSongTimeSec": -1.0364,
+    "pauseAfter1_3SecondsSongTimeSec": -1.0364,
+    "audioContextWhilePaused": "suspended",
+    "sourceRemainedScheduled": true,
+    "resumeSongTimeSecAfter0_45Seconds": -0.5778
+  },
+  "restart": "PASS; old one-shot source stopped and new source created by implementation contract",
+  "result": "PASS; score and accuracy overlay rendered",
+  "nativeFilePicker": "NOT RUN due connected browser file-upload API limitation"
+}

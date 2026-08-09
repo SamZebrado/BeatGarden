@@ -186,7 +186,9 @@ export class InputRouter {
         x: ap.lastX,
         y: ap.lastY,
         pointerId: ap.pointerId,
-        audioTime: this.getAudioTime(),
+        // Judge the start at the authoritative pointer-down time, not when
+        // the hold threshold timer happens to fire on a busy main thread.
+        audioTime: ap.startAudioTime,
         domTimeMs: gs.performance.now(),
       });
     }, this.holdThresholdMs);

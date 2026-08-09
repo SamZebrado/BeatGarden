@@ -5,6 +5,7 @@ import { AutoChartWorkerClient } from './AutoChartWorkerClient';
 import { generateAutoChart } from './generateChart';
 import { prepareMonoForAnalysis } from './prepareAudio';
 import type { AutoChartAnalysis, AutoChartDifficulty, GeneratedAutoChart } from './types';
+import { PulseGardenRunner } from './PulseGardenRunner';
 
 export class AutoChartAnalysisView {
   private readonly audio = new AudioEngine();
@@ -14,6 +15,7 @@ export class AutoChartAnalysisView {
   private difficulty: AutoChartDifficulty = 'normal';
   private seed = 1;
   private waveform: number[] = [];
+  private decodedBuffer: AudioBuffer | null = null;
 
   constructor(private readonly root: HTMLElement) {
     this.render();
@@ -68,6 +70,7 @@ export class AutoChartAnalysisView {
       status.textContent = `${t('autochart.preparing')} 0%`;
       const data = await file.arrayBuffer();
       const decoded = await this.audio.getContext().decodeAudioData(data.slice(0));
+      this.decodedBuffer = decoded;
       const mono = await prepareMonoForAnalysis(decoded, AUTOCHART_CONFIG.analysisSampleRate, ({ processedFrames, totalFrames }) => {
         status.textContent = `${t('autochart.preparing')} ${Math.round(processedFrames / totalFrames * 100)}%`;
       });
@@ -108,6 +111,7 @@ export class AutoChartAnalysisView {
         </select></label>
         <label>${t('autochart.seed')}<input data-role="seed" type="number" value="${this.seed}" min="0" max="999999" style="display:block;margin-top:6px;padding:12px;width:130px;background:#080c1d;color:#fff;border:1px solid #53618d;border-radius:10px" /></label>
         <button data-role="regenerate" style="padding:13px 18px;border:0;border-radius:11px;background:#4dcb9a;color:#07150f;font-weight:800">${t('autochart.regenerate')}</button>
+        <button data-role="play" style="padding:13px 18px;border:0;border-radius:11px;background:#ffd16d;color:#201400;font-weight:900">${t('autochart.play')}</button>
       </div>
     `;
     const difficulty = panel.querySelector<HTMLSelectElement>('[data-role="difficulty"]')!;
@@ -119,6 +123,9 @@ export class AutoChartAnalysisView {
     panel.querySelector<HTMLButtonElement>('[data-role="regenerate"]')!.addEventListener('click', () => {
       this.seed = Number(panel.querySelector<HTMLInputElement>('[data-role="seed"]')!.value) || 0;
       this.regenerate(panel);
+    });
+    panel.querySelector<HTMLButtonElement>('[data-role="play"]')!.addEventListener('click', () => {
+      if (this.decodedBuffer && this.chart) new PulseGardenRunner(this.root, this.audio, this.decodedBuffer, this.chart);
     });
     results.appendChild(panel);
     this.drawAnalysis(panel.querySelector<HTMLCanvasElement>('[data-role="analysis-canvas"]')!);

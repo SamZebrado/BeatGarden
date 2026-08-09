@@ -11,7 +11,7 @@ Last updated: 2026-08-10
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
 - Latest committed runtime telemetry baseline: `8381333`.
-- Current verified working tree: tsc 0, 96/96 tests, production build PASS.
+- Current verified working tree: tsc 0, 99/99 tests, production build PASS.
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
@@ -69,7 +69,13 @@ Required fixes: None for GATE 0.
   68%, 20 onsets, 14 normal notes, no observed console error.
 - [ ] Native file-picker upload smoke: NOT RUN because the connected browser API has no
   file-upload operation and Chrome rejected programmatic path assignment.
-- [ ] Imported-track AudioBufferSource playback and playable Pulse Garden are pending.
+- [x] Imported-track one-shot AudioBufferSource start/restart/seek lifecycle with tests.
+- [x] Playable original Pulse Garden: two-second approach lead-in, tap/swipe/hold targets,
+  shared InputRouter/Judge/Stats, immediate feedback, procedural garden growth, pause,
+  restart, and result overlay.
+- [x] Real Chrome Pulse Garden smoke: target song time 0.499229 s, mouse input song
+  time 0.502 s -> PERFECT; pause froze song time exactly for 1.3 s.
+- [ ] Native file-picker smoke and a complete real-song manual play remain pending.
 
 ## Historical independent verdict (Round 3, superseded by source PASS)
 
