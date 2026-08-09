@@ -1,5 +1,8 @@
-const CACHE_NAME = 'beatgarden-shell-v1';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/beatgarden.svg'];
+const CACHE_NAME = 'beatgarden-shell-v3';
+const SHELL = [
+  './', './index.html', './manifest.webmanifest', './icons/beatgarden.svg',
+  './icons/beatgarden-192.png', './icons/beatgarden-512.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)));
@@ -22,8 +25,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          const requestCopy = response.clone();
+          const canonicalCopy = response.clone();
+          caches.open(CACHE_NAME).then(async (cache) => {
+            await cache.put(event.request, requestCopy);
+            // Keep the canonical fallback aligned with the latest hashed app
+            // bundle even when the online navigation has a query string.
+            await cache.put('./index.html', canonicalCopy);
+          });
           return response;
         })
         .catch(async () => (await caches.match(event.request)) || (await caches.match('./index.html'))),
@@ -43,4 +52,3 @@ self.addEventListener('fetch', (event) => {
     }),
   );
 });
-

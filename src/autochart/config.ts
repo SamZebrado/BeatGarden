@@ -8,6 +8,8 @@ export interface AutoChartConfig {
   onsetThresholdMad: number;
   onsetMinimumGapSec: number;
   beatSnapToleranceSec: number;
+  maxFileBytes: number;
+  maxDurationSec: number;
 }
 
 export const AUTOCHART_CONFIG: Readonly<AutoChartConfig> = {
@@ -20,5 +22,6 @@ export const AUTOCHART_CONFIG: Readonly<AutoChartConfig> = {
   onsetThresholdMad: 2.4,
   onsetMinimumGapSec: 0.075,
   beatSnapToleranceSec: 0.08,
+  maxFileBytes: 100 * 1024 * 1024,
+  maxDurationSec: 15 * 60,
 };
-

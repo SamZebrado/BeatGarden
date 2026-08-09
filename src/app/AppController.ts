@@ -5,6 +5,8 @@ import { FireflyDockStage } from '../stages/fireflyDock/FireflyDockStage';
 import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage } from '../stages/original/GardenStages';
 import { CalibrationView } from '../settings/CalibrationView';
 import { SettingsView } from '../settings/SettingsView';
+import { AudioTestView } from '../settings/AudioTestView';
+import { StreamSafeView } from '../settings/StreamSafeView';
 
 export class AppController {
   constructor(private readonly root: HTMLElement) {}
@@ -34,12 +36,14 @@ export class AppController {
       </div>`;
     const utilities = document.createElement('div');
     utilities.style.cssText = 'display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:22px';
-    utilities.innerHTML = `<button data-role="calibration" style="padding:14px 18px;border:1px solid #59678e;border-radius:14px;background:#151c38;color:#fff"><strong>${t('menu.calibration')}</strong><span style="display:block;color:#aebbe4;margin-top:5px">${t('menu.calibrationDetail')}</span></button><button data-role="settings" style="padding:14px 18px;border:1px solid #59678e;border-radius:14px;background:#151c38;color:#fff"><strong>${t('menu.settings')}</strong><span style="display:block;color:#aebbe4;margin-top:5px">${t('menu.settingsDetail')}</span></button>`;
+    utilities.innerHTML = `<button data-role="calibration" style="padding:14px 18px;border:1px solid #59678e;border-radius:14px;background:#151c38;color:#fff"><strong>${t('menu.calibration')}</strong><span style="display:block;color:#aebbe4;margin-top:5px">${t('menu.calibrationDetail')}</span></button><button data-role="audio-test" style="padding:14px 18px;border:1px solid #59678e;border-radius:14px;background:#151c38;color:#fff"><strong>${t('menu.audioTest')}</strong><span style="display:block;color:#aebbe4;margin-top:5px">${t('menu.audioTestDetail')}</span></button><button data-role="settings" style="padding:14px 18px;border:1px solid #59678e;border-radius:14px;background:#151c38;color:#fff"><strong>${t('menu.settings')}</strong><span style="display:block;color:#aebbe4;margin-top:5px">${t('menu.settingsDetail')}</span></button><button data-role="provenance" style="padding:14px 18px;border:1px solid #59678e;border-radius:14px;background:#151c38;color:#fff"><strong>${t('menu.provenance')}</strong><span style="display:block;color:#aebbe4;margin-top:5px">${t('menu.provenanceDetail')}</span></button>`;
     page.appendChild(utilities);
     page.querySelector<HTMLButtonElement>('[data-role="original"]')!.addEventListener('click', this.showStageSelect);
     page.querySelector<HTMLButtonElement>('[data-role="autochart"]')!.addEventListener('click', this.showAutoChart);
     utilities.querySelector<HTMLButtonElement>('[data-role="calibration"]')!.addEventListener('click', this.showCalibration);
     utilities.querySelector<HTMLButtonElement>('[data-role="settings"]')!.addEventListener('click', this.showSettings);
+    utilities.querySelector<HTMLButtonElement>('[data-role="audio-test"]')!.addEventListener('click', this.showAudioTest);
+    utilities.querySelector<HTMLButtonElement>('[data-role="provenance"]')!.addEventListener('click', this.showProvenance);
     page.querySelector<HTMLButtonElement>('[data-role="language"]')!.addEventListener('click', () => { toggleLocale(); this.showMenu(); });
     this.root.appendChild(page);
   };
@@ -78,6 +82,16 @@ export class AppController {
   showSettings = (): void => {
     this.prepareRoot();
     new SettingsView(this.root, this.showMenu);
+  };
+
+  showAudioTest = (): void => {
+    this.prepareRoot();
+    new AudioTestView(this.root, this.showMenu);
+  };
+
+  showProvenance = (): void => {
+    this.prepareRoot();
+    new StreamSafeView(this.root, this.showMenu);
   };
 
   playFirefly = (): void => {

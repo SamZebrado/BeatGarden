@@ -11,6 +11,7 @@ export async function prepareMonoForAnalysis(
   buffer: AudioBuffer,
   targetSampleRate: number,
   onProgress?: (progress: MonoPreparationProgress) => void,
+  shouldCancel?: () => boolean,
 ): Promise<Float32Array> {
   const outputLength = Math.ceil(buffer.duration * targetSampleRate);
   const output = new Float32Array(outputLength);
@@ -18,6 +19,7 @@ export async function prepareMonoForAnalysis(
   const ratio = buffer.sampleRate / targetSampleRate;
   const chunkSize = 32_768;
   for (let chunkStart = 0; chunkStart < outputLength; chunkStart += chunkSize) {
+    if (shouldCancel?.()) throw new Error('AutoChart analysis cancelled');
     const end = Math.min(outputLength, chunkStart + chunkSize);
     for (let i = chunkStart; i < end; i++) {
       const sourcePosition = i * ratio;
@@ -35,4 +37,3 @@ export async function prepareMonoForAnalysis(
   }
   return output;
 }
-

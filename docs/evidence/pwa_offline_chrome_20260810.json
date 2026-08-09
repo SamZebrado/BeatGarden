@@ -1,0 +1,34 @@
+{
+  "date": "2026-08-10",
+  "browser": "connected desktop Chrome",
+  "productionUrl": "http://127.0.0.1:8789/BeatGarden/",
+  "buildBase": "/BeatGarden/",
+  "online": {
+    "registered": true,
+    "scope": "http://127.0.0.1:8789/BeatGarden/",
+    "controller": true,
+    "cacheNames": ["beatgarden-shell-v3"],
+    "registrationError": null,
+    "manifestIcons": ["192x192 PNG", "512x512 PNG", "scalable SVG"]
+  },
+  "offlineReload": {
+    "serverStoppedBeforeNavigation": true,
+    "url": "http://127.0.0.1:8789/BeatGarden/?offline=3",
+    "navigationError": null,
+    "appBooted": true,
+    "mainMenuVisible": true,
+    "serviceWorkerController": true,
+    "cacheNames": ["beatgarden-shell-v3"]
+  },
+  "browserDiscoveredFix": "Online navigation now refreshes canonical ./index.html so the offline fallback references the current hashed bundle.",
+  "responsiveEvidence": {
+    "liveViewport": "1440x687 Chrome screenshot after double-offset fix",
+    "pureLayoutCases": ["1920x1080 16:9", "1280x800 16:10", "1024x768 4:3"],
+    "allLayoutTestsPassed": true
+  },
+  "limitations": [
+    "Browser automation surface did not expose viewport resizing; 16:10 and 4:3 are exact layout-math tests rather than live resized screenshots.",
+    "Android tablet hardware remains UNVERIFIED.",
+    "This is a local production static subpath smoke, not a public GitHub Pages URL."
+  ]
+}

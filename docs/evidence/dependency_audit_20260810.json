@@ -1,0 +1,23 @@
+{
+  "date": "2026-08-10",
+  "command": "npm audit --json",
+  "beforeUpgrade": {
+    "total": 5,
+    "moderate": 3,
+    "high": 1,
+    "critical": 1,
+    "affectedDirectTools": ["vite 5.4.21", "vitest 2.1.9"]
+  },
+  "action": "Upgraded the development toolchain and regenerated package-lock.json.",
+  "afterUpgrade": {
+    "typescript": "7.0.2",
+    "vite": "8.2.1",
+    "vitest": "4.1.10",
+    "jsdom": "30.0.1",
+    "vulnerabilities": { "info": 0, "low": 0, "moderate": 0, "high": 0, "critical": 0, "total": 0 },
+    "tests": "113/113 PASS",
+    "build": "PASS"
+  },
+  "runtimeDependencies": 0,
+  "notes": "Development-only packages are not emitted into the static production bundle. The audit is nevertheless clean."
+}

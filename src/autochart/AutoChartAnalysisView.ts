@@ -20,6 +20,7 @@ export class AutoChartAnalysisView {
   private seed = 1;
   private waveform: number[] = [];
   private decodedBuffer: AudioBuffer | null = null;
+  private analysisRun = 0;
 
   constructor(private readonly root: HTMLElement, private readonly onBack?: () => void) {
     this.render();
@@ -55,7 +56,10 @@ export class AutoChartAnalysisView {
     page.querySelector<HTMLButtonElement>('[data-role="back"]')!.addEventListener('click', () => void this.exit());
     page.querySelector<HTMLButtonElement>('[data-role="language"]')!.addEventListener('click', () => {
       toggleLocale();
+      this.analysisRun++;
+      this.worker.terminate();
       this.render();
+      if (this.analysis && this.chart) this.renderResults();
     });
     this.root.appendChild(page);
   }
@@ -68,28 +72,44 @@ export class AutoChartAnalysisView {
   }
 
   private async analyzeFile(file: File): Promise<void> {
+    const run = ++this.analysisRun;
     const status = this.root.querySelector<HTMLElement>('[data-role="status"]')!;
     const results = this.root.querySelector<HTMLElement>('[data-role="results"]')!;
+    const input = this.root.querySelector<HTMLInputElement>('[data-role="file"]')!;
     results.replaceChildren();
+    input.disabled = true;
     try {
+      if (file.size > AUTOCHART_CONFIG.maxFileBytes) {
+        status.textContent = t('autochart.fileTooLarge');
+        return;
+      }
       status.textContent = `${t('autochart.preparing')} 0%`;
       const data = await file.arrayBuffer();
       const decoded = await this.audio.getContext().decodeAudioData(data.slice(0));
+      if (decoded.duration > AUTOCHART_CONFIG.maxDurationSec) {
+        status.textContent = t('autochart.audioTooLong');
+        return;
+      }
+      if (run !== this.analysisRun) return;
       this.decodedBuffer = decoded;
       const mono = await prepareMonoForAnalysis(decoded, AUTOCHART_CONFIG.analysisSampleRate, ({ processedFrames, totalFrames }) => {
-        status.textContent = `${t('autochart.preparing')} ${Math.round(processedFrames / totalFrames * 100)}%`;
-      });
+        if (run === this.analysisRun) status.textContent = `${t('autochart.preparing')} ${Math.round(processedFrames / totalFrames * 100)}%`;
+      }, () => run !== this.analysisRun);
+      if (run !== this.analysisRun) return;
       this.waveform = downsampleWaveform(mono, 900);
       status.textContent = `${t('autochart.analyzing')} 0%`;
       this.analysis = await this.worker.analyze(mono, AUTOCHART_CONFIG.analysisSampleRate, (progress) => {
-        status.textContent = `${t('autochart.analyzing')} ${Math.round(progress * 100)}%`;
+        if (run === this.analysisRun) status.textContent = `${t('autochart.analyzing')} ${Math.round(progress * 100)}%`;
       });
+      if (run !== this.analysisRun) return;
       this.chart = generateAutoChart(this.analysis, this.difficulty, this.seed);
       status.textContent = file.name;
       this.renderResults();
     } catch (error) {
       console.error(error);
-      status.textContent = t('autochart.failed');
+      if (run === this.analysisRun) status.textContent = t('autochart.failed');
+    } finally {
+      if (run === this.analysisRun) input.disabled = false;
     }
   }
 
@@ -139,6 +159,7 @@ export class AutoChartAnalysisView {
   }
 
   private async exit(): Promise<void> {
+    this.analysisRun++;
     this.worker.terminate();
     await this.audio.close();
     if (this.onBack) this.onBack();

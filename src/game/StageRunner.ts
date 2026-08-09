@@ -25,6 +25,7 @@ import { resumeAfterAudioConfirmed } from './playbackLifecycle';
 import { expiredJudgeBeat, hasJudgeTargetExpired } from './judgementExpiry';
 import { getLocale, t, toggleLocale } from '../i18n/strings';
 import { loadSettings } from '../settings/settings';
+import { saveBestScore } from '../settings/scores';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
@@ -489,6 +490,11 @@ backdrop-filter: blur(4px);
     s.textContent = `${t('result.score')}: ${score.score} / ${max}   ·   ${t('result.accuracy')}: ${(score.accuracy * 100).toFixed(2)}%`;
     s.style.cssText = 'font-size: 28px; margin-bottom: 24px; color: #d0e0ff;';
     d.appendChild(s);
+    const best = saveBestScore(this.stage.id, { score: score.score, accuracy: score.accuracy, total: score.total });
+    const bestLine = document.createElement('div');
+    bestLine.textContent = `${t('result.best')}: ${best.score} · ${(best.accuracy * 100).toFixed(2)}%`;
+    bestLine.style.cssText = 'font-size:18px;margin:-12px 0 20px;color:#92efd0';
+    d.appendChild(bestLine);
     const counts = document.createElement('div');
     counts.style.cssText = 'font-size: 22px; margin-bottom: 40px; color: #b9c7ee; line-height: 1.8;';
     const countLines = [

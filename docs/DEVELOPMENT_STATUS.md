@@ -128,9 +128,33 @@ Required fixes: None for GATE 0.
   same-origin asset caching implemented without a CDN.
 - [x] `/BeatGarden/` static mount returned correct HTTP 200/MIME for index, hashed JS,
   Worker, manifest, and service worker.
-- [ ] Real-browser production install/offline reload: NOT RUN because this managed shell
-  terminates temporary servers between browser tool calls.
+- [x] Connected Chrome production service-worker registration: controlled scope,
+  `beatgarden-shell-v3`, no registration error.
+- [x] Server was stopped before navigating to a new query URL; the cached production
+  app booted to the full main menu with no navigation error.
+- [x] Browser-discovered stale canonical index bug fixed and the offline reload rerun.
+- [x] 192×192 and 512×512 maskable PNG icons plus the original SVG are packaged.
+- [x] Canvas double-letterbox offset/cropping bug fixed; exact 16:9, 16:10, and 4:3
+  layout tests pass, with a corrected live 1440×687 Chrome screenshot inspected.
+- [ ] Live browser viewport resize/orientation matrix: NOT RUN because the connected
+  browser surface does not expose viewport resizing.
+- [ ] Public GitHub Pages deployment: workflow ready; public URL still UNVERIFIED.
 - [ ] Android tablet real-device runtime: UNVERIFIED.
+
+## Streaming / provenance / local product data
+
+- [x] Main menu includes Audio & Streaming Test and Asset / License / Stream Safe Info.
+- [x] Music and SFX can be auditioned separately after a user-gesture audio unlock.
+- [x] Built-in procedural content is separated from user-imported rights-unverified
+  local audio in complete Chinese and English pages.
+- [x] Imported files are not uploaded or service-worker cached and are never labelled
+  stream safe.
+- [x] Per-stage local best score and accuracy persist with deterministic tie-breaking.
+- [x] `ASSET_PROVENANCE.md` moved creative categories from PLANNED to COMPLETE and
+  records exact direct development dependency versions/licenses.
+- [x] Full online `npm audit` initially found 5 development-tool advisories; Vite,
+  Vitest, TypeScript, and jsdom were upgraded, then 113/113 tests/build passed and
+  the repeat audit reported 0 vulnerabilities.
 
 ## Historical independent verdict (Round 3, superseded by source PASS)
 

@@ -12,6 +12,20 @@ export interface CanvasManagerOptions {
   config: TimingConfig;
 }
 
+export function computeCanvasLayout(parentW: number, parentH: number, logicalW: number, logicalH: number) {
+  const logicalAspect = logicalW / logicalH;
+  const parentAspect = parentW / Math.max(1, parentH);
+  const viewW = parentAspect >= logicalAspect ? parentH * logicalAspect : parentW;
+  const viewH = parentAspect >= logicalAspect ? parentH : parentW / logicalAspect;
+  return {
+    viewW,
+    viewH,
+    offsetX: (parentW - viewW) / 2,
+    offsetY: (parentH - viewH) / 2,
+    cssScale: viewW / logicalW,
+  };
+}
+
 export class CanvasManager {
   public readonly canvas: HTMLCanvasElement;
   private readonly config: TimingConfig;
@@ -91,28 +105,19 @@ export class CanvasManager {
 
     const logicalW = this.config.logicalWidth;
     const logicalH = this.config.logicalHeight;
-    const logicalAspect = logicalW / logicalH;
-    const parentAspect = parentW / Math.max(1, parentH);
-
-    let cssViewW: number;
-    let cssViewH: number;
-    if (parentAspect >= logicalAspect) {
-      // Parent is wider: fit height, letterbox left+right.
-      cssViewH = parentH;
-      cssViewW = parentH * logicalAspect;
-    } else {
-      // Parent is taller: fit width, letterbox top+bottom.
-      cssViewW = parentW;
-      cssViewH = parentW / logicalAspect;
-    }
-    const offsetXCss = (parentW - cssViewW) / 2;
-    const offsetYCss = (parentH - cssViewH) / 2;
+    const layout = computeCanvasLayout(parentW, parentH, logicalW, logicalH);
+    const cssViewW = layout.viewW;
+    const cssViewH = layout.viewH;
+    const offsetXCss = layout.offsetX;
+    const offsetYCss = layout.offsetY;
 
     // CSS size.
     canvas.style.width = cssViewW + 'px';
     canvas.style.height = cssViewH + 'px';
-    canvas.style.marginLeft = offsetXCss + 'px';
-    canvas.style.marginTop = offsetYCss + 'px';
+    // App roots use flex centering, so the fitted CSS box is already placed
+    // at the computed letterbox offset. Explicit margins would shift it twice.
+    canvas.style.marginLeft = '0';
+    canvas.style.marginTop = '0';
     canvas.style.display = 'block';
 
     // Physical pixel buffer.
@@ -127,7 +132,9 @@ export class CanvasManager {
     if (!ctx) throw new Error('2D context unavailable');
     // Logical -> physical transform.
     const scale = (cssViewW * dpr) / logicalW;
-    ctx.setTransform(scale, 0, 0, scale, offsetXCss * dpr, offsetYCss * dpr);
+    // CSS layout already positions the canvas inside the parent. Applying the
+    // letterbox offset again here would shift and clip logical content twice.
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
     ctx.imageSmoothingEnabled = true;
 
     this.lastResizeInfo = {
