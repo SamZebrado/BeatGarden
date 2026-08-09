@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **GATE 1 PASS; ORIGINAL CONTENT / AUTOCHART / PWA IN PROGRESS**
+Current phase: **GATE 2 PARTIAL (ANDROID EXTERNAL); GATE 3 / RC IN PROGRESS**
 
 Last updated: 2026-08-10
 
@@ -15,6 +15,13 @@ Last updated: 2026-08-10
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
+
+## Official GATE 2 verdict — PARTIAL (2026-08-10)
+
+- Service-worker cache lifecycle blocker fixed and server-off regression rerun PASS.
+- `adb devices -l` reports no connected device, so the remaining real Android tablet
+  blocker is explicitly external and `ANDROID UNVERIFIED` remains the honest status.
+- Development continues through GATE 3/4 and all work independent of that device.
 
 ## Official GATE 1 verdict — PASS (2026-08-10)
 

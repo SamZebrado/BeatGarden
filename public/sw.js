@@ -24,15 +24,16 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
+        .then(async (response) => {
           const requestCopy = response.clone();
           const canonicalCopy = response.clone();
-          caches.open(CACHE_NAME).then(async (cache) => {
-            await cache.put(event.request, requestCopy);
-            // Keep the canonical fallback aligned with the latest hashed app
-            // bundle even when the online navigation has a query string.
-            await cache.put('./index.html', canonicalCopy);
-          });
+          const cache = await caches.open(CACHE_NAME);
+          // The response promise remains pending until both writes complete,
+          // contractually keeping the worker alive for the canonical refresh.
+          await Promise.all([
+            cache.put(event.request, requestCopy),
+            cache.put('./index.html', canonicalCopy),
+          ]);
           return response;
         })
         .catch(async () => (await caches.match(event.request)) || (await caches.match('./index.html'))),

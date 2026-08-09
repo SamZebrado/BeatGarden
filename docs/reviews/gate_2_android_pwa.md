@@ -2,6 +2,24 @@
 
 Status: ready for independent review; Android hardware explicitly unverified.
 
+## Submission verdict — PARTIAL
+
+- Bridge request id: `msm4kshf-m85vqj7l`
+- Message id: `126nr2me271f73836cav58`
+- Nonce: `MSG_codex_gate2_pwa_e23d775_20260810a`
+- Attachment acknowledgement: 8/8
+- Verdict: `GATE 2: PARTIAL`
+
+Blockers:
+1. real Android-tablet validation is missing;
+2. canonical index cache update was fire-and-forget.
+
+Blocker 2 is fixed: the navigation `respondWith` chain now awaits both cache writes,
+then an online prime -> server stop -> fresh-query offline boot was rerun successfully.
+
+Blocker 1 remains external: `adb devices -l` returned no connected devices. Android
+must remain `UNVERIFIED`; it is not replaced by desktop PointerEvent evidence.
+
 Current verified scope:
 - 16-input real Chrome calibration saved +6.3 ms.
 - Settings persistence and Judge integration.

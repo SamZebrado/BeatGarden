@@ -28,6 +28,12 @@
     "mainMenuVisible": true
   },
   "browserDiscoveredFix": "Online navigation now refreshes canonical ./index.html so the offline fallback references the current hashed bundle.",
+  "gate2PartialFix": {
+    "issue": "Canonical cache writes were not lifecycle-bound in the first submission.",
+    "fix": "The navigation respondWith promise now awaits both request and canonical cache.put operations before resolving the network response.",
+    "serverOffFreshQueryRetest": "PASS",
+    "offlineUrl": "http://127.0.0.1:8789/BeatGarden/?sw-await-offline=1"
+  },
   "responsiveEvidence": {
     "liveViewport": "1440x687 Chrome screenshot after double-offset fix",
     "pureLayoutCases": ["1920x1080 16:9", "1280x800 16:10", "1024x768 4:3"],
