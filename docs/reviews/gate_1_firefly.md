@@ -25,3 +25,22 @@ Static verification at HEAD `a6b6dcf`:
 - production build PASS
 
 Requested verdict: `GATE 1: PASS / PARTIAL / FAIL`.
+
+## Submission 1 verdict — PARTIAL
+
+Blocking issues:
+1. `window.__BEATGARDEN__` retained the destroyed Runner.
+2. Auto-MISS triggered the player-operated lever.
+3. Submitted and verified SHAs differed.
+
+## PARTIAL fixes ready for resubmission
+
+- StageRunner stores its installed debug handle and deletes it only if the global still
+  belongs to that Runner. Real Chrome post-exit telemetry:
+  `screen=stage-select`, `debugHandlePresent=false`, `canvasCount=0`.
+- `Judge.autoMiss()` now labels results `automatic=true`; Firefly still renders miss/
+  disappointment feedback but only non-automatic player outcomes set `workerActionT0`.
+- Regression test explicitly verifies automatic MISS leaves lever timestamp null and
+  a player MISS sets it.
+- Final verification will be rerun after the fix commit, and the exact tested HEAD will
+  be used in the Bridge resubmission.

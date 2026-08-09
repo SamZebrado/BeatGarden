@@ -48,6 +48,14 @@ export class AppController {
     page.querySelector<HTMLButtonElement>('[data-role="back"]')!.addEventListener('click', this.showMenu);
     page.querySelector<HTMLButtonElement>('[data-role="firefly"]')!.addEventListener('click', this.playFirefly);
     this.root.appendChild(page);
+    const status = document.createElement('output');
+    status.id = 'app-runtime-status';
+    status.style.cssText = 'position:fixed;left:-10000px;width:1px;height:1px;overflow:hidden';
+    status.textContent = JSON.stringify({
+      screen: 'stage-select',
+      debugHandlePresent: '__BEATGARDEN__' in window,
+    });
+    this.root.appendChild(status);
   };
 
   showAutoChart = (): void => {

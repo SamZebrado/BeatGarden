@@ -28,6 +28,14 @@
     "runtimeTelemetryElementCount": 0,
     "inputDetached": "implementation verified",
     "rafCancelled": "implementation verified",
-    "audioContextClosed": "implementation verified"
+    "audioContextClosed": "implementation verified",
+    "debugHandlePresentAfterExit": false
+  },
+  "gate1PartialFix": {
+    "autoMissMovesLever": false,
+    "playerMissMovesLever": true,
+    "regressionTest": "PASS",
+    "postFixFullRunBeat": 69.0311,
+    "postFixDroppedLate": 0
   }
 }

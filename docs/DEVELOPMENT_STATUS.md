@@ -11,7 +11,7 @@ Last updated: 2026-08-10
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
 - Latest committed runtime telemetry baseline: `8381333`.
-- Current verified working tree: tsc 0, 101/101 tests, production build PASS.
+- Current verified working tree: tsc 0, 102/102 tests, production build PASS.
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
@@ -53,6 +53,10 @@ Required fixes: None for GATE 0.
   -> stage select completed in real Chrome; both runs had `droppedLate=0`.
 - [x] Exit cleanup left zero canvases and zero runtime telemetry nodes; StageRunner
   cancels rAF, stops Scheduler, detaches InputRouter/resize listener, and closes audio.
+- [x] GATE 1 PARTIAL fix: destroyed Runner deletes its owned global debug handle;
+  real Chrome reports `debugHandlePresent=false` after exit.
+- [x] GATE 1 PARTIAL fix: automatic expiry MISS no longer moves the player lever;
+  explicit regression distinguishes automatic and player-caused MISS.
 
 ## AutoChart foundation (in progress)
 

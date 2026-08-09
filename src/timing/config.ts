@@ -76,6 +76,8 @@ export const JUDGEMENT_ORDER: JudgementKind[] = ['PERFECT', 'GREAT', 'OK', 'MISS
 export interface JudgeResult {
   kind: JudgementKind;
   deltaMs: number; // input - target (positive = late)
+  /** True only for expiry without player input. */
+  automatic?: boolean;
 }
 
 export type InputKind = 'tap' | 'holdStart' | 'holdRelease' | 'swipeLeft' | 'swipeRight' | 'callEcho';

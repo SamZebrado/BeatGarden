@@ -202,7 +202,9 @@ export class FireflyDockStage implements StageDefinition {
     if (!this.services) return;
     const t0 = this.services.transport.snapshot().audioTime;
     this.feedback = { kind: result.kind, t0 };
-    this.workerActionT0 = t0;
+    // Expiry without a player input may drop the seed and show disappointment,
+    // but it must never make the lever look self-operated.
+    if (!result.automatic) this.workerActionT0 = t0;
     if (result.kind === 'MISS') {
       // Splashes at bottom of the post near water.
       const splashX = LAYOUT.postX + (Math.random() - 0.5) * 40;

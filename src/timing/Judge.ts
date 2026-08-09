@@ -247,7 +247,7 @@ export class Judge {
       this.counts.MISS++;
       this.deltas.push(deltaMs);
     }
-    const result: JudgeResult = { kind: 'MISS', deltaMs };
+    const result: JudgeResult = { kind: 'MISS', deltaMs, automatic: true };
     if (this.onJudgeCb) this.onJudgeCb(result, target);
     return result;
   }

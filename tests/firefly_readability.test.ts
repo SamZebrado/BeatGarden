@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale, t } from '../src/i18n/strings';
 import { FireflyDockStage } from '../src/stages/fireflyDock/FireflyDockStage';
+import type { ScheduledJudgeTarget } from '../src/timing/Scheduler';
 
 describe('Firefly Dock first-player readability contract', () => {
   afterEach(() => setLocale('zh-CN'));
@@ -47,5 +48,19 @@ describe('Firefly Dock first-player readability contract', () => {
       t('feedback.OK'),
       t('feedback.MISS'),
     ]).toEqual(['完美！', '很棒！', '可以！', '错过！']);
+  });
+
+  it('auto-MISS never moves the player-operated lever', () => {
+    const stage = new FireflyDockStage();
+    const internals = stage as unknown as {
+      services: { transport: { snapshot: () => { audioTime: number } } };
+      workerActionT0: number | null;
+    };
+    internals.services = { transport: { snapshot: () => ({ audioTime: 12.5 }) } };
+    const target = { type: 'judge-target', id: 'auto-miss', beat: 2, inputKind: 'tap' } as ScheduledJudgeTarget;
+    stage.onJudge({ kind: 'MISS', deltaMs: 140, automatic: true }, target);
+    expect(internals.workerActionT0).toBeNull();
+    stage.onJudge({ kind: 'MISS', deltaMs: 140 }, target);
+    expect(internals.workerActionT0).toBe(12.5);
   });
 });

@@ -57,6 +57,7 @@ export class StageRunner {
   private runtimeStatus!: HTMLOutputElement;
   private readonly onExit: (() => void) | undefined;
   private destroyed = false;
+  private debugHandle!: Record<string, unknown>;
   private lifecycleTelemetry = {
     suspends: 0,
     resumes: 0,
@@ -190,7 +191,7 @@ export class StageRunner {
     }
 
     // Expose debug handles.
-    (window as unknown as { __BEATGARDEN__?: unknown }).__BEATGARDEN__ = {
+    this.debugHandle = {
       toggleDebug: () => this.debug.toggle(),
       getCounts: () => this.judge.statsCounts(),
       getSnap: () => this.transport.snapshot(),
@@ -199,6 +200,7 @@ export class StageRunner {
       getLocale: () => getLocale(),
       restart: () => this.restart(),
     };
+    (window as unknown as { __BEATGARDEN__?: unknown }).__BEATGARDEN__ = this.debugHandle;
 
     this.startRaf();
   }
@@ -640,6 +642,8 @@ cursor: pointer;
     this.overlays.unlock?.remove();
     this.runtimeStatus?.remove();
     this.canvasMgr.destroy();
+    const debugWindow = window as unknown as { __BEATGARDEN__?: unknown };
+    if (debugWindow.__BEATGARDEN__ === this.debugHandle) delete debugWindow.__BEATGARDEN__;
     await this.audio.close();
   }
 
