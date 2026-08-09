@@ -1,11 +1,24 @@
 # GATE 4 — Release Candidate / Full Project Review Record
 
-Status: release package submitted; independent verdict pending.
+Status: official verdict `GATE 4: PARTIAL`; only external Android and public Pages
+proofs remain. This is not final acceptance.
 
 - Request id: `msm5bks4-9xgt95kb`
 - Message id: `dxut5vd7vwljfg7pktu6`
 - Nonce: `MSG_codex_gate4_rc_91744e2_20260810a`
 - Ten of ten attachments confirmed in the thread.
+
+## Official PARTIAL verdict
+
+- Android real-device release proof is missing: install/open, physical touch gameplay,
+  calibration, orientation/resize, background/foreground audio, and offline relaunch.
+- Public GitHub Pages deployment is unverified: the local build/workflow does not prove
+  behavior at a public origin.
+- No additional runtime, content, AutoChart, provenance, test, or build blocker was
+  reported.
+- A fresh sandbox-external `adb devices -l` check returned an empty device list.
+- The browser GitHub session redirects `/new` to sign-in; the connector exposes no
+  BeatGarden repository and local `gh` authentication remains invalid.
 
 Review package will use:
 - `docs/RELEASE_CANDIDATE_REPORT.md`

@@ -4,6 +4,7 @@
 
 **PARTIAL** — the code/content/PWA candidate is complete on desktop Chrome, but two
 external release proofs remain: a real Android tablet and a public GitHub Pages remote.
+Independent GATE 4 review confirmed these as the only concrete blockers.
 
 ## GATE 0 Timing
 
