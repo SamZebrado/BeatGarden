@@ -114,8 +114,9 @@ Required fixes: None for GATE 0.
   Greenhouse holdStart + holdRelease both `PERFECT`; all `droppedLate=0`.
 - [x] Browser-discovered hold expiry conflict fixed: the 220 ms hold-recognition
   threshold is centralized and added only to holdStart automatic expiry.
-- [ ] Full-length result/restart/exit browser passes for the three new stages remain
-  pending before content closeout.
+- [x] All three new stages reached their full-length result screen in connected Chrome
+  with `droppedLate=0`; Bubble restart reset counts, while Cloud and Greenhouse exit
+  cleanup left no canvas/runtime/smoke nodes and no debug handle.
 
 ## Calibration / Settings / PWA (in progress)
 

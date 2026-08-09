@@ -13,14 +13,18 @@
     "pointerType": "touch",
     "counts": { "PERFECT": 1, "GREAT": 0, "OK": 0, "MISS": 0 },
     "droppedLate": 0,
-    "visual": "three distinct cauldrons, matching lane cue, approach ring, bubbles"
+    "visual": "three distinct cauldrons, matching lane cue, approach ring, bubbles",
+    "completeRun": { "phase": "ended", "beat": 58.7097, "MISS": 23, "droppedLate": 0 },
+    "restart": { "phase": "playing", "beat": 0.5402, "countsReset": true }
   },
   "cloudPost": {
     "input": "URL-gated touch PointerEvent left swipe through InputRouter",
     "pointerType": "touch",
     "counts": { "PERFECT": 1, "GREAT": 0, "OK": 0, "MISS": 0 },
     "droppedLate": 0,
-    "visual": "moving clouds, post office mast, explicit left/right arrow cue"
+    "visual": "moving clouds, post office mast, explicit left/right arrow cue",
+    "completeRun": { "phase": "ended", "beat": 67.1945, "MISS": 27, "droppedLate": 0 },
+    "exitCleanup": { "canvasCount": 0, "runtimeCount": 0, "smokeCount": 0, "debugHandlePresent": false }
   },
   "sleepyGreenhouse": {
     "input": "URL-gated touch PointerEvent hold start and release through InputRouter",
@@ -28,10 +32,12 @@
     "counts": { "PERFECT": 2, "GREAT": 0, "OK": 0, "MISS": 0 },
     "droppedLate": 0,
     "visual": "greenhouse frame, sleeping vines, hold-down and release symbols",
-    "browserDiscoveredFix": "holdStart expiry now includes the shared 220 ms semantic recognition threshold"
+    "browserDiscoveredFix": "holdStart expiry now includes the shared 220 ms semantic recognition threshold",
+    "completeRun": { "phase": "ended", "beat": 66.316, "MISS": 16, "droppedLate": 0 },
+    "exitCleanup": { "canvasCount": 0, "runtimeCount": 0, "smokeCount": 0, "debugHandlePresent": false }
   },
   "limitations": [
-    "The three new stages were smoke-tested at their first authored target, not played through to all three result screens in this evidence pass.",
+    "Full-run result flows were passive all-MISS lifecycle checks; first-target touch smokes separately prove each authored input mechanic.",
     "Android hardware remains unverified."
   ]
 }
