@@ -21,6 +21,8 @@ export interface TimingConfig {
   holdReleasePerfectMs: number;
   holdReleaseGreatMs: number;
   holdReleaseOkMs: number;
+  /** Time a pointer must remain down before InputRouter emits holdStart. */
+  holdThresholdMs: number;
 
   // Swipe direction detection.
   swipeMinDistancePx: number;
@@ -54,6 +56,7 @@ export const TIMING_CONFIG: TimingConfig = {
   holdReleasePerfectMs: 40,
   holdReleaseGreatMs: 90,
   holdReleaseOkMs: 160,
+  holdThresholdMs: 220,
 
   swipeMinDistancePx: 40,
   swipeMaxDurationMs: 500,

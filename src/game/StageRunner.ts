@@ -22,7 +22,7 @@ import { TIMING_CONFIG, type TimingConfig } from '../timing/config';
 import { CanvasManager } from '../render/CanvasManager';
 import { DebugOverlay } from '../render/DebugOverlay';
 import { resumeAfterAudioConfirmed } from './playbackLifecycle';
-import { expiredJudgeBeat } from './judgementExpiry';
+import { expiredJudgeBeat, hasJudgeTargetExpired } from './judgementExpiry';
 import { getLocale, t, toggleLocale } from '../i18n/strings';
 import { loadSettings } from '../settings/settings';
 
@@ -57,6 +57,7 @@ export class StageRunner {
   private runtimeStatus!: HTMLOutputElement;
   private readonly onExit: (() => void) | undefined;
   private destroyed = false;
+  private readonly smokeControls: HTMLElement[] = [];
   private debugHandle!: Record<string, unknown>;
   private lifecycleTelemetry = {
     suspends: 0,
@@ -188,6 +189,9 @@ export class StageRunner {
     }
     if (runtimeSmoke === 'visibility-reject') {
       this.buildVisibilityRejectSmokeControl();
+    }
+    if (runtimeSmoke === 'stage-input') {
+      this.buildStageInputSmokeControl();
     }
 
     // Expose debug handles.
@@ -387,6 +391,7 @@ background: #17244a; color: #fff; font: 600 14px system-ui; cursor: pointer;
       this.canvasMgr.canvas.dispatchEvent(new PointerEvent('pointerup', init));
     });
     document.body.appendChild(button);
+    this.smokeControls.push(button);
   }
 
   private buildVisibilityRejectSmokeControl(): void {
@@ -406,6 +411,64 @@ background: #4a172f; color: #fff; font: 600 14px system-ui; cursor: pointer;
       window.setTimeout(() => document.dispatchEvent(new Event('visibilitychange')), 60);
     });
     document.body.appendChild(button);
+    this.smokeControls.push(button);
+  }
+
+  /** URL-gated real-browser seam that still traverses PointerEvent -> InputRouter -> Judge. */
+  private buildStageInputSmokeControl(): void {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.role = 'stage-input-smoke';
+    button.textContent = t('smoke.stageInput');
+    button.style.cssText = `position:fixed;right:16px;bottom:16px;z-index:60;padding:12px 16px;border:1px solid rgba(255,255,255,.35);border-radius:12px;background:#173f38;color:#fff;font:600 14px system-ui;cursor:pointer`;
+    button.addEventListener('pointerdown', (event) => event.stopPropagation());
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (this.phase !== 'playing') return;
+      const snap = this.transport.snapshot();
+      const target = this.scheduler.getJudgeTargets().find((item) =>
+        !this.judge.hasRecorded(item.id) && item.beat > snap.beat + 0.35,
+      );
+      if (!target) return;
+      const rect = this.canvasMgr.canvas.getBoundingClientRect();
+      const meta = target.meta as { lane?: number; direction?: 'left' | 'right' } | undefined;
+      const lane = meta?.lane ?? 1;
+      const x = rect.left + rect.width * ((lane + 0.5) / 3);
+      const y = rect.top + rect.height * 0.52;
+      const emit = (type: string, clientX: number, pointerId: number) => {
+        this.canvasMgr.canvas.dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true, pointerId, pointerType: 'touch', isPrimary: true,
+          clientX, clientY: y,
+        }));
+      };
+      // Swipe is judged on pointerup, so begin the 32 ms gesture just before
+      // the target; taps and holds use their pointer-down target time.
+      const gestureLeadMs = target.inputKind === 'swipeLeft' || target.inputKind === 'swipeRight' ? 32 : 0;
+      const delayMs = Math.max(0, (this.transport.beatToAudioTime(target.beat) - this.audio.now()) * 1000 - gestureLeadMs);
+      window.setTimeout(() => {
+        if (target.inputKind === 'tap') {
+          emit('pointerdown', x, 191); emit('pointerup', x, 191);
+        } else if (target.inputKind === 'swipeLeft' || target.inputKind === 'swipeRight') {
+          const right = target.inputKind === 'swipeRight';
+          emit('pointerdown', x + (right ? -90 : 90), 192);
+          window.setTimeout(() => {
+            emit('pointermove', x + (right ? 90 : -90), 192);
+            emit('pointerup', x + (right ? 90 : -90), 192);
+          }, 32);
+        } else if (target.inputKind === 'holdStart') {
+          emit('pointerdown', x, 193);
+          const release = target.pairedId
+            ? this.scheduler.getJudgeTargets().find((item) => item.id === target.pairedId)
+            : undefined;
+          const holdMs = release
+            ? Math.max(this.config.holdThresholdMs + 20, (this.transport.beatToAudioTime(release.beat) - this.audio.now()) * 1000)
+            : this.config.holdThresholdMs + 80;
+          window.setTimeout(() => emit('pointerup', x, 193), holdMs);
+        }
+      }, delayMs);
+    });
+    document.body.appendChild(button);
+    this.smokeControls.push(button);
   }
 
   private buildResultOverlay(score: StageScore): void {
@@ -552,6 +615,17 @@ cursor: pointer;
     // MISS roughly half a second before the player was supposed to act.
     const expired = this.scheduler.getJudgeTargetsInWindow(-1e9, maxBeatToCheck);
     for (const t of expired) {
+      // holdStart is emitted only after the shared hold threshold, but carries
+      // the original pointer-down AudioContext timestamp. Keep it eligible
+      // until that semantic classification can occur; otherwise a valid hold
+      // would be auto-MISSed before InputRouter is allowed to emit it.
+      if (!hasJudgeTargetExpired(
+        this.transport,
+        t,
+        snap.audioTime,
+        okSec,
+        this.config.holdThresholdMs / 1000,
+      )) continue;
       this.judge.autoMiss(t);
     }
   }
@@ -641,6 +715,8 @@ cursor: pointer;
     this.removeResultOverlay();
     this.overlays.unlock?.remove();
     this.runtimeStatus?.remove();
+    for (const control of this.smokeControls) control.remove();
+    this.smokeControls.length = 0;
     this.canvasMgr.destroy();
     const debugWindow = window as unknown as { __BEATGARDEN__?: unknown };
     if (debugWindow.__BEATGARDEN__ === this.debugHandle) delete debugWindow.__BEATGARDEN__;

@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **GATE 0 PASS; USER-COMPREHENSION YES; AUTOCHART FOUNDATION IN PROGRESS**
+Current phase: **GATE 1 PASS; ORIGINAL CONTENT / AUTOCHART / PWA IN PROGRESS**
 
 Last updated: 2026-08-10
 
@@ -15,6 +15,22 @@ Last updated: 2026-08-10
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
+
+## Official GATE 1 verdict — PASS (2026-08-10)
+
+```
+GATE 1: PASS
+Nonce ownership: PASS
+Blocking issues: None.
+```
+
+- Bridge request id: `msm3d2zt-by80o397`
+- Message id: `83w326i5pao7do8t8hotc6`
+- Nonce: `MSG_codex_gate1_fix_07a6fb2_20260810a`
+- Six of six delta attachments acknowledged.
+- The reviewer confirmed debug-handle cleanup, player-only lever causality, and
+  exact-HEAD evidence at `07a6fb2`.
+- This is not final acceptance. Development continues automatically.
 
 ## Official GATE 0 verdict — PASS (2026-08-10)
 
@@ -84,6 +100,22 @@ Required fixes: None for GATE 0.
 - [x] Real Chrome Pulse Garden smoke: target song time 0.499229 s, mouse input song
   time 0.502 s -> PERFECT; pause froze song time exactly for 1.3 s.
 - [ ] Native file-picker smoke and a complete real-song manual play remain pending.
+
+## Original stage content
+
+- [x] Four built-in original stages now exist: Firefly Dock, Bubble Kitchen,
+  Cloud Post, and Sleepy Greenhouse.
+- [x] The additional stages use distinct mechanics rather than palette swaps:
+  three-lane taps, directional swipes, and paired hold/release.
+- [x] Each has an original procedural score, a distinct visual scene, approaching
+  target rings, explicit operation symbols, judgement feedback, result/restart/exit,
+  and the shared timing/audio lifecycle.
+- [x] Connected Chrome touch PointerEvent smoke: Bubble `PERFECT`, Cloud `PERFECT`,
+  Greenhouse holdStart + holdRelease both `PERFECT`; all `droppedLate=0`.
+- [x] Browser-discovered hold expiry conflict fixed: the 220 ms hold-recognition
+  threshold is centralized and added only to holdStart automatic expiry.
+- [ ] Full-length result/restart/exit browser passes for the three new stages remain
+  pending before content closeout.
 
 ## Calibration / Settings / PWA (in progress)
 

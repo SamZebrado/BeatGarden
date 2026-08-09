@@ -88,7 +88,7 @@ export class InputRouter {
     this.config = opts.config;
     this.getAudioTime = opts.getAudioTime;
     this.el = opts.el;
-    this.holdThresholdMs = opts.holdThresholdMs ?? 220;
+    this.holdThresholdMs = opts.holdThresholdMs ?? opts.config.holdThresholdMs;
     this.aggressive = opts.aggressiveDefaults ?? true;
     this.attach();
   }

@@ -44,3 +44,16 @@ Blocking issues:
   a player MISS sets it.
 - Final verification will be rerun after the fix commit, and the exact tested HEAD will
   be used in the Bridge resubmission.
+
+## Resubmission verdict — PASS
+
+- Exact reviewed HEAD: `07a6fb2`
+- Bridge request id: `msm3d2zt-by80o397`
+- Message id: `83w326i5pao7do8t8hotc6`
+- Nonce ownership: PASS (`MSG_codex_gate1_fix_07a6fb2_20260810a`)
+- Attachment acknowledgement: 6/6
+- Verdict: `GATE 1: PASS`
+
+The independent reviewer confirmed all three blockers are closed. This gate is a
+milestone only; development proceeds to original content, AutoChart, PWA/Android,
+production hardening, and GATE 2–4.
