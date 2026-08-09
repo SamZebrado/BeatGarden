@@ -22,6 +22,7 @@ import { TIMING_CONFIG, type TimingConfig } from '../timing/config';
 import { CanvasManager } from '../render/CanvasManager';
 import { DebugOverlay } from '../render/DebugOverlay';
 import { resumeAfterAudioConfirmed } from './playbackLifecycle';
+import { expiredJudgeBeat } from './judgementExpiry';
 import { getLocale, t, toggleLocale } from '../i18n/strings';
 
 export interface StageRunnerOptions {
@@ -52,6 +53,12 @@ export class StageRunner {
   private unlocking: boolean = false;
   private pauseInFlight: Promise<boolean> | null = null;
   private runtimeStatus!: HTMLOutputElement;
+  private lifecycleTelemetry = {
+    suspends: 0,
+    resumes: 0,
+    lastSuspend: null as null | { beat: number; audioTime: number },
+    lastResume: null as null | { beat: number; audioTime: number },
+  };
 
   private overlays: {
     unlock: HTMLDivElement | null;
@@ -68,9 +75,18 @@ export class StageRunner {
 
     // Build engine / services.
     this.canvasMgr = new CanvasManager({ parent: opts.root, config: this.config });
+    const runtimeSmoke = new URLSearchParams(window.location.search).get('runtimeSmoke');
+    let resumeAttemptCount = 0;
     this.audio = new AudioEngine({
       musicVolume: this.config.musicVolumeDefault,
       sfxVolume: this.config.sfxVolumeDefault,
+      ...(runtimeSmoke === 'visibility-reject'
+        ? { resumeAttempt: async (ctx: AudioContext) => {
+            resumeAttemptCount++;
+            if (resumeAttemptCount === 2) throw new Error('runtime smoke: reject visibility resume');
+            await ctx.resume();
+          } }
+        : {}),
     });
     this.synth = new Synth(this.audio);
     this.transport = new Transport(() => this.audio.now(), 120, [4, 4]);
@@ -119,6 +135,12 @@ export class StageRunner {
         if (this.phase === 'playing' || this.phase === 'countdown') {
           this.transport.pause(this.audio.now());
         }
+        const snap = this.transport.snapshot();
+        this.lifecycleTelemetry.suspends++;
+        this.lifecycleTelemetry.lastSuspend = {
+          beat: Number(snap.beat.toFixed(4)),
+          audioTime: Number(snap.audioTime.toFixed(4)),
+        };
       },
       onResume: () => {
         // Called when document comes back to visible and AudioEngine state
@@ -135,6 +157,12 @@ export class StageRunner {
           // re-anchored first. Otherwise the first tick observes playing=false.
           resumeAfterAudioConfirmed(this.transport, this.scheduler, this.audio.now());
         }
+        const snap = this.transport.snapshot();
+        this.lifecycleTelemetry.resumes++;
+        this.lifecycleTelemetry.lastResume = {
+          beat: Number(snap.beat.toFixed(4)),
+          audioTime: Number(snap.audioTime.toFixed(4)),
+        };
       },
     });
 
@@ -145,8 +173,14 @@ export class StageRunner {
 
     // Runtime smoke seam: deliberately attempt unlock outside a user gesture.
     // Real Chrome should reject or remain suspended, proving the locked UI path.
-    if (new URLSearchParams(window.location.search).get('runtimeSmoke') === 'auto-unlock') {
+    if (runtimeSmoke === 'auto-unlock') {
       queueMicrotask(() => void this.onUnlock());
+    }
+    if (runtimeSmoke === 'touch-pointer') {
+      this.buildTouchPointerSmokeControl();
+    }
+    if (runtimeSmoke === 'visibility-reject') {
+      this.buildVisibilityRejectSmokeControl();
     }
 
     // Expose debug handles.
@@ -299,15 +333,69 @@ overflow: hidden; white-space: pre;
       phase: this.phase,
       audioEngineState: this.audio.state,
       audioContextState: contextState,
+      documentHidden: document.hidden,
       transportPlaying: snap.playing,
       beat: Number(snap.beat.toFixed(4)),
       audioTime: Number(snap.audioTime.toFixed(4)),
       droppedLate: this.scheduler.lastDroppedLateCount,
+      lifecycle: this.lifecycleTelemetry,
+      input: {
+        pointerType: this.input.lastPointerType,
+        audioTime: Number(this.input.lastInputAudioTime.toFixed(4)),
+      },
       counts,
     };
     this.runtimeStatus.dataset.phase = this.phase;
     this.runtimeStatus.dataset.audioContextState = contextState;
     this.runtimeStatus.textContent = JSON.stringify(state);
+  }
+
+  private buildTouchPointerSmokeControl(): void {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.role = 'touch-pointer-smoke';
+    button.textContent = t('smoke.touchPointer');
+    button.style.cssText = `
+position: fixed; right: 16px; bottom: 16px; z-index: 60; padding: 12px 16px;
+border: 1px solid rgba(255,255,255,0.35); border-radius: 12px;
+background: #17244a; color: #fff; font: 600 14px system-ui; cursor: pointer;
+`;
+    button.addEventListener('pointerdown', (event) => event.stopPropagation());
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const rect = this.canvasMgr.canvas.getBoundingClientRect();
+      const init: PointerEventInit = {
+        bubbles: true,
+        cancelable: true,
+        pointerId: 77,
+        pointerType: 'touch',
+        isPrimary: true,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      };
+      this.canvasMgr.canvas.dispatchEvent(new PointerEvent('pointerdown', init));
+      this.canvasMgr.canvas.dispatchEvent(new PointerEvent('pointerup', init));
+    });
+    document.body.appendChild(button);
+  }
+
+  private buildVisibilityRejectSmokeControl(): void {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.role = 'visibility-reject-smoke';
+    button.textContent = t('smoke.visibilityReject');
+    button.style.cssText = `
+position: fixed; right: 16px; bottom: 16px; z-index: 60; padding: 12px 16px;
+border: 1px solid rgba(255,255,255,0.35); border-radius: 12px;
+background: #4a172f; color: #fff; font: 600 14px system-ui; cursor: pointer;
+`;
+    button.addEventListener('pointerdown', (event) => event.stopPropagation());
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      window.dispatchEvent(new PageTransitionEvent('pagehide'));
+      window.setTimeout(() => document.dispatchEvent(new Event('visibilitychange')), 60);
+    });
+    document.body.appendChild(button);
   }
 
   private buildResultOverlay(score: StageScore): void {
@@ -444,8 +532,11 @@ cursor: pointer;
     }
     // Auto-miss expired targets (past OK window).
     const okSec = this.config.okWindowMs / 1000 + 0.01;
-    const maxBeatToCheck = this.transport.audioTimeToBeat(snap.audioTime - okSec);
-    const expired = this.scheduler.getJudgeTargetsInWindow(-1e9, maxBeatToCheck + 1);
+    const maxBeatToCheck = expiredJudgeBeat(this.transport, snap.audioTime, okSec);
+    // Do not add scheduler look-ahead here: judgement expiry follows the
+    // authoritative audio clock only. The previous +1 beat marked a target
+    // MISS roughly half a second before the player was supposed to act.
+    const expired = this.scheduler.getJudgeTargetsInWindow(-1e9, maxBeatToCheck);
     for (const t of expired) {
       this.judge.autoMiss(t);
     }

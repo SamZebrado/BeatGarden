@@ -79,6 +79,7 @@ export class InputRouter {
   // Snapshots for debug overlay.
   public lastInputAudioTime: number = 0;
   public lastInputDomTimeMs: number = 0;
+  public lastPointerType: string = 'none';
 
   // For debug.
   public readonly eventsInFlight: number = 0;
@@ -144,6 +145,7 @@ export class InputRouter {
   };
 
   private onPointerDown = (e: PointerEvent): void => {
+    this.lastPointerType = e.pointerType || 'unknown';
     if (this.aggressive) {
       // Prevent double-tap-to-zoom + long-press menu on Android Chrome.
       // This is per-element (not document-wide), which keeps accessibility fine.

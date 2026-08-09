@@ -1,0 +1,40 @@
+{
+  "date": "2026-08-10",
+  "browser": "real Chrome via Codex browser extension",
+  "gate0": {
+    "A_initial_unlock": {
+      "before": { "phase": "locked", "audioEngineState": "idle", "audioContextState": "suspended", "transportPlaying": false, "beat": 0 },
+      "after_real_click": { "phase": "countdown", "audioEngineState": "unlocked", "audioContextState": "running", "transportPlaying": true, "beat": -0.9422, "droppedLate": 0 }
+    },
+    "B_autoplay_block_and_recovery": {
+      "method": "fresh localhost subdomain plus runtimeSmoke=auto-unlock",
+      "blocked": { "phase": "locked", "audioEngineState": "idle", "audioContextState": "suspended", "transportPlaying": false, "beat": 0 },
+      "ui": "声音未能启用，请再次点击或触摸",
+      "after_real_click": { "phase": "countdown", "audioEngineState": "unlocked", "audioContextState": "running", "transportPlaying": true, "beat": -0.9422, "droppedLate": 0 }
+    },
+    "C_manual_pause_resume": {
+      "paused_start": { "phase": "paused", "audioContextState": "suspended", "transportPlaying": false, "beat": 16.7514, "audioTime": 9.4273, "droppedLate": 0 },
+      "paused_after_3_2_seconds": { "phase": "paused", "audioContextState": "suspended", "transportPlaying": false, "beat": 16.7514, "audioTime": 9.4273, "droppedLate": 0 },
+      "resumed": { "phase": "playing", "audioContextState": "running", "transportPlaying": true, "beat": 17.2506, "audioTime": 9.6943, "droppedLate": 0 },
+      "after_1_second": { "phase": "playing", "audioContextState": "running", "transportPlaying": true, "beat": 19.2824, "audioTime": 10.7102, "droppedLate": 0 }
+    },
+    "D_visibility_rejection_recovery": {
+      "method": "real Chrome runtime fault injection dispatches pagehide then visibilitychange; only the second resume attempt is forced to reject",
+      "rejected": { "phase": "playing", "audioEngineState": "suspended", "audioContextState": "suspended", "transportPlaying": false, "beat": 1.1011, "audioTime": 1.608, "counts": { "PERFECT": 0, "GREAT": 0, "OK": 0, "MISS": 0 } },
+      "after_2_1_seconds": { "phase": "playing", "audioEngineState": "suspended", "audioContextState": "suspended", "transportPlaying": false, "beat": 1.1011, "audioTime": 1.608, "counts": { "PERFECT": 0, "GREAT": 0, "OK": 0, "MISS": 0 } },
+      "after_recovery_gesture": { "audioEngineState": "unlocked", "audioContextState": "running", "transportPlaying": true, "lifecycleSuspends": 1, "lifecycleResumes": 1, "counts": { "PERFECT": 0, "GREAT": 0, "OK": 0, "MISS": 0 }, "droppedLate": 0 }
+    }
+  },
+  "user_comprehension": {
+    "desktop_mouse": { "inputPointerType": "mouse", "inputBeat": 2.0143, "feedback": "GREAT", "missBeforeInput": 0 },
+    "touch_pointer_simulation": { "inputPointerType": "touch", "inputBeat": 2.0143, "feedback": "GREAT", "missBeforeInput": 0 },
+    "english_page_has_chinese_ui": false,
+    "first_player_without_readme_knows_how_to_play": "YES"
+  },
+  "static": {
+    "typescript": "PASS",
+    "vitest": "88/88 PASS (11 files)",
+    "vite_build": "PASS",
+    "bundle": "dist/assets/index-CZE20gf_.js 59.14 kB, gzip 17.77 kB"
+  }
+}

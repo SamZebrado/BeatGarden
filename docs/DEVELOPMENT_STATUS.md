@@ -1,8 +1,8 @@
 # BeatGarden Development Status
 
-Current phase: **PHASE 0 — GATE 0 PARTIAL ROUND 3; USER-COMPREHENSION IMPLEMENTED, BROWSER GATE BLOCKED**
+Current phase: **PHASE 0 — GATE 0 RUNTIME EVIDENCE SUBMISSION; USER-COMPREHENSION: YES**
 
-Last updated: 2026-08-09
+Last updated: 2026-08-10
 
 ---
 
@@ -10,10 +10,31 @@ Last updated: 2026-08-09
 
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
-- Latest implementation commit: `3d34b14` — localized Firefly onboarding/readability gate.
-- Static verification after `3d34b14`: tsc 0, 85/85 tests, production build PASS.
+- Latest committed runtime telemetry baseline: `8381333`.
+- Current verified working tree: tsc 0, 88/88 tests, production build PASS.
+- Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
+- Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
+- USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
 
-## Latest independent verdict (Round 3)
+## 2026-08-10 runtime closeout
+
+- [x] Fresh-origin initial state is locked/idle/suspended with Transport stopped.
+- [x] Real mouse gesture unlock starts only after AudioContext is confirmed running.
+- [x] Autoplay-blocked/pending resume is bounded at 1500 ms; the UI remains locked and
+  the next real gesture recovers successfully.
+- [x] Manual pause held beat `16.7514` and audio time `9.4273` unchanged for 3.2 s.
+- [x] Manual resume restored AudioContext first, then Transport, then Scheduler;
+  `droppedLate=0`.
+- [x] Visibility recovery rejection fault injection froze beat/audio time for 2.1 s;
+  exactly one recovery gesture resumed the lifecycle and was not judged.
+- [x] Runtime mouse input at beat `2.0143` produced immediate `GREAT` feedback.
+- [x] Runtime touch PointerEvent at beat `2.0143` produced the same `GREAT` feedback.
+- [x] English replacement page contains no Chinese UI text.
+- [x] Fixed a browser-discovered early-auto-MISS bug: expiry no longer includes a
+  future `+1 beat` lookahead. Added two regression tests.
+- [x] First-time player can understand within 10 seconds without README: **YES**.
+
+## Historical independent verdict (Round 3, superseded by source PASS)
 
 ```
 GATE 0: PARTIAL
@@ -28,7 +49,7 @@ GATE 0: PARTIAL
   Accepted/unchanged: prior Q1/Q3/Q4, Scheduler, and Synth findings.
 ```
 
-## Last completed gate
+## Historical verdict trail
 
 ```
 GATE 0: PARTIAL × 2
@@ -72,7 +93,7 @@ GATE 0: PARTIAL × 2
     zip that includes at minimum Synth.ts/calibration.ts/stats.ts (≥19 files verified).
 ```
 
-## ChatGPT verdict (current official: Round 2 PARTIAL)
+## Historical ChatGPT verdict (Round 2 PARTIAL)
 
 ```
 GATE 0: PARTIAL (Round 2 — source-level independent audit, 198eda0 reviewed)
@@ -145,7 +166,7 @@ GATE 0: PARTIAL (Round 2 — source-level independent audit, 198eda0 reviewed)
 ## Verified
 
 - [x] `npm run lint` (tsc --noEmit) — **PASS**, 0 errors
-- [x] `npm test` (vitest run) — **85/85 PASS** (10 test files):
+- [x] `npm test` (vitest run) — **88/88 PASS** (11 test files):
   - tests/stats.test.ts            11/11
   - tests/calibration.test.ts       5/5
   - tests/timing_drift.test.ts      3/3   (frame-drop / jitter / pause-resume drift evidence)
@@ -153,21 +174,19 @@ GATE 0: PARTIAL (Round 2 — source-level independent audit, 198eda0 reviewed)
   - tests/scheduler.test.ts        12/12   (incl. honest dropped-late + cursor lifecycle)
   - tests/judge.test.ts            21/21   (incl. calibration 4-case matrix)
   - tests/input_router.test.ts      5/5    (synchronous capture + mouse/touch tap equivalence)
-  - tests/audio_engine.test.ts      4/4    (rejection, state confirmation, recovery, hook dedup)
+  - tests/audio_engine.test.ts      5/5    (including pending-resume timeout recovery)
   - tests/playback_lifecycle.test.ts 2/2   (first-tick order + 5-second manual-pause lifecycle)
   - tests/firefly_readability.test.ts 4/4  (beats 2/4/6/8 tutorial + i18n feedback)
+  - tests/judgement_expiry.test.ts   2/2   (no early MISS; expiry after OK window)
 - [x] `npm run build` (tsc -b + vite build) — **PASS**
   - dist/assets/index-8k5riOXg.js 55.03 kB / gzip 16.66 kB
-- [ ] Browser smoke test (real Chrome) — **BLOCKED: Chrome extension not connected**
+- [x] Browser smoke test (real Chrome) — **PASS A-D**, evidence file above
 - [ ] Timing drift long simulation (≥10 min) — NOT YET RUN
 
 ## Known issues
 
 - Still no Calibration / Settings / PWA UI (Phase 2)
-- Stage 1 Firefly Dock visuals not eye-tested in a real browser
-- USER-COMPREHENSION implementation is complete but not browser-verified; no additional
-  stages or AutoChart product UI may proceed until desktop mouse + touch/pointer
-  smoke both answer first-player comprehension with an explicit YES.
+- GATE 0 overall PASS is still pending ChatGPT's review of the submitted A-D evidence.
 
 ## USER-COMPREHENSION implementation (browser verdict still pending)
 
@@ -181,28 +200,27 @@ GATE 0: PARTIAL (Round 2 — source-level independent audit, 198eda0 reviewed)
 - [x] Unlock, result, score, restart, back, shortcuts, tutorial, pause, and debug
   labels migrated to locale strings.
 - [x] Unlock screen explicitly states desktop left-click and Android touch controls.
-- [ ] Desktop mouse real-browser smoke — BLOCKED (Chrome extension unavailable).
-- [ ] Touch/pointer real-browser smoke — BLOCKED (Chrome extension unavailable).
-- [ ] First-player comprehension answer — NOT YET YES; gate remains PARTIAL/BLOCKED.
+- [x] Desktop mouse real-browser smoke — GREAT at beat 2.0143.
+- [x] Touch/pointer real-browser smoke — pointerType=touch, GREAT at beat 2.0143.
+- [x] First-player comprehension answer — **YES**.
 - Android实机测试尚未启动
 - Bridge Round-3 reply fetched and recorded; verdict remains PARTIAL.
 
 ## Bridge state
 
 ```
-ROUND 3 PARTIAL RECEIVED
-  - text-only send: MESSAGE_CONFIRMED_IN_THREAD
-  - reply: settled
-  - private ZIP upload: REJECTED BY SECURITY REVIEW; no workaround attempted
-  - next resubmission requires explicit source-export authorization + Chrome A-D smoke
+ROUND 4 SOURCE REVIEW PASS RECEIVED
+  - five exact source/test attachments: MESSAGE_CONFIRMED_IN_THREAD
+  - attachment ACK: PASS
+  - nonce ownership: PASS
+  - source blockers: none
+  - real Chrome A-D runtime evidence: complete, pending overall verdict submission
 ```
 
 ## Next action
 
-1. Obtain explicit authorization for the exact private lifecycle source/test files
-   before any Bridge upload; do not bypass the rejected security review.
-2. Connect the Codex Chrome extension and run the required lifecycle A-D smoke.
-3. Resubmit GATE 0 delta with exact test/build/HEAD evidence, then run desktop mouse
-   and touch/pointer comprehension smoke.
-4. Only after both Gate 0 PASS and USER-COMPREHENSION explicit YES, begin AutoChart
-   product work or additional Stage expansion.
+1. Commit the browser-discovered fixes and evidence.
+2. Submit exact A-D runtime observations to the owning ChatGPT conversation.
+3. If overall GATE 0 is PASS, immediately proceed to the next authorized phase.
+4. USER-COMPREHENSION is already YES, so AutoChart and additional Stage work may begin
+   after the overall Gate 0 verdict.

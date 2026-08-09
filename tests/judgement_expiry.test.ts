@@ -1,0 +1,25 @@
+import { describe, expect, it } from 'vitest';
+import { Transport } from '../src/timing/Transport';
+import { expiredJudgeBeat } from '../src/game/judgementExpiry';
+
+describe('judgement expiry', () => {
+  it('does not expire a beat-2 target before its OK window closes', () => {
+    let now = 0;
+    const transport = new Transport(() => now, 120, [4, 4]);
+    transport.start(0, 0);
+    now = 0.88; // beat 1.76: the approaching cue is visible, target is still future.
+
+    const latestExpired = expiredJudgeBeat(transport, now, 0.16);
+    expect(latestExpired).toBeCloseTo(1.44, 8);
+    expect(latestExpired).toBeLessThan(2);
+  });
+
+  it('expires the target only after the OK window', () => {
+    let now = 0;
+    const transport = new Transport(() => now, 120, [4, 4]);
+    transport.start(0, 0);
+    now = 1.17; // beat 2.34, beyond a 160 ms window around beat 2.
+
+    expect(expiredJudgeBeat(transport, now, 0.16)).toBeGreaterThan(2);
+  });
+});

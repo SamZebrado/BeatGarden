@@ -10,6 +10,10 @@
 export interface AudioEngineOptions {
   musicVolume?: number;
   sfxVolume?: number;
+  /** Bound autoplay-blocked resume() calls that some browsers leave pending. */
+  resumeTimeoutMs?: number;
+  /** Optional deterministic runtime-smoke interceptor; production omits it. */
+  resumeAttempt?: (ctx: AudioContext) => Promise<void>;
 }
 
 export type AudioEngineState =
@@ -27,6 +31,8 @@ export class AudioEngine {
 
   private readonly musicVolumeStart: number;
   private readonly sfxVolumeStart: number;
+  private readonly resumeTimeoutMs: number;
+  private readonly resumeAttempt: (ctx: AudioContext) => Promise<void>;
 
   private boundVisibility: (() => void) | null = null;
   private boundPageHide: ((e: PageTransitionEvent) => void) | null = null;
@@ -52,6 +58,8 @@ export class AudioEngine {
   constructor(opts: AudioEngineOptions = {}) {
     this.musicVolumeStart = opts.musicVolume ?? 0.8;
     this.sfxVolumeStart = opts.sfxVolume ?? 0.9;
+    this.resumeTimeoutMs = opts.resumeTimeoutMs ?? 1_500;
+    this.resumeAttempt = opts.resumeAttempt ?? ((ctx) => ctx.resume());
   }
 
   /**
@@ -210,10 +218,21 @@ export class AudioEngine {
     const ctx = this.ensureContext();
     const wasSuspended = this._state === 'suspended';
     const attempt = (async (): Promise<boolean> => {
+      let timeoutId: number | undefined;
       try {
-        await ctx.resume();
+        await Promise.race([
+          this.resumeAttempt(ctx),
+          new Promise<never>((_, reject) => {
+            timeoutId = window.setTimeout(
+              () => reject(new Error('AudioContext resume timed out')),
+              this.resumeTimeoutMs,
+            );
+          }),
+        ]);
       } catch {
         return false;
+      } finally {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       }
       if (ctx.state !== 'running') return false;
 

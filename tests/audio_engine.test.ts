@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AudioEngine } from '../src/audio/AudioEngine';
 
-type ResumeOutcome = 'running' | 'resolved-suspended' | 'reject';
+type ResumeOutcome = 'running' | 'resolved-suspended' | 'reject' | 'pending';
 
 class FakeAudioContext {
   public state: AudioContextState;
@@ -44,6 +44,7 @@ class FakeAudioContext {
   async resume(): Promise<void> {
     this.resumeCalls++;
     const outcome = this.resumeOutcomes.shift() ?? 'running';
+    if (outcome === 'pending') await new Promise<void>(() => undefined);
     await Promise.resolve();
     if (outcome === 'reject') throw new Error('autoplay blocked');
     this.state = outcome === 'running' ? 'running' : 'suspended';
@@ -101,6 +102,19 @@ describe('AudioEngine confirmed-running lifecycle', () => {
 
     await expect(audio.resumeAndConfirmRunning()).resolves.toBe(false);
     expect(audio.state).toBe('idle');
+    await audio.close();
+  });
+
+  it('times out a pending autoplay resume so the next gesture can recover', async () => {
+    const audio = new AudioEngine({ resumeTimeoutMs: 5 });
+    const ctx = audio.ensureContext() as unknown as FakeAudioContext;
+    ctx.resumeOutcomes.push('pending', 'running');
+
+    await expect(audio.resumeAndConfirmRunning()).resolves.toBe(false);
+    expect(audio.state).toBe('idle');
+    await expect(audio.unlockFromUserGesture()).resolves.toBe(true);
+    expect(audio.state).toBe('unlocked');
+    expect(ctx.resumeCalls).toBe(2);
     await audio.close();
   });
 

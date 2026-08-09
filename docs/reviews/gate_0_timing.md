@@ -3,6 +3,43 @@
 Status: **PARTIAL (ChatGPT official verdict, conveyed by Captain Sam after Bridge fill-succeeded-but-send-missed).**
 Latest HEAD reviewed: 4e1701a (post StageRunner + Stage 1 initial impl; tsc 0 errors, vitest 56/56 PASS, vite build PASS, Desktop Chrome smoke PASS).
 
+## Round 4 — source PASS and real-Chrome A-D evidence (2026-08-10)
+
+Independent ChatGPT source verdict:
+
+```
+GATE 0 SOURCE REVIEW: PASS
+Blocking issues: None in the Round-3 source Delta.
+Overall GATE 0 awaits the promised real-Chrome A-D runtime smoke.
+```
+
+Bridge ownership:
+- request id `msm17017-licwmz00`
+- message id `mxebbodf41nsz3s2996er`
+- nonce `MSG_codex_gate0_source_e68664a_20260810a`
+- attachment ACK confirmed all five requested source/test files.
+
+Real Chrome A-D smoke is now complete. Exact machine-readable observations are in
+`docs/evidence/gate0_chrome_20260810.json`.
+
+- A: fresh origin locked/idle/suspended; real click produced countdown + running audio
+  + playing Transport.
+- B: an autoplay-blocked pending resume timed out without advancing; UI showed the
+  localized retry action; next real click recovered.
+- C: 3.2-second ESC pause kept beat/audioTime exactly fixed; resume advanced normally,
+  with `droppedLate=0`.
+- D: the connector cannot naturally background its controlled page, so a URL-gated,
+  production-inactive fault injection dispatched the real registered pagehide and
+  visibilitychange handlers while forcing only resume attempt #2 to reject. The
+  AudioContext and Transport remained frozen for 2.1 seconds. One canvas gesture
+  recovered once and was consumed without judgement; `droppedLate=0`.
+
+During the comprehension smoke, real Chrome exposed a separate early-MISS defect:
+StageRunner included a future `+1 beat` in its expiry query. A beat-2 target was already
+MISS at beat 1.76. The future lookahead was removed, two regression tests were added,
+and the repeated mouse and touch-pointer runs both produced GREAT at beat 2.0143 with
+zero prior misses.
+
 ---
 
 ## ChatGPT verdict (official)
