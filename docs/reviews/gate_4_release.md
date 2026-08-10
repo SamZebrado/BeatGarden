@@ -1,7 +1,19 @@
 # GATE 4 — Release Candidate / Full Project Review Record
 
-Status: ready for re-submission after public Pages and real Android closure work. The
-previous official verdict was `GATE 4: PARTIAL`; this is not final acceptance.
+Status: official re-verdict `GATE 4: PASS`; final independent acceptance remains a
+separate step.
+
+## Official re-verdict — PASS
+
+- Request id: `msmrfhi4-l1gjphs2`.
+- Message id: `7177kcr6o93aasekur2d6u`.
+- Nonce: `MSG_codex_gate4_release_7725189_20260810a`; ownership PASS.
+- Five of five attachments acknowledged.
+- Blocking issues: none. Required fixes: none for GATE 4.
+- Independent reviewer verified GitHub main `7725189f2a7cac1d490ff5aa9b13e40aaf31dddc`,
+  Pages run `31357050467`, successful build/deploy jobs, and the docs/evidence-only
+  boundary from runtime SHA `cec5d2f529a55720cd58943f10c0e1810d95c118`.
+- This verdict is not `FINAL_ACCEPTANCE`; the final review is submitted separately.
 
 ## 2026-08-10 external-blocker closure
 
