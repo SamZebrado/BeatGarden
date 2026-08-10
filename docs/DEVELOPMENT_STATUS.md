@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **GATE 2 PARTIAL; GATE 3 PASS; GATE 4 PARTIAL (ANDROID + PAGES EXTERNAL)**
+Current phase: **GATE 2 RE-SUBMISSION READY; GATE 3 PASS; GATE 4 RE-SUBMISSION PENDING GATE 2**
 
 Last updated: 2026-08-10
 
@@ -16,6 +16,39 @@ Last updated: 2026-08-10
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
+- Public Pages and real Android closure runtime SHA:
+  `cec5d2f529a55720cd58943f10c0e1810d95c118`.
+- Pages workflow run `31355206962`: PASS; public URL
+  `https://samzebrado.github.io/BeatGarden/`.
+- Real Android matrix: PASS except external WebAPK package delivery / standalone launch,
+  which remains explicitly `UNVERIFIED` after Chrome returned response code `-1`.
+- Entire Android smoke kept media volume at 0. **auditory calibration validity NOT ASSESSED because media volume was intentionally muted**.
+
+## 2026-08-10 GATE 2 external closure run
+
+- Xiaomi 24091RPADC / Android 16 / Chrome 145.0.7632.159 connected over USB ADB.
+- Public production boot and physical touch Firefly/Bubble/portrait gameplay PASS.
+- 16-input calibration software flow saved and persisted -50.0 ms; Judge read it after
+  Chrome restart. The value is a muted persistence fixture, not an auditory measurement.
+- Portrait/landscape mapping and device rotation restoration PASS.
+- Playing-stage Home/foreground lifecycle froze the beat across suspend/resume,
+  generated no input, resumed transport, and kept `droppedLate=0`.
+- Wi-Fi/data disabled, active default network none, Chrome cold restarted to a fresh
+  query URL, cached main menu booted, and physical touch loaded Firefly offline.
+- Formal BeatGarden install dialog at the public origin was accepted. Chrome logged
+  external WebAPK response `-1`; no package appeared, so standalone is `UNVERIFIED`.
+- Evidence: `docs/evidence/android_release_20260810.json` and screenshots in
+  `docs/evidence/android_20260810/`.
+
+## 2026-08-10 public Pages closure
+
+- Origin/main/runtime SHA matched `cec5d2f529a55720cd58943f10c0e1810d95c118`.
+- Pages configured for workflow deployment; run `31355206962` succeeded.
+- Root, manifest, service worker, hashed main bundle, and analysis Worker all returned
+  HTTPS 200 from `/BeatGarden/`.
+- Desktop connected Chrome verified Chinese default, full English replacement, Firefly,
+  correct SW scope/controller/cache, and zero console runtime errors.
+- Evidence: `docs/evidence/public_pages_20260810.json`.
 
 ## Official GATE 2 verdict — PARTIAL (2026-08-10)
 

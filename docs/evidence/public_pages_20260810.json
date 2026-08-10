@@ -1,0 +1,38 @@
+{
+  "capturedAt": "2026-08-10T12:50:00+08:00",
+  "repository": "https://github.com/SamZebrado/BeatGarden",
+  "publicUrl": "https://samzebrado.github.io/BeatGarden/",
+  "runtimeTestSha": "cec5d2f529a55720cd58943f10c0e1810d95c118",
+  "githubMainShaAtCapture": "cec5d2f529a55720cd58943f10c0e1810d95c118",
+  "pages": {
+    "buildType": "workflow",
+    "httpsEnforced": true,
+    "workflowRunId": 31355206962,
+    "workflowConclusion": "success",
+    "buildJobId": 93353669965,
+    "deployJobId": 93353705267
+  },
+  "http": {
+    "root": { "status": 200, "hsts": true },
+    "manifest": { "path": "/BeatGarden/manifest.webmanifest", "status": 200, "mime": "application/manifest+json" },
+    "serviceWorker": { "path": "/BeatGarden/sw.js", "status": 200, "mime": "javascript" },
+    "mainBundle": { "path": "/BeatGarden/assets/index-BFOtP3PE.js", "status": 200, "mime": "javascript" },
+    "worker": { "path": "/BeatGarden/assets/analysis.worker-DvmQPAok.js", "status": 200, "mime": "javascript" }
+  },
+  "desktopChrome": {
+    "mainMenuRendered": true,
+    "defaultLocale": "zh-CN",
+    "defaultPageMixedLanguageUi": false,
+    "englishReplacementComplete": true,
+    "englishPageChineseUi": false,
+    "fireflyEntered": true,
+    "consoleRuntimeErrors": 0,
+    "serviceWorker": {
+      "registered": true,
+      "scope": "https://samzebrado.github.io/BeatGarden/",
+      "controller": true,
+      "cacheNames": ["beatgarden-shell-v3"],
+      "error": null
+    }
+  }
+}

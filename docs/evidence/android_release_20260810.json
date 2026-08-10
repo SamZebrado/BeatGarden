@@ -1,0 +1,87 @@
+{
+  "capturedAt": "2026-08-10T12:50:00+08:00",
+  "runtimeTestSha": "cec5d2f529a55720cd58943f10c0e1810d95c118",
+  "publicUrl": "https://samzebrado.github.io/BeatGarden/",
+  "transport": "USB ADB",
+  "device": {
+    "serialRedacted": "bbda…35e",
+    "model": "24091RPADC",
+    "product": "muyu",
+    "android": "16",
+    "chrome": "145.0.7632.159",
+    "physicalSize": "2136x3200",
+    "densityDpi": 440
+  },
+  "audioSafety": {
+    "stream": "STREAM_MUSIC",
+    "volume": 0,
+    "range": [0, 160],
+    "verifiedRepeatedly": true,
+    "auditoryCalibrationValidity": "NOT ASSESSED because media volume was intentionally muted"
+  },
+  "productionBoot": {
+    "result": "PASS",
+    "defaultLocale": "zh-CN",
+    "landscapeMainMenuFullyVisible": true
+  },
+  "physicalTouchGameplay": {
+    "firefly": { "result": "PASS", "judgement": "GREAT", "pointerType": "touch", "droppedLate": 0 },
+    "bubble": { "result": "PASS", "judgement": "PERFECT", "pointerType": "touch", "droppedLate": 0 },
+    "portraitFirefly": { "result": "PASS", "judgement": "GREAT", "pointerType": "touch", "droppedLate": 0 }
+  },
+  "calibration": {
+    "softwareFlow": "PASS",
+    "realPhysicalInputs": 16,
+    "savedOffsetMs": -50.0,
+    "persistedAfterRefresh": true,
+    "persistedAfterChromeRestart": true,
+    "judgeReadPersistedValue": true,
+    "qualification": "The saved value is only a muted software-flow persistence fixture; auditory calibration validity NOT ASSESSED because media volume was intentionally muted"
+  },
+  "orientation": {
+    "portrait": { "result": "PASS", "innerWidth": 776, "innerHeight": 1019, "canvasWidth": 777, "canvasHeight": 437.0625, "doubleOffset": false },
+    "landscapeRestored": { "result": "PASS", "innerWidth": 1163, "innerHeight": 632, "canvasWidth": 1164, "canvasHeight": 654.75, "doubleOffset": false },
+    "deviceRotationSettingsRestored": true
+  },
+  "backgroundForeground": {
+    "result": "PASS",
+    "suspendBeat": 2.064,
+    "resumeBeat": 2.064,
+    "resumeGeneratedGameplayInput": false,
+    "transportResumed": true,
+    "audioContextRunning": true,
+    "droppedLate": 0
+  },
+  "offline": {
+    "result": "PASS",
+    "activeDefaultNetwork": "none",
+    "freshQueryUrl": "https://samzebrado.github.io/BeatGarden/?androidOfflineFresh=20260810b",
+    "coldChromeRestart": true,
+    "mainMenuBooted": true,
+    "fireflyLoadedViaPhysicalTouch": true,
+    "serviceWorkerController": true,
+    "scope": "https://samzebrado.github.io/BeatGarden/",
+    "cacheNames": ["beatgarden-shell-v3"]
+  },
+  "install": {
+    "installabilityUi": "PASS",
+    "formalInstallDialog": true,
+    "dialogIdentity": "BeatGarden / samzebrado.github.io",
+    "userAndAdbConfirmationAttempts": true,
+    "standaloneLaunch": "UNVERIFIED",
+    "webApkPackageObserved": false,
+    "externalInstallerDiagnostic": "Chrome WebAPK server returned response code -1; a second online confirmation produced no installed WebAPK package within the observation window"
+  },
+  "screenshots": [
+    "android_20260810/01_public_boot.png",
+    "android_20260810/02_firefly_touch_great.png",
+    "android_20260810/03_bubble_touch_perfect.png",
+    "android_20260810/04_calibration_complete_muted.png",
+    "android_20260810/05_judge_reads_offset.png",
+    "android_20260810/06_portrait.png",
+    "android_20260810/07_landscape_restored.png",
+    "android_20260810/08_offline_fresh_boot.png",
+    "android_20260810/09_offline_firefly.png",
+    "android_20260810/10_install_dialog.png"
+  ]
+}

@@ -1,6 +1,32 @@
 # GATE 2 — Android touch + Calibration + PWA Review Record
 
-Status: ready for independent review; Android hardware explicitly unverified.
+Status: re-submission evidence ready; real Android matrix completed except external
+WebAPK package delivery / standalone launch.
+
+## 2026-08-10 real-device closure evidence
+
+- Exact runtime/test SHA: `cec5d2f529a55720cd58943f10c0e1810d95c118`.
+- Device: Xiaomi `24091RPADC` (`muyu`), Android 16, Chrome 145.0.7632.159,
+  serial redacted as `bbda…35e`; USB ADB transport.
+- The entire Android run kept `STREAM_MUSIC` at 0/160. No audible sound was
+  intentionally produced.
+- Public Pages boot, physical touch, Firefly `GREAT`, Bubble `PERFECT`, portrait
+  Firefly `GREAT`, orientation restore, lifecycle suspend/resume, and cold offline
+  fresh-query boot all PASS with `droppedLate=0` where applicable.
+- Calibration received 16 physical inputs, saved `-50.0 ms`, survived refresh and a
+  Chrome process restart, and the built-in Judge visibly read `-50.0 ms`.
+  **auditory calibration validity NOT ASSESSED because media volume was intentionally muted**.
+  This value is a software-flow/persistence fixture only.
+- Chrome showed the formal installable-app dialog for `BeatGarden` at
+  `samzebrado.github.io`. Both the user-confirmed attempt and a later online ADB-confirmed
+  attempt were accepted by the UI. No WebAPK package appeared; Chrome logged
+  `WebAPK server returned response code -1`. Therefore standalone launch remains
+  `UNVERIFIED`; this is reported as an external installer-service residual, not a PASS.
+- Durable telemetry and screenshots: `docs/evidence/android_release_20260810.json` and
+  `docs/evidence/android_20260810/`.
+
+Requested re-verdict: `GATE 2: PASS / PARTIAL / FAIL`, with concrete blockers only and
+explicit consideration of whether the external WebAPK delivery failure blocks release.
 
 ## Submission verdict — PARTIAL
 

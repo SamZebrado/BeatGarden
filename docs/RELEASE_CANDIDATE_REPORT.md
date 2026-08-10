@@ -2,9 +2,11 @@
 
 ## OVERALL
 
-**PARTIAL** — the code/content/PWA candidate is complete on desktop Chrome, but two
-external release proofs remain: a real Android tablet and a public GitHub Pages remote.
-Independent GATE 4 review confirmed these as the only concrete blockers.
+**RE-SUBMISSION READY WITH ONE EXTERNAL INSTALLER RESIDUAL.** Public GitHub Pages and
+the real Android production matrix are now evidenced. Chrome recognized the app and
+accepted the formal install confirmation, but its external WebAPK delivery returned
+response code `-1`; no standalone package appeared, so standalone launch remains
+`UNVERIFIED` pending independent disposition.
 
 ## GATE 0 Timing
 
@@ -18,8 +20,10 @@ manual pause freeze, visibility failure/recovery, restart, and teardown verified
 
 ## Calibration
 
-**PASS (desktop Chrome); Android UNVERIFIED.** Sixteen real browser taps saved +6.3 ms;
-settings persist and the shared Judge reads the offset.
+**PASS for software flow on desktop and Android.** Android received 16 physical muted
+inputs, saved -50.0 ms, persisted across refresh and Chrome restart, and the Judge read
+the value. **auditory calibration validity NOT ASSESSED because media volume was intentionally muted**;
+the muted value is not claimed as an auditory latency measurement.
 
 ## Firefly Dock
 
@@ -58,21 +62,25 @@ never labelled stream safe.
 
 ## Android
 
-**UNVERIFIED.** `adb devices -l` found no connected device. GATE 2 remains PARTIAL until
-one real tablet covers install/open, gameplay touch, calibration, resize/orientation,
-background/foreground audio, and offline relaunch.
+**PASS for production boot, touch gameplay, calibration software flow, orientation,
+lifecycle, and cold offline relaunch** on Xiaomi 24091RPADC / Android 16 / Chrome
+145.0.7632.159. The standalone-installed-WebAPK sub-item remains `UNVERIFIED` because
+the external Chrome WebAPK service returned response code `-1` after the formal install
+confirmation; no package was observed.
 
 ## PWA
 
-**PASS in production desktop Chrome.** Manifest, 192/512 maskable PNGs, SVG, offline
-shell, controlled `/BeatGarden/` scope, lifecycle-bound canonical refresh, and server-
-off fresh-query boot are verified.
+**PASS for installability UI, manifest/SW/offline behavior; standalone package
+UNVERIFIED.** Public desktop and Android origins are controlled at `/BeatGarden/` by
+`beatgarden-shell-v3`; Android cold Chrome restart with all networks disabled booted a
+never-used query URL and navigated to Firefly by physical touch.
 
 ## GitHub Pages
 
-**PARTIAL.** `/BeatGarden/` static production mount and workflow are verified locally.
-Public deployment is blocked: no local git remote, no BeatGarden repository in the
-connected GitHub installation, and invalid local `gh` authentication.
+**PASS.** GitHub Pages workflow run `31355206962` built and deployed successfully.
+`https://samzebrado.github.io/BeatGarden/` returned HTTPS 200, all production subpath
+assets returned 200 with correct types, and connected Chrome verified rendering,
+i18n replacement, Firefly entry, SW scope/controller/cache, and zero runtime errors.
 
 ## Stream-safe built-in content
 
@@ -103,16 +111,18 @@ vulnerabilities.
 
 Desktop Chrome: menu/i18n, audio test, provenance, calibration/settings, all built-in
 stages, AutoChart Worker/play/result, lifecycle A–D, corrected DPR layout, controlled
-PWA, and server-off offline boot. Android: NOT RUN.
+PWA, and server-off offline boot. Android: public production boot, real touch gameplay,
+muted calibration flow, orientation, lifecycle, and cold offline relaunch PASS.
 
 ## Known issues
 
-1. Android real-device evidence unavailable.
-2. Public GitHub Pages deployment unavailable without a repository/working credential.
-3. Native OS file-picker automation and live viewport resizing are unavailable in the
+1. Android Chrome's external WebAPK delivery returned response code `-1`; the formal
+   install dialog was accepted, but no installed package/standalone launch was observed.
+2. Native OS file-picker automation is unavailable in the
    connected browser surface; corresponding code paths have synthetic/pure-math evidence.
 
 ## HEAD
 
-Runtime/test candidate: `a49c83c`. The later documentation-only release record commit
-does not modify runtime, tests, dependencies, or build inputs.
+Runtime/test candidate: `cec5d2f529a55720cd58943f10c0e1810d95c118`. The forthcoming
+documentation/evidence-only closure commit does not modify runtime, tests, dependencies,
+or build inputs; both SHAs and their diff are recorded at final submission.
