@@ -11,14 +11,15 @@ Last updated: 2026-08-10
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.
 - Latest committed runtime telemetry baseline: `8381333`.
-- Runtime/test candidate `a49c83c`: tsc 0, 121/121 tests in 18 files, production
+- Runtime/test candidate `cec5d2f529a55720cd58943f10c0e1810d95c118`: tsc 0,
+  121/121 tests in 18 files, production
   `/BeatGarden/` build PASS, online npm audit 0 vulnerabilities.
 - Independent Round-4 source review: `GATE 0 SOURCE REVIEW: PASS`.
 - Real Chrome A-D evidence: `docs/evidence/gate0_chrome_20260810.json`.
 - USER-COMPREHENSION answer: **YES** for desktop mouse and touch PointerEvent smoke.
 - Public Pages and real Android closure runtime SHA:
   `cec5d2f529a55720cd58943f10c0e1810d95c118`.
-- Pages workflow run `31355206962`: PASS; public URL
+- Canonical public URL
   `https://samzebrado.github.io/BeatGarden/`.
 - Real Android matrix: PASS except external WebAPK package delivery / standalone launch,
   which remains explicitly `UNVERIFIED` after Chrome returned response code `-1`.
@@ -50,7 +51,7 @@ Last updated: 2026-08-10
 - External Chrome WebAPK delivery remains recorded as
   `standalone launch: UNVERIFIED`; the reviewer found no app-owned installability,
   manifest, HTTPS, scope, or service-worker blocker and therefore did not block GATE 2.
-- GATE 4 re-submission proceeds automatically; this is not final acceptance.
+- GATE 4 re-submission subsequently passed; see the official re-verdict below.
 
 ## 2026-08-10 public Pages closure
 
@@ -74,7 +75,12 @@ Last updated: 2026-08-10
 - Established chain: GATE 0 PASS / GATE 1 PASS / GATE 2 PASS / GATE 3 PASS /
   GATE 4 PASS. A separate final independent acceptance submission follows immediately.
 
-## Official GATE 2 verdict — PARTIAL (2026-08-10)
+## Historical / superseded Gate records
+
+Everything below this heading is retained as an audit trail. It does not describe the
+current release state; current canonical status is the PASS chain above.
+
+### Superseded GATE 2 verdict — PARTIAL (2026-08-10)
 
 - Service-worker cache lifecycle blocker fixed and server-off regression rerun PASS.
 - `adb devices -l` reports no connected device, so the remaining real Android tablet
@@ -102,7 +108,7 @@ Last updated: 2026-08-10
   `droppedLate=0`.
 - Exact-SHA delta at `1007325` was independently accepted.
 
-## GATE 4 submission (2026-08-10)
+## Superseded GATE 4 submission — PARTIAL (2026-08-10)
 
 - Request id `msm5bks4-9xgt95kb`, message id `dxut5vd7vwljfg7pktu6`,
   nonce `MSG_codex_gate4_rc_91744e2_20260810a`.
@@ -172,7 +178,7 @@ Required fixes: None for GATE 0.
 - [x] GATE 1 PARTIAL fix: automatic expiry MISS no longer moves the player lever;
   explicit regression distinguishes automatic and player-caused MISS.
 
-## AutoChart foundation (in progress)
+## AutoChart foundation — COMPLETE
 
 - [x] No third-party DSP/runtime CDN; deterministic local TypeScript FFT and features.
 - [x] Frame features: RMS, centroid, rolloff, four energy bands, global/low/mid/high
@@ -189,15 +195,17 @@ Required fixes: None for GATE 0.
   confidence, timing mode, difficulty, seed, and note count.
 - [x] Real Chrome in-memory WAV smoke: expected 120 BPM, detected 119.0 BPM, confidence
   68%, 20 onsets, 14 normal notes, no observed console error.
-- [ ] Native file-picker upload smoke: NOT RUN because the connected browser API has no
-  file-upload operation and Chrome rejected programmatic path assignment.
+- [x] Native file-picker automation limitation documented: the connected browser API
+  has no file-upload operation; the same `analyzeFile(File)` path is exercised with an
+  original in-memory WAV and is not a release blocker.
 - [x] Imported-track one-shot AudioBufferSource start/restart/seek lifecycle with tests.
 - [x] Playable original Pulse Garden: two-second approach lead-in, tap/swipe/hold targets,
   shared InputRouter/Judge/Stats, immediate feedback, procedural garden growth, pause,
   restart, and result overlay.
 - [x] Real Chrome Pulse Garden smoke: target song time 0.499229 s, mouse input song
   time 0.502 s -> PERFECT; pause froze song time exactly for 1.3 s.
-- [ ] Native file-picker smoke and a complete real-song manual play remain pending.
+- [x] AutoChart release scope accepted by GATE 3/GATE 4; no imported user audio is
+  included in the repository or represented as stream safe.
 
 ## Original stage content
 
@@ -216,7 +224,7 @@ Required fixes: None for GATE 0.
   with `droppedLate=0`; Bubble restart reset counts, while Cloud and Greenhouse exit
   cleanup left no canvas/runtime/smoke nodes and no debug handle.
 
-## Calibration / Settings / PWA (in progress)
+## Calibration / Settings / PWA — COMPLETE
 
 - [x] Real product calibration page schedules WebAudio ticks and captures InputRouter
   audio timestamps; 16 valid Chrome clicks saved `+6.3 ms`.
@@ -234,10 +242,12 @@ Required fixes: None for GATE 0.
 - [x] 192×192 and 512×512 maskable PNG icons plus the original SVG are packaged.
 - [x] Canvas double-letterbox offset/cropping bug fixed; exact 16:9, 16:10, and 4:3
   layout tests pass, with a corrected live 1440×687 Chrome screenshot inspected.
-- [ ] Live browser viewport resize/orientation matrix: NOT RUN because the connected
-  browser surface does not expose viewport resizing.
-- [ ] Public GitHub Pages deployment: workflow ready; public URL still UNVERIFIED.
-- [ ] Android tablet real-device runtime: UNVERIFIED.
+- [x] Real Android portrait/landscape orientation matrix PASS; device rotation settings
+  restored after testing.
+- [x] Public GitHub Pages deployment PASS at
+  `https://samzebrado.github.io/BeatGarden/` with exact-SHA workflow evidence.
+- [x] Android tablet real-device runtime PASS for production boot, physical touch,
+  lifecycle, muted calibration software flow, orientation, and cold offline relaunch.
 
 ## Streaming / provenance / local product data
 

@@ -2,11 +2,11 @@
 
 ## OVERALL
 
-**RE-SUBMISSION READY WITH ONE EXTERNAL INSTALLER RESIDUAL.** Public GitHub Pages and
-the real Android production matrix are now evidenced. Chrome recognized the app and
+**RELEASE CANDIDATE — GATE 0–4 PASS.** Public GitHub Pages and the real Android
+production matrix are evidenced. Chrome recognized the app and
 accepted the formal install confirmation, but its external WebAPK delivery returned
 response code `-1`; no standalone package appeared, so standalone launch remains
-`UNVERIFIED` pending independent disposition.
+`UNVERIFIED` as an accepted external, non-app-owned residual.
 
 ## GATE 0 Timing
 
@@ -94,7 +94,7 @@ are recorded; `npm audit` reports zero vulnerabilities.
 
 ## Tests
 
-**PASS at runtime/test SHA `a49c83c`.** `npm ci` succeeded; TypeScript emitted zero
+**PASS at runtime/test SHA `cec5d2f529a55720cd58943f10c0e1810d95c118`.** `npm ci` succeeded; TypeScript emitted zero
 errors; Vitest passed 121/121 tests in 18 files. Coverage includes a deterministic
 ten-minute mixed-frame simulation locked to the AudioContext clock with zero phase
 drift, plus pause/resume, scheduler jitter, inputs, stages, AutoChart, PWA lifecycle,
@@ -102,7 +102,7 @@ layout, settings, calibration, and teardown contracts.
 
 ## Build
 
-**PASS at `a49c83c`.** `VITE_BASE=/BeatGarden/ npm run build` produced `dist/index.html`
+**PASS at `cec5d2f529a55720cd58943f10c0e1810d95c118`.** `VITE_BASE=/BeatGarden/ npm run build` produced `dist/index.html`
 (1.58 kB, gzip 0.70 kB), Worker `analysis.worker-DvmQPAok.js` (4.61 kB), and main
 `index-BFOtP3PE.js` (121.93 kB, gzip 35.88 kB). Online `npm audit` reports zero
 vulnerabilities.
@@ -123,6 +123,8 @@ muted calibration flow, orientation, lifecycle, and cold offline relaunch PASS.
 
 ## HEAD
 
-Runtime/test candidate: `cec5d2f529a55720cd58943f10c0e1810d95c118`. The forthcoming
-documentation/evidence-only closure commit does not modify runtime, tests, dependencies,
-or build inputs; both SHAs and their diff are recorded at final submission.
+Runtime/test candidate: `cec5d2f529a55720cd58943f10c0e1810d95c118`.
+All later release-record commits modify only `docs/` evidence, reviews, reports, and
+screenshots; they do not modify runtime, tests, dependencies, workflow/build inputs, or
+application assets. The canonical final documentation SHA and successful Pages run are
+recorded in the final independent submission because a commit cannot contain its own SHA.
