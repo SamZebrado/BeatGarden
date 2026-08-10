@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **GATE 2 RE-SUBMISSION READY; GATE 3 PASS; GATE 4 RE-SUBMISSION PENDING GATE 2**
+Current phase: **GATE 2 PASS; GATE 3 PASS; GATE 4 RE-SUBMISSION READY**
 
 Last updated: 2026-08-10
 
@@ -39,6 +39,18 @@ Last updated: 2026-08-10
   external WebAPK response `-1`; no package appeared, so standalone is `UNVERIFIED`.
 - Evidence: `docs/evidence/android_release_20260810.json` and screenshots in
   `docs/evidence/android_20260810/`.
+
+### Official GATE 2 re-verdict — PASS
+
+- Request id `msmra21b-23eyvamr`, message id `zty9qf03p0gvog6uaei9l`.
+- Nonce `MSG_codex_gate2_android_f0c3780_20260810a`; nonce ownership PASS and four
+  of four attachments acknowledged.
+- Independent reviewer accepted the complete real-device matrix and the deliberately
+  limited muted-calibration claim.
+- External Chrome WebAPK delivery remains recorded as
+  `standalone launch: UNVERIFIED`; the reviewer found no app-owned installability,
+  manifest, HTTPS, scope, or service-worker blocker and therefore did not block GATE 2.
+- GATE 4 re-submission proceeds automatically; this is not final acceptance.
 
 ## 2026-08-10 public Pages closure
 

@@ -1,7 +1,19 @@
 # GATE 2 — Android touch + Calibration + PWA Review Record
 
-Status: re-submission evidence ready; real Android matrix completed except external
-WebAPK package delivery / standalone launch.
+Status: official re-verdict `GATE 2: PASS`.
+
+## Official re-verdict — PASS
+
+- Request id: `msmra21b-23eyvamr`.
+- Message id: `zty9qf03p0gvog6uaei9l`.
+- Nonce: `MSG_codex_gate2_android_f0c3780_20260810a`; ownership PASS.
+- Four of four attachments acknowledged.
+- Concrete blockers: none.
+- Reviewer retained `standalone launch: UNVERIFIED — external Chrome WebAPK delivery
+  failure`, but found the correct formal installability UI and no app-owned manifest,
+  HTTPS, scope, service-worker, or eligibility defect; it does not block GATE 2.
+- The muted calibration was accepted only as software-flow/persistence/Judge evidence,
+  never as an auditory latency measurement.
 
 ## 2026-08-10 real-device closure evidence
 
