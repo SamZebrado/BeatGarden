@@ -9,8 +9,8 @@ ChatGPT review conversation.
 ### Current product state
 
 - Gates A, B, C, D and E: `PASS`.
-- Gate F: `PARTIAL`; only remote-main publication/CI and a three-world difficulty
-  runtime-wiring canary remain before re-review.
+- Gate F: `PASS`. Gates A–F are closed; the current Running Mode playable-alpha
+  mission is complete.
 - The product has one responsive top-level Mode Select. Legacy `?screen=...` links
   remain Rhythm-owned; `?mode=rhythm` and `?mode=running` are explicit routes.
 - Running ships three playable deterministic worlds: PhD, Master and Work.
@@ -110,25 +110,24 @@ ChatGPT review conversation.
 - Added additive run recording and verified existing Rhythm key/value preservation in
   both unit and production browser evidence.
 - Added Sprout/Garden/Storm as a final Definition-of-Done correction before Gate F.
+- Gate F first review was PARTIAL only for remote publication and runtime difficulty
+  proof. Pushed the unsquashed chain, verified Apache-2.0 and successful Pages run
+  32571070683, fixed the natural PhD telegraph wiring found by the canary, and proved
+  speed/damage/spawn/telegraph differences across all three worlds. Final re-review
+  returned PASS with no current-mission blocker.
 
 ## PLAN
 
 ### Blocker
 
-1. Push the implementation, license and canary commits to GitHub `main`; verify
-   remote SHA/license/CI.
-2. Return the three-world canary evidence and boot wiring to the designated ChatGPT
-   conversation and obtain `BEATGARDEN_RUNNING_FINAL_ACCEPTANCE: PASS`.
+- None for the accepted current mission.
 
 ### Immediate closeout
 
-1. Record final full lint/test/build/audit counts after the difficulty addition.
-2. Commit the implementation/evidence, then perform the requested Apache-2.0
-   relicensing as a separate commit.
-3. Send the Gate F evidence packet and authorized concrete code; wait for the required
-   standalone completion marker, with an extra five-minute wait only if it is absent.
-4. Stop local test servers, remove the exact temporary Android screenshots/reverse
-   mapping, close the in-app browser, and verify no Playwright process remains.
+1. Preserve the accepted A–F evidence and tested-runtime SHA boundary.
+2. Treat any Cultivation, cross-world or extended-content work as a new product phase.
+3. Complete commercial name/trademark clearance before a major public commercial
+   launch.
 
 ### Deferred by approved scope
 
