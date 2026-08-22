@@ -30,12 +30,18 @@ static hosts.
 - Rhythm stages: Firefly Dock, Bubble Kitchen, Cloud Post, Sleepy Greenhouse.
 - Your Music: local file decode, Web Worker DSP analysis, chart preview, difficulty
   and seed controls, then playable Pulse Garden.
-- Running: keyboard/touch movement, automatic offense, pickups, Portfolio Orbit,
-  world events, choices and milestone bosses in PhD, Master and Work.
+- Running: keyboard/touch movement, automatic offense, pickups and Portfolio Orbit
+  across three bounded life paths. PhD separates supervisors, assigned labor,
+  independent research and finite academic committees; Master follows a distinct
+  three-year Proposal/Defense path; Work follows offer, trial, conversion and
+  promotion with manager and Job Market effects.
 - Running difficulty: Sprout, Garden and Storm. Garden is the default.
 - Timing calibration, persistent volume/motion settings, and local best scores.
 - Audio/streaming test plus an in-product asset and stream-safety explanation.
 - Offline shell, install manifest, responsive logical canvas, mouse and touch input.
+- Boss Studio imports strict data-only JSON through validation, preview and explicit
+  confirmation. Its provider-neutral AI handoff and maintained example are documented
+  in [the Boss Schema guide](docs/BOSS_SCHEMA_V1.md).
 
 ## Timing architecture
 

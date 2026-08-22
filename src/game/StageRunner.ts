@@ -23,7 +23,7 @@ import { CanvasManager } from '../render/CanvasManager';
 import { DebugOverlay } from '../render/DebugOverlay';
 import { resumeAfterAudioConfirmed } from './playbackLifecycle';
 import { expiredJudgeBeat, hasJudgeTargetExpired } from './judgementExpiry';
-import { getLocale, t, toggleLocale } from '../i18n/strings';
+import { getLocale, languageTargetAction, languageTargetLabel, t, toggleLocale } from '../i18n/strings';
 import { loadSettings } from '../settings/settings';
 import { saveBestScore } from '../settings/scores';
 
@@ -307,8 +307,9 @@ box-shadow: 0 10px 30px rgba(80,60,200,0.4);
     d.appendChild(hint);
     const language = document.createElement('button');
     language.type = 'button';
-    language.textContent = t('language.switch');
-    language.setAttribute('aria-label', t('language.switch'));
+    language.textContent = languageTargetLabel();
+    language.setAttribute('aria-label', languageTargetAction());
+    language.title = languageTargetAction();
     language.style.cssText = `
 margin-top: 28px; padding: 10px 18px; border-radius: 999px;
 border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);

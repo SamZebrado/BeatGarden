@@ -24,6 +24,30 @@ ChatGPT review conversation.
 
 ### Reality & Clarity checkpoint — 2026-08-23
 
+- Qualifying is now one finite designated roster: Garden initializes exactly nine
+  targets once, clearing/suspending ambient pressure. Defeats permanently reduce that
+  same roster, academic time stays frozen, and neither waiting nor kills can replenish
+  it. Defense and Master Proposal/Defense use their own bounded finite sets.
+- Academic milestone arenas now run continuously through Preparation, Rehearsal and
+  Presentation. Preparation consumes resources, rehearsal is a short corrective phase,
+  and only Presentation is assessed; there is no active timeout or quit path.
+- Person profiles are separate from gameplay roles and Boss data. PhD and Master use
+  the same three academic people through distinct role adapters. PhD independently
+  tracks assigned labor and thesis/research progress, with low-frequency Accept / Set
+  Boundary / Decline requests and profile-dependent reactions.
+- Master is a distinct three-year path: Year 1 courses plus onboarding work, Year 2
+  research/project ending in Proposal, and Year 3 completion/planning ending in
+  Defense. It has no Qualifying Exam. Career Plan is exactly Research/PhD, Employment
+  or Undecided, with no universally best option.
+- Work begins with exactly three partial-information offers and continues through trial,
+  conversion, employment and promotion. Manager profile, seeded slow Job Market drift,
+  Experience, explicit switching costs and Delivery contributions are deterministic;
+  interruption defeats never become career achievement.
+- All language controls name the target locale (`English` or `中文`) and expose the
+  target action in `aria-label`/`title`. Boss Studio adds a localized compact creation
+  workflow, provider-neutral complete prompt, maintained example and stable schema link.
+  Only the top-level Mode Select carries the subordinate, verified public Slowly Island Pages link.
+
 - Player-visible Running terminology is localized in English and Simplified Chinese;
   internal choice/event IDs no longer leak into cards. English recurring PhD meetings
   are consistently named **Lab Meeting**.
@@ -53,12 +77,18 @@ ChatGPT review conversation.
 ### Current checkpoint verification — 2026-08-23
 
 - `npm run lint`: PASS.
-- `npm test`: PASS — 185/185 tests in 29 files.
+- `npm test`: PASS — 199/199 tests in 30 files after the bounded external-review repair.
 - `npm run build`: PASS; the known lazy Phaser chunk warning remains.
-- Fresh desktop and 390×844 browser checks covered all three supervisor cards, all five
-  lifestyle cards, both Work choices, Legend scrolling/pause, Text Off, bilingual year
-  seams, simultaneous Signal + Noise, designated target markers and the approximately
-  four-second hint dwell. Legend-open sampling froze simulation and closing resumed it.
+- Fresh 390×844 browser checks covered target-language labels/ARIA, the top-level-only
+  Slowly Island footer, Boss example validation/confirmation, finite PhD Qualifying,
+  Master Year 3, Work offers/conversion, Text Off, Rhythm menu and Firefly. No horizontal
+  overflow or browser console errors were observed. Legend-open sampling froze Work
+  simulation exactly; closing resumed it.
+- Android canary on the connected 24091RPADC used the production `/BeatGarden/` base:
+  Running world select rendered in zh-CN, a real device tap entered PhD, one canvas and
+  the mobile controls appeared with zero horizontal overflow, and the v4 service worker
+  reported both registration and control. The temporary ADB reverse/DevTools forwards
+  and device screenshots were removed afterward.
 - Rhythm Mode route/menu smoke passed after Running changes. No claim is made that this
   bounded smoke replaces the older full Rhythm release evidence below.
 - Android device `bbda35e` opened live PhD Garden through `adb reverse`; the captured
@@ -77,10 +107,12 @@ ChatGPT review conversation.
   Calendar/pollution, annual review, Qualifying arena, four-stage Thesis growth,
   Year-five Defense Gate, Committee boss, seasonal/Years 6–9 progression, bounded
   Year-nine end and graduation terminals.
-- Master: compressed coursework/deadline pressure, course and deadline hazards,
-  term-rush event, four-way track trade-off, Exam climax and completion.
-- Work: interruption/priority pressure, request and notification hazards, daily and
-  weekly events, two-way priority trade-off, Delivery climax and completion.
+- Master: three-year coursework/onboarding → research/project → Proposal → Career Plan
+  → finish/Defense path, shared academic Person pool, term pressure, finite milestones
+  and four-way local focus trade-offs.
+- Work: exactly three offers, manager selection, trial, conversion/leave-search,
+  employment and promotion; request/notification hazards, daily/weekly events,
+  Job Market/Experience effects and delivery-backed rather than kill-backed progress.
 - All three support keyboard, pointer drag/touch, portrait camera, text-off rendering,
   natural playable climax completion and restart/exit.
 
@@ -135,6 +167,12 @@ ChatGPT review conversation.
 
 ### 2026-08-23 — Running Mode Reality & Clarity MVP
 
+- Added the finite-roster correction, shared Person/role-adapter boundary, PhD
+  assigned-labor/boundary decisions, Master three-year Proposal/Defense/Career Plan,
+  and Work offer/trial/conversion/manager/market/promotion lifecycle.
+- Added target-language labels, Boss creation handoff/discoverability, the top-level
+  Slowly Island footer, deterministic life-path probes and current architecture notes.
+
 - Added approximately four-second first-seen hints plus a bilingual, scrollable Legend
   whose open state pauses both PhD and scenario simulation. Text Off removes both prose
   surfaces entirely.
@@ -146,9 +184,9 @@ ChatGPT review conversation.
 - Used one bounded Terra implementation task for Legend/i18n wiring; the primary agent
   reviewed and corrected integration. Explicit Spark custom-role runtime selection was
   unavailable in the current harness, so no TOML configuration was claimed or installed.
-- The designated ChatGPT review completed with its requested terminal marker. Its three
-  P1 findings were reproduced, repaired minimally and covered by final tests; the stale
-  maintained status document was updated here rather than duplicated.
+- The designated ChatGPT review completed with its requested terminal marker. Its four
+  P1 findings and one P2 finding were reproduced, repaired in one bounded pass and
+  covered by final tests; no iterative reviewer/repair loop was started.
 
 ### 2026-08-22 — Running product-depth checkpoint
 
@@ -216,3 +254,7 @@ ChatGPT review conversation.
 - Cultivation gameplay; cross-world profile/Calendar/economy; capped shared gains;
   custom per-axis assist sliders; additional Master/Work content; commercial name
   clearance; long-duration Android thermal/battery profiling.
+- Future directions recorded but not implemented: peers/coworkers, multiplayer or
+  shared supervisor attention, dropout/change-supervisor/abandon-milestone routes,
+  complex quitting, romance/family, entertainment/diet systems, Cultivation, and any
+  cross-world economy/profile.

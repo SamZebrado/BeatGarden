@@ -1,6 +1,11 @@
 import { getLocale, t, type StringKey } from '../i18n/strings';
 import { BOSS_SCHEMA_VERSION, parseBossConfig, type BossConfigV1 } from './core/bossSchema';
 import { loadRunningSave, updateRunningSave } from './core/save';
+import supportiveMentorExample from '../../docs/examples/supportive-mentor.boss.json';
+
+/** Public, versioned reference for people using an external text assistant. */
+export const BOSS_SCHEMA_DOC_URL = 'https://github.com/SamZebrado/BeatGarden/blob/main/docs/BOSS_SCHEMA_V1.md';
+export const BOSS_STUDIO_EXAMPLE = JSON.stringify(supportiveMentorExample, null, 2);
 
 const labelKeys: Record<string, StringKey> = {
   'schema': 'running.bossField.schema', 'id': 'running.bossField.id', 'name': 'running.bossField.name', 'name.en': 'running.bossField.nameEn', 'name.zh-CN': 'running.bossField.nameZh',
@@ -29,7 +34,8 @@ export class BossStudio {
     page.dataset.role = 'boss-studio';
     page.style.cssText = 'width:min(880px,calc(100% - 32px));margin:auto;padding:max(22px,env(safe-area-inset-top)) 0 max(30px,env(safe-area-inset-bottom));';
     page.innerHTML = `<button data-role="back" class="boss-button">← ${t('running.backToWorlds')}</button><h1>${t('running.bossStudio')}</h1><p>${t('running.bossPaste')}</p>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="boss-button">${t('running.bossFile')}<input data-role="file" type="file" accept=".json,application/json" hidden></label><button data-role="prompt" class="boss-button">${t('running.bossCopyPrompt')}</button></div>
+      <section aria-label="${t('running.bossHowToTitle')}" style="margin:16px 0;padding:14px;border:1px solid #395b50;border-radius:14px;background:#0c201b"><strong>${t('running.bossHowToTitle')}</strong><ol style="margin:8px 0 0;padding-inline-start:22px;color:#c8ded5"><li>${t('running.bossHowToStepDescribe')}</li><li>${t('running.bossHowToStepCopy')}</li><li>${t('running.bossHowToStepPreview')}</li></ol><p style="margin:10px 0 0;font-size:13px;color:#aac7bd">${t('running.bossHowToSafety')}</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button data-role="prompt" class="boss-button">${t('running.bossCopyPrompt')}</button><button data-role="use-example" class="boss-button">${t('running.bossUseExample')}</button><button data-role="copy-example" class="boss-button">${t('running.bossCopyExample')}</button><a class="boss-button" href="${BOSS_SCHEMA_DOC_URL}" target="_blank" rel="noopener noreferrer">${t('running.bossSchemaDocs')} ↗</a></div></section>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><label class="boss-button">${t('running.bossFile')}<input data-role="file" type="file" accept=".json,application/json" hidden></label></div>
       <textarea data-role="input" spellcheck="false" style="box-sizing:border-box;width:100%;height:280px;margin-top:16px;padding:14px;border:1px solid #58776c;border-radius:14px;background:#0c201b;color:#eafff2;font:13px/1.45 ui-monospace,monospace"></textarea>
       <div style="display:flex;gap:10px;margin-top:12px"><button data-role="preview" class="boss-button">${t('running.bossPreview')}</button><button data-role="confirm" class="boss-button" disabled>${t('running.bossConfirm')}</button></div>
       <pre data-role="result" style="white-space:pre-wrap;color:#ffd7a5;background:#0b1714;padding:14px;border-radius:12px"></pre><section data-role="library"></section>
@@ -60,7 +66,14 @@ export class BossStudio {
       updateRunningSave({ customBosses: [...save.customBosses.filter((boss) => boss.id !== preview!.id), stored] });
       result.textContent = t('running.bossSaved'); preview = null; confirm.disabled = true; this.renderLibrary(page);
     });
-    page.querySelector<HTMLButtonElement>('[data-role="prompt"]')!.addEventListener('click', () => void navigator.clipboard?.writeText(createBossAiPrompt()));
+    page.querySelector<HTMLButtonElement>('[data-role="prompt"]')!.addEventListener('click', () => void copyText(createBossAiPrompt()).then(() => { result.textContent = t('running.bossPromptCopied'); }));
+    page.querySelector<HTMLButtonElement>('[data-role="use-example"]')!.addEventListener('click', () => {
+      input.value = BOSS_STUDIO_EXAMPLE;
+      preview = null;
+      confirm.disabled = true;
+      result.textContent = t('running.bossExampleLoaded');
+    });
+    page.querySelector<HTMLButtonElement>('[data-role="copy-example"]')!.addEventListener('click', () => void copyText(BOSS_STUDIO_EXAMPLE).then(() => { result.textContent = t('running.bossExampleCopied'); }));
     this.renderLibrary(page);
   }
 
@@ -141,8 +154,18 @@ function storedBossDisplayName(data: unknown, fallback: string): string {
   return getLocale() === 'zh-CN' && typeof parsedName['zh-CN'] === 'string' ? parsedName['zh-CN'] : parsedName.en;
 }
 
+/** A provider-neutral prompt with the current UI locale and a bounded input placeholder. */
 export function createBossAiPrompt(): string {
+  const locale = getLocale();
+  const descriptionPlaceholder = locale === 'zh-CN'
+    ? '[请在这里描述一个虚构或复合人物：其压力方式、支持方式、边界与工作场景。]'
+    : '[Describe a fictional or composite person here: their pressure, support, boundaries, and setting.]';
+  return `Create exactly one valid JSON object for the BeatGarden Boss schema "${BOSS_SCHEMA_VERSION}" from the description below. Current player locale: ${locale}. JSON only: no prose, Markdown, code fences, comments, URLs, code, scripts, plugins, functions, or extra fields. Use a fictional or composite profile only; do not make allegations about real people. The output origin MUST be "custom".\n\nDescription:\n${descriptionPlaceholder}\n\nRequired nested keys, exactly: name={en, optional zh-CN}; appearance={shape, icon, palette}; stats={hp, speed, scale}; traits={expertise, resources, clarity, autonomySupport, emotionalSafety, fairness, boundaryRespect, projectMatch}; behavior={signal, noise, attacks, telegraphMs, phases}; reward={title, profileTag}.\n\nStrict clarification: origin may only be custom; schema must be exactly "${BOSS_SCHEMA_VERSION}". There are no extra fields, executable values, URLs, or external references.\n\n${createBossAiPromptLegacy().replace('origin=["builtin","custom","promoted-player"]; ', 'origin must be "custom"; ')}`;
+}
+
+function createBossAiPromptLegacy(): string {
   return `Return exactly one valid JSON object for the BeatGarden Boss schema \"${BOSS_SCHEMA_VERSION}\". JSON only: no prose, Markdown, code fences, comments, URLs, code, scripts, plugins, or extra fields. Use a fictional or composite profile only; do not make allegations about real people.\n\nRequired root keys (and no others): schema, id, name, origin, worlds, appearance, stats, traits, behavior, weaknesses, resistances, reward.\nAllowed enums: worlds=[\"phd\",\"master\",\"work\"]; origin=[\"builtin\",\"custom\",\"promoted-player\"]; appearance.shape=[\"circle\",\"triangle\",\"square\",\"hexagon\"]; behavior.attacks=[\"radial-pulse\",\"directed-burst\",\"orbiting-pressure\",\"lane-sweep\",\"interrupt-ring\"]; weaknesses/resistances=[\"focus\",\"evidence\",\"clarity\",\"boundary\",\"connection\",\"mobility\"].\nRanges: id and reward.profileTag are 1-64 letters/numbers/dot/underscore/hyphen; name.en and optional name.zh-CN, appearance.icon, reward.title are 1-80, 1-4, and 1-80 characters respectively; worlds 1-3; palette 1-4 #RRGGBB colors; hp 20-500; speed 10-180; scale 0.5-2; every trait 0-1; signal/noise 0-100; attacks 1-4; telegraphMs 500-5000; phases integer 1-4; weaknesses and resistances each 0-4.\n\nValid JSON skeleton:\n{\n  \"schema\": \"${BOSS_SCHEMA_VERSION}\",\n  \"id\": \"custom.garden-guide\",\n  \"name\": { \"en\": \"Garden Guide\", \"zh-CN\": \"花园向导\" },\n  \"origin\": \"custom\",\n  \"worlds\": [\"phd\"],\n  \"appearance\": { \"shape\": \"hexagon\", \"icon\": \"✦\", \"palette\": [\"#79e4bd\", \"#ffe18b\"] },\n  \"stats\": { \"hp\": 120, \"speed\": 48, \"scale\": 1 },\n  \"traits\": { \"expertise\": 0.78, \"resources\": 0.7, \"clarity\": 0.82, \"autonomySupport\": 0.88, \"emotionalSafety\": 0.9, \"fairness\": 0.86, \"boundaryRespect\": 0.9, \"projectMatch\": 0.8 },\n  \"behavior\": { \"signal\": 72, \"noise\": 8, \"attacks\": [\"radial-pulse\", \"orbiting-pressure\"], \"telegraphMs\": 1800, \"phases\": 2 },\n  \"weaknesses\": [\"connection\"],\n  \"resistances\": [\"evidence\"],\n  \"reward\": { \"title\": \"A Mentor Worth Becoming\", \"profileTag\": \"supportive-mentor\" }\n}`;
 }
 function escapeHtml(value: string): string { return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!); }
 function download(name: string, value: string): void { const url = URL.createObjectURL(new Blob([value], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = name; link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 0); }
+async function copyText(value: string): Promise<void> { await navigator.clipboard?.writeText(value); }

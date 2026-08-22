@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseBossConfig, promotedPlayerBoss } from '../src/running/core/bossSchema';
-import { createBossAiPrompt, formatBossPreview, localizeBossValidationErrors, normalizeBossForCustomSave } from '../src/running/BossStudio';
+import { BOSS_SCHEMA_DOC_URL, BOSS_STUDIO_EXAMPLE, createBossAiPrompt, formatBossPreview, localizeBossValidationErrors, normalizeBossForCustomSave } from '../src/running/BossStudio';
 import { setLocale } from '../src/i18n/strings';
 
 describe('BeatGarden Boss Schema v1', () => {
@@ -59,5 +59,13 @@ describe('BeatGarden Boss Schema v1', () => {
     expect(prompt).toContain('"radial-pulse"');
     expect(prompt).toContain('telegraphMs 500-5000');
     expect(prompt).toContain('JSON only: no prose');
+    expect(prompt).toContain('Current player locale: zh-CN');
+    expect(prompt).toContain('origin MUST be "custom"');
+    expect(prompt).toContain('origin must be "custom"');
+    expect(prompt).not.toContain('origin=["builtin","custom","promoted-player"]');
+    expect(prompt).toContain('traits={expertise, resources, clarity, autonomySupport, emotionalSafety, fairness, boundaryRespect, projectMatch}');
+    expect(prompt).toContain('functions, or extra fields');
+    expect(BOSS_SCHEMA_DOC_URL).toBe('https://github.com/SamZebrado/BeatGarden/blob/main/docs/BOSS_SCHEMA_V1.md');
+    expect(parseBossConfig(BOSS_STUDIO_EXAMPLE).ok).toBe(true);
   });
 });

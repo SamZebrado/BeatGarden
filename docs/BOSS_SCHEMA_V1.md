@@ -14,6 +14,12 @@ Required root fields are `schema`, `id`, `name`, `origin`, `worlds`, `appearance
 `beatgarden-boss.v1`. See [supportive-mentor.boss.json](examples/supportive-mentor.boss.json)
 for a complete example and the TypeScript validator for authoritative ranges.
 
+The stable public reference is
+[github.com/SamZebrado/BeatGarden/blob/main/docs/BOSS_SCHEMA_V1.md](https://github.com/SamZebrado/BeatGarden/blob/main/docs/BOSS_SCHEMA_V1.md).
+Boss Studio's **How to create a Boss** panel copies a provider-neutral prompt with the
+complete bounded field contract, offers this maintained valid example, and still requires
+local validation, preview, and confirmation. No import auto-saves or executes content.
+
 Allowed attack patterns are `radial-pulse`, `directed-burst`, `orbiting-pressure`,
 `lane-sweep`, and `interrupt-ring`. Allowed weakness/resistance tags are `focus`,
 `evidence`, `clarity`, `boundary`, `connection`, and `mobility`. There is deliberately no

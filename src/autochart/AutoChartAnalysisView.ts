@@ -1,5 +1,5 @@
 import { AudioEngine } from '../audio/AudioEngine';
-import { getLocale, t, toggleLocale } from '../i18n/strings';
+import { getLocale, languageTargetAction, languageTargetLabel, t, toggleLocale } from '../i18n/strings';
 import { AUTOCHART_CONFIG } from './config';
 import { AutoChartWorkerClient } from './AutoChartWorkerClient';
 import { generateAutoChart } from './generateChart';
@@ -37,7 +37,7 @@ export class AutoChartAnalysisView {
     page.innerHTML = `
       <div style="display:flex;justify-content:space-between;gap:16px;align-items:center">
         <button data-role="back" style="color:#b9c9ff;border:0;background:transparent;font-size:16px;cursor:pointer">← ${t('menu.back')}</button>
-        <button data-role="language" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">${t('language.switch')}</button>
+        <button data-role="language" aria-label="${languageTargetAction()}" title="${languageTargetAction()}" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">${languageTargetLabel()}</button>
       </div>
       <h1 style="font-size:48px;margin-top:38px">${t('autochart.title')}</h1>
       <p style="font-size:20px;color:#cbd4f5;margin-top:12px">${t('autochart.subtitle')}</p>

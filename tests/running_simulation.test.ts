@@ -121,22 +121,76 @@ describe('Running fixed-step authority', () => {
   it('turns Qualifying into a timed combat arena rather than a hidden boolean check', () => {
     const simulation = new RunningSimulation(93);
     simulation.startMilestoneReview('qualifying');
-    run(simulation, 3.5, 1, 0);
+    run(simulation, 5.7, 1, 0);
     const state = simulation.snapshot();
     expect(state.phd.milestone?.kind).toBe('qualifying');
-    expect(state.phd.milestone?.phase).toBe('active');
+    expect(state.phd.milestone?.phase).toBe('presentation');
     expect(state.phd.milestone?.target).toBeGreaterThan(0);
     expect(state.enemies.some((enemy) => enemy.kind === 'reviewer')).toBe(true);
     expect(state.enemies.filter((enemy) => enemy.source === 'milestone').length).toBeGreaterThan(0);
   });
 
+  it('initializes one nine-person Qualifying roster and never replenishes it', () => {
+    const simulation = new RunningSimulation(930, { automaticOffense: false });
+    simulation.startMilestoneReview('qualifying');
+    run(simulation, 5.6, 1, 0);
+    const initial = simulation.snapshot();
+    expect(initial.phd.milestone?.target).toBe(9);
+    expect(initial.enemies.filter((enemy) => enemy.source === 'milestone')).toHaveLength(9);
+    expect(initial.enemies.every((enemy) => enemy.source === 'milestone')).toBe(true);
+
+    const firstId = initial.enemies[0]!.id;
+    expect(simulation.defeatMilestoneTargetForReview(firstId)).toBe(true);
+    expect(simulation.snapshot().enemies.filter((enemy) => enemy.source === 'milestone')).toHaveLength(8);
+    run(simulation, 12, 1, 0);
+    expect(simulation.snapshot().enemies.filter((enemy) => enemy.source === 'milestone')).toHaveLength(8);
+  });
+
+  it('suspends recurring supervisor meetings for the full finite Qualifying arena', () => {
+    const simulation = new RunningSimulation(932, { automaticOffense: false, firstMeetingAt: 0, difficulty: 'sprout' });
+    simulation.startChoiceReview('supervisor');
+    simulation.choosePhdOption('controlling');
+    simulation.startMilestoneReview('qualifying');
+    run(simulation, 9, 1, 0);
+    const state = simulation.snapshot();
+    expect(state.phd.milestone?.phase).toBe('presentation');
+    expect(state.meeting).toEqual({ phase: 'idle', remaining: 0, count: 0 });
+    expect(state.enemies).toHaveLength(9);
+    expect(state.enemies.every((enemy) => enemy.source === 'milestone')).toBe(true);
+  });
+
+  it('preserves difficulty through milestone preparation timing', () => {
+    const sprout = new RunningSimulation(933, { automaticOffense: false, difficulty: 'sprout' });
+    const storm = new RunningSimulation(933, { automaticOffense: false, difficulty: 'storm' });
+    sprout.startMilestoneReview('qualifying');
+    storm.startMilestoneReview('qualifying');
+    run(sprout, 5.2, 1, 0);
+    run(storm, 5.2, 1, 0);
+    expect(sprout.snapshot().phd.milestone?.phase).toBe('rehearsal');
+    expect(storm.snapshot().phd.milestone?.phase).toBe('presentation');
+  });
+
+  it('passes Qualifying by reducing the designated roster from nine to zero', () => {
+    const simulation = new RunningSimulation(931);
+    simulation.startMilestoneReview('qualifying');
+    run(simulation, 5.6, 1, 0);
+    for (const enemy of simulation.snapshot().enemies) {
+      expect(simulation.defeatMilestoneTargetForReview(enemy.id)).toBe(true);
+    }
+    const completed = simulation.snapshot();
+    expect(completed.enemies.filter((enemy) => enemy.source === 'milestone')).toHaveLength(0);
+    expect(completed.phd.qualifying).toBe('passed');
+    expect(completed.phd.milestone).toBeNull();
+  });
+
   it('gives the Defense arena a distinct milestone-tagged Committee boss', () => {
     const simulation = new RunningSimulation(94);
     simulation.startMilestoneReview('defense');
-    run(simulation, 4.3, 1, 0);
+    run(simulation, 6.6, 1, 0);
     const boss = simulation.snapshot().enemies.find((enemy) => enemy.kind === 'committee');
     expect(boss?.source).toBe('milestone');
     expect(boss?.radius).toBe(42);
+    expect(simulation.snapshot().enemies.filter((enemy) => enemy.source === 'milestone')).toHaveLength(5);
   });
 });
 

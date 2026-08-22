@@ -33,6 +33,7 @@ export interface RunningSimulationOptions {
   initialPlayer?: Vec2;
   firstMeetingAt?: number;
   difficulty?: RunningDifficulty;
+  automaticOffense?: boolean;
 }
 
 export interface RunningSnapshot {
@@ -66,8 +67,7 @@ export class RunningSimulation {
   private meetingPhase: 'idle' | 'telegraph' | 'active' = 'idle';
   private meetingRemaining = 0;
   private meetingCount = 0;
-  private milestoneSpawnTimer = 0;
-  private milestoneBossSpawned = false;
+  private milestoneRosterInitialized = false;
   private enemies: Enemy[] = [];
   private projectiles: Projectile[] = [];
   private pickups: Pickup[] = [];
@@ -87,12 +87,15 @@ export class RunningSimulation {
   private upgradePending = false;
   private defeated = 0;
   private gameOver = false;
-  private readonly phd = new PhdSystems();
+  private readonly phd: PhdSystems;
   private readonly difficulty: RunningDifficulty;
+  private readonly automaticOffense: boolean;
 
   constructor(seed = 0xbea72026, options: RunningSimulationOptions = {}) {
     this.rng = createRng(seed);
     this.difficulty = options.difficulty ?? 'garden';
+    this.phd = new PhdSystems({ milestoneTimingScale: this.difficulty === 'sprout' ? 1.2 : this.difficulty === 'storm' ? .78 : 1 });
+    this.automaticOffense = options.automaticOffense ?? true;
     if (options.initialPlayer) {
       this.player.x = clamp(options.initialPlayer.x, PLAYER_RADIUS, RUNNING_WORLD.width - PLAYER_RADIUS);
       this.player.y = clamp(options.initialPlayer.y, PLAYER_RADIUS, RUNNING_WORLD.height - PLAYER_RADIUS);
@@ -112,19 +115,19 @@ export class RunningSimulation {
     this.updateMeeting(dt);
     this.updateMilestoneArena(dt);
     this.spawnTimer -= dt;
-    if (this.spawnTimer <= 0) {
+    if (!this.phd.snapshot().milestone && this.spawnTimer <= 0) {
       this.spawnEnemy();
       this.spawnTimer = adjustSpawnInterval(Math.max(0.4, 1.2 - this.time * 0.007), this.difficulty);
     }
     this.shotTimer -= dt;
-    if (this.shotTimer <= 0 && this.enemies.length > 0) {
+    if (this.automaticOffense && this.shotTimer <= 0 && this.enemies.length > 0) {
       this.fireAtNearest();
       const modifiers = resourceModifiers(this.phd.snapshot());
       this.shotTimer = Math.max(0.22, (0.72 - this.upgrades.cadence * 0.1) * modifiers.shotCadence);
     }
     this.updateProjectiles(dt);
     this.updateEnemies(dt);
-    this.updateOrbitDamage(dt);
+    if (this.automaticOffense) this.updateOrbitDamage(dt);
     this.collectPickups();
     this.hitPulses = this.hitPulses
       .map((pulse) => ({ ...pulse, ttl: pulse.ttl - dt }))
@@ -148,6 +151,15 @@ export class RunningSimulation {
 
   startMilestoneReview(kind: 'qualifying' | 'defense'): void {
     this.phd.startReviewMilestone(kind);
+  }
+
+  /** Deterministic review/test seam: defeat one designated target without timing shots. */
+  defeatMilestoneTargetForReview(id: number): boolean {
+    const target = this.enemies.find((enemy) => enemy.id === id && enemy.source === 'milestone');
+    if (!target) return false;
+    target.hp = 0;
+    this.removeDefeated();
+    return true;
   }
 
   startChoiceReview(kind: 'supervisor' | 'lifestyle'): void {
@@ -215,6 +227,14 @@ export class RunningSimulation {
 
   private updateMeeting(dt: number): void {
     if (!this.phd.snapshot().supervisorId) return;
+    if (this.phd.snapshot().milestone) {
+      // Major reviews own the arena. Rebase recurring meetings so a meeting ring
+      // can never leak into the finite Qualifying/Defense roster.
+      this.meetingPhase = 'idle';
+      this.meetingRemaining = 0;
+      this.meetingAt = this.time + 42;
+      return;
+    }
     if (this.meetingPhase === 'idle' && this.time >= this.meetingAt) {
       this.meetingPhase = 'telegraph';
       this.meetingRemaining = adjustTelegraphDuration(3, this.difficulty);
@@ -269,23 +289,32 @@ export class RunningSimulation {
     }
   }
 
-  private updateMilestoneArena(dt: number): void {
+  private updateMilestoneArena(_dt: number): void {
     const milestone = this.phd.snapshot().milestone;
-    if (milestone?.phase !== 'active') { this.milestoneSpawnTimer = 0; this.milestoneBossSpawned = false; return; }
-    if (milestone.kind === 'defense' && !this.milestoneBossSpawned) {
-      // Keep the review-only boss entrance inside the first landscape frame so
-      // its silhouette is legible before it begins closing on the player.
-      this.spawnEnemy('committee', 0, 'milestone');
-      this.milestoneBossSpawned = true;
+    if (milestone?.phase !== 'presentation') {
+      this.milestoneRosterInitialized = false;
+      return;
     }
-    this.milestoneSpawnTimer -= dt;
-    if (this.milestoneSpawnTimer > 0) return;
-    const count = milestone.kind === 'defense' ? 3 : 2;
-    for (let index = 0; index < count; index += 1) {
-      const angle = this.rng.next() * Math.PI * 2;
-      this.spawnEnemy(milestone.kind === 'defense' && index === 0 ? 'chair' : 'reviewer', angle, 'milestone');
+    if (this.milestoneRosterInitialized) return;
+
+    // A major milestone is one finite, legible roster. Ambient/meeting entities are
+    // cleared at entry and never count as designated targets; nothing replenishes a
+    // defeated reviewer or committee member while the player takes their time.
+    this.enemies = [];
+    this.projectiles = [];
+    for (let index = 0; index < milestone.target; index += 1) {
+      const angle = (index / milestone.target) * Math.PI * 2;
+      let kind: EnemyKind;
+      if (milestone.kind === 'qualifying') {
+        const stanceEvery = milestone.stance === 'adversarial' ? 3 : milestone.stance === 'support' ? 6 : 4;
+        const chairEvery = this.difficulty === 'storm' ? Math.max(2, stanceEvery - 1) : this.difficulty === 'sprout' ? stanceEvery + 1 : stanceEvery;
+        kind = index % chairEvery === 0 ? 'chair' : 'reviewer';
+      } else {
+        kind = index === 0 ? 'committee' : index % 2 === 0 ? 'chair' : 'reviewer';
+      }
+      this.spawnEnemy(kind, angle, 'milestone');
     }
-    this.milestoneSpawnTimer = milestone.kind === 'defense' ? 0.95 : 1.15;
+    this.milestoneRosterInitialized = true;
   }
 
   private fireAtNearest(): void {

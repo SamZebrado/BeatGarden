@@ -1,3 +1,5 @@
+import { ACADEMIC_PEOPLE, adaptAcademicPerson, type PersonId } from './people';
+
 export type ProjectId = 'replication' | 'riskyIdea' | 'helping' | 'prestige';
 export type ThesisStage = 'seed' | 'sapling' | 'tree' | 'bloom';
 export type SupervisorId = 'supportive' | 'controlling' | 'handsOff';
@@ -6,6 +8,7 @@ export type PhdChoice =
   | { kind: 'project'; options: readonly ProjectId[] }
   | { kind: 'supervisor'; options: readonly SupervisorId[] }
   | { kind: 'lifestyle'; options: readonly LifestyleId[] }
+  | { kind: 'supervisorRequest'; options: readonly ['accept', 'setBoundary', 'decline'] }
   | { kind: 'qualifying'; options: readonly ['attempt', 'defer'] }
   | { kind: 'preDefense'; options: readonly ['attempt', 'defer'] }
   | { kind: 'defense'; options: readonly ['attempt', 'defer'] };
@@ -14,7 +17,8 @@ export type AnnualMilestoneKind = 'firstYearTalk' | 'proposal' | 'annualCommitte
 
 export interface MilestoneArena {
   kind: 'qualifying' | 'defense';
-  phase: 'telegraph' | 'active';
+  stance: 'support' | 'mixed' | 'adversarial';
+  phase: 'preparation' | 'rehearsal' | 'presentation';
   remaining: number;
   progress: number;
   target: number;
@@ -50,10 +54,15 @@ export interface PhdSnapshot {
   seasonPulse: number;
   annualReviews: number;
   supervisorId: SupervisorId | null;
+  supervisorPersonId: PersonId | null;
   supervisorFeedback: { signal: number; noise: number; remaining: number } | null;
   lifestyle: { id: LifestyleId; remaining: number } | null;
   activeProject: { id: ProjectId; progress: number; goal: number } | null;
   completedProjects: number;
+  independentResearch: number;
+  assignedLabor: number;
+  supervisorRequests: number;
+  lastBoundaryReaction: 'none' | 'respected' | 'strained';
   thesisStage: ThesisStage;
   qualifying: 'locked' | 'ready' | 'passed';
   annualMilestone: { kind: AnnualMilestoneKind; completedYear: number; remaining: number } | null;
@@ -66,21 +75,26 @@ export interface PhdSnapshot {
   terminal: 'ongoing' | 'finalYear' | 'ended' | 'graduated';
 }
 
-export const SUPPORTIVE_SUPERVISOR: MentorVector = {
-  expertise: 0.92, resources: 0.82, clarity: 0.9, autonomySupport: 0.88,
-  emotionalSafety: 0.94, boundaryRespect: 0.9, stability: 0.9, projectMatch: 0.86,
+export const SUPERVISOR_PERSON: Record<SupervisorId, PersonId> = {
+  supportive: 'mei', controlling: 'rowan', handsOff: 'lin',
 };
 
+/** Compatibility/presentation vectors are derived from the shared Person authority. */
+export function mentorVectorFor(personId: PersonId): MentorVector {
+  const person = ACADEMIC_PEOPLE[personId];
+  return {
+    expertise: person.expertise, resources: person.resources, clarity: person.clarity,
+    autonomySupport: person.autonomy, emotionalSafety: person.emotionalSafety,
+    boundaryRespect: person.boundaryRespect, stability: person.stability,
+    projectMatch: person.domainMatch,
+  };
+}
+
+export const SUPPORTIVE_SUPERVISOR: MentorVector = mentorVectorFor('mei');
 export const SUPERVISORS: Record<SupervisorId, MentorVector> = {
-  supportive: SUPPORTIVE_SUPERVISOR,
-  controlling: {
-    expertise: 0.96, resources: 0.9, clarity: 0.86, autonomySupport: 0.24,
-    emotionalSafety: 0.3, boundaryRespect: 0.18, stability: 0.42, projectMatch: 0.82,
-  },
-  handsOff: {
-    expertise: 0.58, resources: 0.34, clarity: 0.32, autonomySupport: 0.88,
-    emotionalSafety: 0.72, boundaryRespect: 0.9, stability: 0.62, projectMatch: 0.52,
-  },
+  supportive: mentorVectorFor(SUPERVISOR_PERSON.supportive),
+  controlling: mentorVectorFor(SUPERVISOR_PERSON.controlling),
+  handsOff: mentorVectorFor(SUPERVISOR_PERSON.handsOff),
 };
 
 const PROJECTS: Record<ProjectId, {
@@ -99,7 +113,8 @@ export class PhdSystems {
     signal: 0, noise: 0, pollution: 0,
     logic: 20, clarity: 20, boundary: 20, purpose: 20, connection: 20, evidence: 12,
     year: 1, seasonPulse: 0, annualReviews: 0, activeProject: null, completedProjects: 0,
-    supervisorId: null, supervisorFeedback: null, lifestyle: null,
+    supervisorId: null, supervisorPersonId: null, supervisorFeedback: null, lifestyle: null,
+    independentResearch: 0, assignedLabor: 0, supervisorRequests: 0, lastBoundaryReaction: 'none',
     thesisStage: 'seed', qualifying: 'locked', annualMilestone: null, preDefense: 'hidden', revisionRemaining: 0, defense: 'hidden', choice: null, milestone: null,
     graduated: false, terminal: 'ongoing',
   };
@@ -110,7 +125,10 @@ export class PhdSystems {
   private pausedAcademicTime = 0;
   private contributions = new Set<ProjectId>();
 
-  constructor(options: { initialResources?: Partial<Pick<PhdSnapshot, 'energy' | 'focus' | 'spirit'>> } = {}) {
+  private readonly milestoneTimingScale: number;
+
+  constructor(options: { initialResources?: Partial<Pick<PhdSnapshot, 'energy' | 'focus' | 'spirit'>>; milestoneTimingScale?: number } = {}) {
+    this.milestoneTimingScale = Math.max(.6, Math.min(1.4, options.milestoneTimingScale ?? 1));
     if (options.initialResources) {
       if (options.initialResources.energy !== undefined) this.state.energy = bound(options.initialResources.energy);
       if (options.initialResources.focus !== undefined) this.state.focus = bound(options.initialResources.focus);
@@ -196,7 +214,7 @@ export class PhdSystems {
   }
 
   onDefeated(count = 1, milestoneEligible = true): void {
-    if (milestoneEligible && this.state.milestone?.phase === 'active') {
+    if (milestoneEligible && this.state.milestone?.phase === 'presentation') {
       this.state.milestone.progress += count;
       if (this.state.milestone.progress >= this.state.milestone.target) this.passMilestone();
     }
@@ -212,7 +230,8 @@ export class PhdSystems {
 
   onMeeting(): void {
     if (!this.state.supervisorId) return;
-    const supervisor = SUPERVISORS[this.state.supervisorId];
+    const personId = this.state.supervisorPersonId ?? SUPERVISOR_PERSON[this.state.supervisorId];
+    const supervisor = mentorVectorFor(personId);
     const feedback = evaluateMentor(supervisor, {
       logic: this.state.logic, clarity: this.state.clarity, boundary: this.state.boundary,
       purpose: this.state.purpose, connection: this.state.connection, evidence: this.state.evidence,
@@ -227,6 +246,11 @@ export class PhdSystems {
     if (this.state.supervisorId === 'controlling') this.state.calendarLoad = bound(this.state.calendarLoad + 6);
     if (this.state.supervisorId === 'handsOff') this.state.clarity = bound(this.state.clarity - 2);
     this.state.supervisorFeedback = { ...feedback, remaining: 3.2 };
+    const role = adaptAcademicPerson(personId, 'phd-supervisor');
+    this.state.supervisorRequests += 1;
+    if (this.state.supervisorRequests % 2 === 0 && role.assignmentPressure + role.laborExtraction > .9) {
+      this.state.choice = { kind: 'supervisorRequest', options: ['accept', 'setBoundary', 'decline'] };
+    }
   }
 
   onInterruption(): void {
@@ -249,6 +273,7 @@ export class PhdSystems {
     if (choice.kind === 'project') this.startProject(option as ProjectId, time);
     else if (choice.kind === 'supervisor') this.selectSupervisor(option as SupervisorId);
     else if (choice.kind === 'lifestyle') this.selectLifestyle(option as LifestyleId);
+    else if (choice.kind === 'supervisorRequest') this.resolveSupervisorRequest(option as 'accept' | 'setBoundary' | 'decline');
     else if (choice.kind === 'qualifying') this.resolveQualifying(option, time);
     else if (choice.kind === 'preDefense') this.resolvePreDefense(option, time);
     else this.resolveDefense(option, time);
@@ -258,8 +283,8 @@ export class PhdSystems {
   startReviewMilestone(kind: 'qualifying' | 'defense'): void {
     this.state.choice = null;
     this.state.milestone = {
-      kind, phase: 'telegraph', remaining: kind === 'qualifying' ? 3 : 4,
-      progress: 0, target: kind === 'qualifying' ? 8 : 14,
+      kind, stance: this.milestoneStance(), phase: 'preparation', remaining: (kind === 'qualifying' ? 3 : 4) * this.milestoneTimingScale,
+      progress: 0, target: kind === 'qualifying' ? 9 : 5,
       damageScale: kind === 'qualifying' ? 0.86 : 0.94,
     };
   }
@@ -353,6 +378,7 @@ export class PhdSystems {
       this.state[key] = bound(this.state[key] + (value ?? 0));
     }
     this.state.completedProjects += 1;
+    this.state.independentResearch = bound(this.state.independentResearch + 12);
     this.contributions.add(id);
     this.state.activeProject = null;
     this.state.energy = bound(this.state.energy + 9);
@@ -385,7 +411,7 @@ export class PhdSystems {
       this.state.qualifying = 'ready';
     }
     if (this.state.year >= 4 && this.state.defense === 'hidden') this.state.defense = 'visible';
-    if (this.state.preDefense === 'hidden' && this.state.qualifying === 'passed' && this.state.thesisStage === 'bloom' && this.state.evidence >= 30) {
+    if (this.state.preDefense === 'hidden' && this.state.qualifying === 'passed' && this.state.thesisStage === 'bloom' && this.state.evidence >= 30 && this.state.independentResearch >= 30) {
       this.state.preDefense = 'ready';
     }
   }
@@ -402,10 +428,9 @@ export class PhdSystems {
   private resolveQualifying(option: string, time: number): void {
     this.state.choice = null;
     if (option === 'defer') { this.nextQualifyingPrompt = time + 22; return; }
-    const readiness = this.state.logic + this.state.evidence + this.state.clarity;
     this.state.milestone = {
-      kind: 'qualifying', phase: 'telegraph', remaining: 3, progress: 0,
-      target: Math.max(7, 13 - Math.floor(readiness / 18)),
+      kind: 'qualifying', stance: this.milestoneStance(), phase: 'preparation', remaining: 3 * this.milestoneTimingScale, progress: 0,
+      target: 9,
       damageScale: Math.max(0.62, 1.15 - this.state.evidence / 140),
     };
   }
@@ -414,8 +439,8 @@ export class PhdSystems {
     this.state.choice = null;
     if (option === 'defer') { this.nextDefensePrompt = time + 25; return; }
     this.state.milestone = {
-      kind: 'defense', phase: 'telegraph', remaining: 4, progress: 0,
-      target: Math.max(12, 22 - Math.floor(this.state.evidence / 7)),
+      kind: 'defense', stance: this.milestoneStance(), phase: 'preparation', remaining: 4 * this.milestoneTimingScale, progress: 0,
+      target: 5,
       damageScale: Math.max(0.68, 1.2 - (this.state.evidence + this.state.spirit) / 220),
     };
   }
@@ -424,15 +449,33 @@ export class PhdSystems {
     const milestone = this.state.milestone;
     if (!milestone) return;
     milestone.remaining -= dt;
-    if (milestone.phase === 'telegraph' && milestone.remaining <= 0) {
-      milestone.phase = 'active';
-      milestone.remaining = 0;
+    if (milestone.phase === 'preparation' && milestone.remaining <= 0) {
+      this.state.energy = bound(this.state.energy - (milestone.kind === 'qualifying' ? 5 : 8));
+      this.state.focus = bound(this.state.focus - (milestone.kind === 'qualifying' ? 6 : 10));
+      milestone.phase = 'rehearsal';
+      milestone.remaining = 2.5;
       return;
     }
+    if (milestone.phase === 'rehearsal' && milestone.remaining <= 0) {
+      // Rehearsal is short and corrective: it turns preparation into a small,
+      // deterministic clarity/readability benefit before assessed presentation.
+      this.state.clarity = bound(this.state.clarity + 3);
+      milestone.phase = 'presentation';
+      milestone.remaining = 0;
+    }
+  }
+
+  private milestoneStance(): MilestoneArena['stance'] {
+    if (!this.state.supervisorPersonId) return 'mixed';
+    const role = adaptAcademicPerson(this.state.supervisorPersonId, 'phd-supervisor');
+    if (role.graduationSupport >= .72 && role.noise <= 4) return 'support';
+    if (role.laborExtraction >= .6 || role.boundaryReaction < .4) return 'adversarial';
+    return 'mixed';
   }
 
   private selectSupervisor(id: SupervisorId): void {
     this.state.supervisorId = id;
+    this.state.supervisorPersonId = SUPERVISOR_PERSON[id];
     this.state.choice = null;
     if (id === 'supportive') {
       this.state.clarity = bound(this.state.clarity + 5);
@@ -445,6 +488,33 @@ export class PhdSystems {
       this.state.boundary = bound(this.state.boundary + 5);
       this.state.clarity = bound(this.state.clarity - 4);
     }
+  }
+
+  private resolveSupervisorRequest(option: 'accept' | 'setBoundary' | 'decline'): void {
+    const personId = this.state.supervisorPersonId;
+    if (!personId) return;
+    const behavior = adaptAcademicPerson(personId, 'phd-supervisor');
+    this.state.choice = null;
+    if (option === 'accept') {
+      // Assigned labor creates short-term output but does not grow the independent
+      // thesis/project contribution track.
+      this.state.assignedLabor = bound(this.state.assignedLabor + 14);
+      this.state.signal = bound(this.state.signal + behavior.signal * .45);
+      this.state.evidence = bound(this.state.evidence + 6);
+      this.state.calendarLoad = bound(this.state.calendarLoad + 18);
+      this.state.energy = bound(this.state.energy - 10);
+      this.state.spirit = bound(this.state.spirit - behavior.laborExtraction * 12);
+      return;
+    }
+    const respected = behavior.boundaryReaction >= (option === 'setBoundary' ? .46 : .62);
+    this.state.lastBoundaryReaction = respected ? 'respected' : 'strained';
+    this.state.boundary = bound(this.state.boundary + (option === 'setBoundary' ? 8 : 5));
+    if (option === 'setBoundary') {
+      this.state.independentResearch = bound(this.state.independentResearch + (respected ? 5 : 2));
+    }
+    this.state.calendarLoad = bound(this.state.calendarLoad - (respected ? 7 : 2));
+    this.state.pollution = bound(this.state.pollution + (respected ? 0 : 8));
+    this.state.spirit = bound(this.state.spirit + (respected ? 4 : -5));
   }
 
   private selectLifestyle(id: LifestyleId): void {
@@ -535,10 +605,11 @@ export function evaluateMentor(
   };
 }
 
-export function graduationRequirements(state: Pick<PhdSnapshot, 'qualifying' | 'thesisStage' | 'evidence' | 'preDefense' | 'revisionRemaining' | 'defense'>): Array<{ id: 'qualifying' | 'thesis' | 'evidence' | 'preDefense' | 'revisions' | 'defense'; complete: boolean }> {
+export function graduationRequirements(state: Pick<PhdSnapshot, 'qualifying' | 'thesisStage' | 'independentResearch' | 'evidence' | 'preDefense' | 'revisionRemaining' | 'defense'>): Array<{ id: 'qualifying' | 'thesis' | 'independent' | 'evidence' | 'preDefense' | 'revisions' | 'defense'; complete: boolean }> {
   return [
     { id: 'qualifying', complete: state.qualifying === 'passed' },
     { id: 'thesis', complete: state.thesisStage === 'bloom' },
+    { id: 'independent', complete: state.independentResearch >= 30 },
     { id: 'evidence', complete: state.evidence >= 30 },
     { id: 'preDefense', complete: state.preDefense === 'passed' },
     { id: 'revisions', complete: state.preDefense === 'passed' && state.revisionRemaining === 0 },

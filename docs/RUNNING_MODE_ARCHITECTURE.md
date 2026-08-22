@@ -1,5 +1,29 @@
 # Running Mode Architecture Proposal — Gate A
 
+> Historical authority note: this document records the accepted Gate A proposal.
+> Gates A–F remain historical evidence. The current post-Gate architecture is
+> summarized below; current source, tests and `RUNNING_MODE_STATUS.md` are authoritative.
+
+## Current post-Gate architecture — 2026-08-23
+
+- `core/people.ts` owns bounded Person profiles. A Person is not a Supervisor,
+  Manager, reviewer, Committee member or Boss. Role adapters interpret a stable Person
+  without copying a giant role-specific object.
+- `core/phdSystems.ts` owns PhD progression, independent-research versus assigned-labor
+  semantics, boundary choices and Preparation → Rehearsal → Presentation milestones.
+- `core/simulation.ts` owns PhD combat and finite designated rosters. Garden Qualifying
+  initializes nine targets once; ambient entities never become designated and no target
+  is replenished.
+- `core/lifePaths.ts` owns shared academic role adapters plus bounded Work manager,
+  offer, market, conversion and promotion policy.
+- `core/scenarioSimulation.ts` remains the shared Master/Work gameplay authority while
+  exposing different life-path state: Master has three years, Proposal and Defense;
+  Work has offers, trial, conversion, employment and promotion.
+- Phaser scenes remain presentation/input only. Legends, offscreen source markers,
+  localized labels and DEV review seams read snapshots and never decide outcomes.
+- Boss Schema v1 remains a strict data-only import boundary. Person profiles never
+  become Boss behavior automatically, and the validator remains executable authority.
+
 ## Decision
 
 Integrate Running Mode as a lazy-loaded parallel subsystem in the existing BeatGarden

@@ -133,12 +133,25 @@ export function createScenarioLegendEntries(state: ScenarioSnapshot, seenHints: 
   if (state.world === 'master') {
     entries.push(entry('▦', 'running.legend.master.course', 'running.legend.master.courseDetail'));
     if (state.event.phase !== 'idle' || seen('milestone')) entries.push(entry('✦', 'running.legend.master.milestone', 'running.legend.master.milestoneDetail'));
+    const path = state.masterPath!;
+    entries.push(planEntry('1', 'running.legend.master.year1', 'running.legend.master.year1Detail', path.year > 1 ? 'complete' : 'current'));
+    entries.push(planEntry('2', 'running.legend.master.year2', 'running.legend.master.year2Detail', path.year > 2 ? 'complete' : path.year === 2 ? 'current' : 'locked'));
+    entries.push(planEntry('✦', 'running.legend.master.proposal', 'running.legend.master.proposalDetail', path.proposal.phase === 'complete' ? 'complete' : path.proposal.phase !== 'none' ? 'current' : 'locked'));
+    entries.push(planEntry('3', 'running.legend.master.year3', 'running.legend.master.year3Detail', path.year === 3 ? 'current' : 'locked'));
+    entries.push(planEntry('◇', 'running.legend.master.careerPlan', 'running.legend.master.careerPlanDetail', path.careerPlan ? 'complete' : path.proposal.phase === 'complete' ? 'current' : 'locked'));
+    entries.push(planEntry('◉', 'running.legend.master.defense', 'running.legend.master.defenseDetail', state.completed ? 'complete' : path.year === 3 ? 'current' : 'locked'));
   } else {
     entries.push(entry('◷', 'running.legend.work.cycle', 'running.legend.work.cycleDetail'));
     if (state.event.phase !== 'idle') entries.push(state.event.kind === 'weekly'
       ? entry('◎', 'running.legend.work.weekly', 'running.legend.work.weeklyDetail')
       : entry('!', 'running.legend.work.deadline', 'running.legend.work.deadlineDetail'));
     else if (seen('meeting')) entries.push(entry('◎', 'running.legend.work.weekly', 'running.legend.work.weeklyDetail'));
+    const path = state.workPath!;
+    entries.push(entry('▣', 'running.legend.work.stage', 'running.legend.work.stageDetail'));
+    if (path.managerId) entries.push(entry('◆', 'running.legend.work.manager', 'running.legend.work.managerDetail'));
+    entries.push(entry('◒', 'running.legend.work.market', 'running.legend.work.marketDetail'));
+    entries.push(planEntry('✓', 'running.legend.work.conversion', 'running.legend.work.conversionDetail', path.stage === 'employed' || path.stage === 'promotion' ? 'complete' : path.stage === 'conversion' ? 'current' : 'locked'));
+    entries.push(planEntry('↑', 'running.legend.work.promotion', 'running.legend.work.promotionDetail', path.stage === 'promotion' ? 'complete' : path.stage === 'employed' ? 'current' : 'locked'));
   }
   if (state.orbitCount > 0 || seen('orbit')) entries.push(entry('◉', 'running.legend.orbit', 'running.legend.orbitDetail'));
   return entries;

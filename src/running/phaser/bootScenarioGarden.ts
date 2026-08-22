@@ -118,6 +118,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       else this.cameras.main.centerOn(640, 360);
       this.drawWorld(g, state);
       this.drawEvent(g, state);
+      this.drawMasterProposal(g, state);
       this.drawClimax(g, state);
       for (let index = 0; index < state.orbitCount; index += 1) {
         const angle = state.time * 2.2 + index / state.orbitCount * Math.PI * 2;
@@ -181,6 +182,17 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       }
     }
 
+    private drawMasterProposal(g: Phaser.GameObjects.Graphics, state: ScenarioSnapshot): void {
+      const proposal = state.masterPath?.proposal;
+      if (!proposal || proposal.phase === 'none' || proposal.phase === 'complete') return;
+      const presentation = proposal.phase === 'presentation';
+      g.lineStyle(presentation ? 8 : 5, 0x82d6ff, presentation ? .78 : .42).strokeRoundedRect(30, 30, 1220, 660, 28);
+      if (presentation) {
+        g.fillStyle(0x080b10, .86).fillRoundedRect(460, 120, 360, 18, 9);
+        g.fillStyle(0x82d6ff, 1).fillRoundedRect(460, 120, 360 * proposal.progress / proposal.target, 18, 9);
+      }
+    }
+
     private drawEnemy(g: Phaser.GameObjects.Graphics, enemy: ScenarioEnemy, time: number): void {
       const palette: Record<ScenarioEnemy['kind'], number> = { courseBlock: 0x69b7e6, deadline: 0xff8c7d, exam: 0xb699ff, request: 0xffaa5b, notification: 0x70d5ff, delivery: 0xf0d06c };
       const color = enemy.flash > 0 ? 0xffffff : palette[enemy.kind];
@@ -201,7 +213,10 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
     private updateOverlay(state: ScenarioSnapshot): void {
       const textOff = isTextOff();
       overlay.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = textOff ? `⬡${state.orbitCount} ◆${state.defeated}` : `${options.world === 'master' ? t('running.master') : t('running.work')}  ◆ ${state.defeated}`;
-      overlay.querySelector<HTMLElement>('[data-role="cycle"]')!.textContent = `${options.world === 'master' ? '▦' : '◷'}${state.cycle}  ${state.activePriority}${state.priorityRemaining > 0 ? ` ${Math.ceil(state.priorityRemaining)}s` : ''}`;
+      const pathStatus = state.masterPath
+        ? `Y${state.masterPath.year} ${state.masterPath.careerPlan ? '◇' : ''}`
+        : state.workPath ? `${state.workPath.stage}  ◒${Math.round(state.workPath.marketStrength * 100)}` : '';
+      overlay.querySelector<HTMLElement>('[data-role="cycle"]')!.textContent = `${options.world === 'master' ? '▦' : '◷'}${state.cycle} ${pathStatus}  ${state.activePriority}${state.priorityRemaining > 0 ? ` ${Math.ceil(state.priorityRemaining)}s` : ''}`;
       overlay.querySelector<HTMLElement>('[data-role="hp"]')!.style.width = `${Math.max(0, state.player.hp / state.player.maxHp) * 100}%`;
       overlay.querySelector<HTMLElement>('[data-role="progress"]')!.style.width = `${state.progress / state.progressTarget * 100}%`;
       overlay.querySelector<HTMLElement>('[data-role="resources"]')!.textContent = `⚡${Math.round(state.energy)} ◉${Math.round(state.focus)} ♡${Math.round(state.spirit)} ▧${Math.round(state.calendar)}`;
@@ -213,6 +228,12 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       overlay.dataset.climax = state.climax.phase;
       overlay.dataset.completed = String(state.completed);
       overlay.dataset.priorityRemaining = state.priorityRemaining.toFixed(2);
+      overlay.dataset.pathStage = state.masterPath?.stage ?? state.workPath?.stage ?? '';
+      overlay.dataset.market = state.workPath?.marketStrength.toFixed(3) ?? '';
+      overlay.dataset.choiceKind = state.choice?.kind ?? '';
+      overlay.dataset.manager = state.workPath?.managerId ?? '';
+      overlay.dataset.experience = state.workPath?.experience.toFixed(2) ?? '';
+      overlay.dataset.careerPlan = state.masterPath?.careerPlan ?? '';
     }
 
     private drawChoice(g: Phaser.GameObjects.Graphics, state: ScenarioSnapshot): void {
@@ -220,7 +241,11 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       if (!choice) return;
       const view = this.cameras.main.worldView;
       g.fillStyle(0x04070b, 0.88).fillRect(view.left, view.top, view.width, view.height);
-      const icons = choice.kind === 'masterTrack' ? ['▦', '◆', '◇', '★'] : ['▣', '⚡'];
+      const icons = choice.kind === 'masterTrack' ? ['▦', '◆', '◇', '★']
+        : choice.kind === 'masterSupervisor' ? ['◆◇', '◆!', '◆·']
+          : choice.kind === 'careerPlan' ? ['✦', '▣', '◇']
+            : choice.kind === 'workOffer' ? ['▦', '⚡', '◇']
+              : choice.kind === 'workConversion' ? ['✓', '↗'] : ['▣', '⚡'];
       const colors = [0x7cc9f4, 0xffc56f, 0x79d8b0, 0xd99af0];
       for (let index = 0; index < choice.options.length; index += 1) {
         const portrait = this.isPortrait();
@@ -306,6 +331,16 @@ function createSimulation(world: ScenarioWorld): ScenarioSimulation {
   const simulation = new ScenarioSimulation(world, seed >>> 0, parseDifficulty(params.get('difficulty')));
   const scene = params.get('reviewScene');
   if (import.meta.env.DEV && (scene === 'dense' || scene === 'event' || scene === 'choice' || scene === 'climax' || scene === 'complete')) simulation.startReview(scene);
+  if (import.meta.env.DEV && world === 'master') {
+    const year = Number(params.get('reviewMasterYear'));
+    const plan = params.get('reviewCareerPlan');
+    if (year === 1 || year === 2 || year === 3) simulation.startMasterPathReview(year, plan === 'researchPhd' || plan === 'employment' || plan === 'undecided' ? plan : null);
+  }
+  if (import.meta.env.DEV && world === 'work') {
+    const stage = params.get('reviewWorkStage');
+    const market = params.get('reviewMarket') === 'weak' ? .25 : params.get('reviewMarket') === 'strong' ? .75 : .5;
+    if (stage === 'offers' || stage === 'trial' || stage === 'conversion' || stage === 'employed' || stage === 'promotion') simulation.startWorkPathReview(stage, market);
+  }
   return simulation;
 }
 

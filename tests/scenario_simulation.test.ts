@@ -38,6 +38,8 @@ describe('Master and Work scenario strategies', () => {
 
   it('gives Master a compressed track choice with real resource trade-offs', () => {
     const simulation = new ScenarioSimulation('master', 1);
+    expect(simulation.snapshot().choice?.kind).toBe('masterSupervisor');
+    expect(simulation.choose('mei')).toBe(true);
     runUntilChoice(simulation, 7.1);
     const before = simulation.snapshot();
     expect(before.choice?.kind).toBe('masterTrack');
@@ -50,6 +52,9 @@ describe('Master and Work scenario strategies', () => {
 
   it('makes Work priority shifts alter progress and spawn rush pressure', () => {
     const simulation = new ScenarioSimulation('work', 2);
+    expect(simulation.snapshot().choice?.kind).toBe('workOffer');
+    expect(simulation.snapshot().choice?.options).toEqual(['offer-a', 'offer-b', 'offer-c']);
+    expect(simulation.choose('offer-a')).toBe(true);
     runUntilChoice(simulation, 5.1);
     const before = simulation.snapshot();
     expect(before.choice?.kind).toBe('workPriority');
@@ -63,6 +68,8 @@ describe('Master and Work scenario strategies', () => {
   it('makes the full 13-second Rush window keep draining resources without restoring farming progress', () => {
     const simulation = new ScenarioSimulation('work', 12);
     const protectedRun = new ScenarioSimulation('work', 12);
+    simulation.choose('offer-a');
+    protectedRun.choose('offer-a');
     runUntilChoice(simulation, 5.1);
     runUntilChoice(protectedRun, 5.1);
     expect(simulation.choose('acceptRush')).toBe(true);
@@ -84,6 +91,8 @@ describe('Master and Work scenario strategies', () => {
   it('separates harassment handling from Work portfolio growth and gives Protect Focus an ongoing benefit', () => {
     const rush = new ScenarioSimulation('work', 22);
     const protectedRun = new ScenarioSimulation('work', 22);
+    rush.choose('offer-a');
+    protectedRun.choose('offer-a');
     runUntilChoice(rush, 5.1);
     runUntilChoice(protectedRun, 5.1);
     rush.choose('acceptRush');
@@ -115,15 +124,21 @@ describe('Master and Work scenario strategies', () => {
     expect(work.snapshot().enemies.filter((enemy) => enemy.source === 'periodic').length).toBeGreaterThanOrEqual(4);
   });
 
-  it('provides distinct playable climax bosses and bounded completion states', () => {
-    for (const [world, boss] of [['master', 'exam'], ['work', 'delivery']] as const) {
-      const simulation = new ScenarioSimulation(world, 5);
-      simulation.startReview('climax');
-      run(simulation, 3.2);
-      expect(simulation.snapshot().climax.phase).toBe('active');
-      expect(simulation.snapshot().enemies.some((enemy) => enemy.kind === boss && enemy.source === 'climax')).toBe(true);
-      run(simulation, 14);
-      expect(simulation.snapshot().completed).toBe(true);
-    }
+  it('provides finite Master Defense targets while Work Delivery contributes without becoming promotion', () => {
+    const master = new ScenarioSimulation('master', 5, 'garden', { automaticOffense: false, damageEnabled: false });
+    master.startMasterPathReview(3, 'undecided');
+    master.startReview('climax');
+    run(master, 3.2);
+    expect(master.snapshot().climax.phase).toBe('active');
+    expect(master.snapshot().enemies.filter((enemy) => enemy.source === 'climax')).toHaveLength(5);
+
+    const work = new ScenarioSimulation('work', 5);
+    work.startWorkPathReview('employed', .5);
+    work.startReview('climax');
+    run(work, 3.2);
+    expect(work.snapshot().enemies.some((enemy) => enemy.kind === 'delivery' && enemy.source === 'climax')).toBe(true);
+    run(work, 14);
+    expect(work.snapshot().workPath?.promotionProgress).toBeGreaterThan(0);
+    expect(work.snapshot().completed).toBe(false);
   });
 });

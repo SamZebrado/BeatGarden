@@ -1,6 +1,6 @@
 import { AutoChartAnalysisView } from '../autochart/AutoChartAnalysisView';
 import { StageRunner } from '../game/StageRunner';
-import { t, toggleLocale } from '../i18n/strings';
+import { languageTargetAction, languageTargetLabel, t, toggleLocale } from '../i18n/strings';
 import { FireflyDockStage } from '../stages/fireflyDock/FireflyDockStage';
 import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage } from '../stages/original/GardenStages';
 import { CalibrationView } from '../settings/CalibrationView';
@@ -29,7 +29,7 @@ export class AppController {
     const page = document.createElement('main');
     page.style.cssText = 'width:min(980px,calc(100% - 40px));padding:34px;color:#fff;font-family:system-ui;text-align:center;';
     page.innerHTML = `
-      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><button data-role="modes" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">← ${t('mode.backToModes')}</button><button data-role="language" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">${t('language.switch')}</button></div>
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><button data-role="modes" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">← ${t('mode.backToModes')}</button><button data-role="language" aria-label="${languageTargetAction()}" title="${languageTargetAction()}" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">${languageTargetLabel()}</button></div>
       <div style="font-size:72px;margin-top:10px">🌱</div>
       <h1 style="font-size:58px;letter-spacing:-2px">BeatGarden</h1>
       <p style="font-size:21px;color:#cad7ff;margin-top:12px">${t('menu.tagline')}</p>

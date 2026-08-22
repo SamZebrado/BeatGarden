@@ -262,6 +262,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       hudOverlay.dataset.choiceKind = state.phd.choice?.kind ?? '';
       hudOverlay.dataset.upgradePending = String(state.upgradePending);
       hudOverlay.dataset.milestone = state.phd.milestone ? `${state.phd.milestone.kind}:${state.phd.milestone.phase}` : '';
+      hudOverlay.dataset.milestoneStance = state.phd.milestone?.stance ?? '';
       hudOverlay.dataset.milestoneProgress = state.phd.milestone ? `${state.phd.milestone.progress}/${state.phd.milestone.target}` : '';
       hudOverlay.dataset.supervisor = state.phd.supervisorId ?? 'unselected';
       hudOverlay.dataset.lifestyle = state.phd.lifestyle?.id ?? '';
@@ -331,16 +332,28 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
 
     private drawPhdSystems(g: Phaser.GameObjects.Graphics, state: RunningSnapshot): void {
       const phd = state.phd;
-      // A slow, bounded diamond silhouette keeps the supervisor distinct from the
-      // circular player. Connections exist only during an actual feedback event.
+      // The supervisor is an independent moving NPC, not a player tether. On a
+      // portrait camera they can leave view; a directional edge diamond preserves
+      // source information without dragging them back to the player.
       if (phd.supervisorId) {
-      const supervisorX = 230 + Math.sin(state.time * 0.105 + 0.7) * 135;
-      const supervisorY = 150 + Math.cos(state.time * 0.083 + 1.4) * 72;
+      const supervisorX = 640 + Math.sin(state.time * 0.071 + 0.7) * 530;
+      const supervisorY = 360 + Math.cos(state.time * 0.053 + 1.4) * 270;
       const supervisorColor = phd.supervisorId === 'controlling' ? 0xf1c36d : phd.supervisorId === 'handsOff' ? 0x9fc8e8 : 0x9be8c2;
       g.lineStyle(3, supervisorColor, .42).strokeCircle(supervisorX, supervisorY, 34);
       g.fillStyle(supervisorColor, .96).fillTriangle(supervisorX, supervisorY - 25, supervisorX - 22, supervisorY, supervisorX + 22, supervisorY);
       g.fillTriangle(supervisorX, supervisorY + 25, supervisorX - 22, supervisorY, supervisorX + 22, supervisorY);
       g.fillStyle(0x163c31, 1).fillRect(supervisorX - 5, supervisorY - 5, 10, 10);
+      const view = this.cameras.main.worldView;
+      if (!view.contains(supervisorX, supervisorY)) {
+        const edgeX = Phaser.Math.Clamp(supervisorX, view.left + 34, view.right - 34);
+        const edgeY = Phaser.Math.Clamp(supervisorY, view.top + 34, view.bottom - 34);
+        const direction = Math.atan2(supervisorY - edgeY, supervisorX - edgeX);
+        g.fillStyle(supervisorColor, .92).fillTriangle(
+          edgeX + Math.cos(direction) * 18, edgeY + Math.sin(direction) * 18,
+          edgeX + Math.cos(direction + 2.45) * 14, edgeY + Math.sin(direction + 2.45) * 14,
+          edgeX + Math.cos(direction - 2.45) * 14, edgeY + Math.sin(direction - 2.45) * 14,
+        );
+      }
       if (phd.supervisorFeedback) {
         const dx = state.player.x - supervisorX;
         const dy = state.player.y - supervisorY;
@@ -498,13 +511,16 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       const labels = choice.kind === 'project' ? [t('running.projectReplication'), t('running.projectIdea'), t('running.projectHelping'), t('running.projectPrestige')]
         : choice.kind === 'supervisor' ? [t('running.supervisor.supportive'), t('running.supervisor.controlling'), t('running.supervisor.handsOff')]
           : choice.kind === 'lifestyle' ? [t('running.lifestyle.rest'), t('running.lifestyle.exercise'), t('running.lifestyle.social'), t('running.lifestyle.mindfulness'), t('running.lifestyle.weekendOvertime')]
+            : choice.kind === 'supervisorRequest' ? [t('running.supervisorRequest.accept'), t('running.supervisorRequest.boundary'), t('running.supervisorRequest.decline')]
             : [t('running.attempt'), t('running.defer')];
       const icons = choice.kind === 'project' ? ['▣', '✦', '◇', '★']
         : choice.kind === 'supervisor' ? ['◆◇', '◆!', '◆·']
-          : choice.kind === 'lifestyle' ? ['☾', '↗', '◇◇', '◌', '⚡+'] : ['▶', '◷'];
+          : choice.kind === 'lifestyle' ? ['☾', '↗', '◇◇', '◌', '⚡+']
+            : choice.kind === 'supervisorRequest' ? ['▣+', '◇|', '×'] : ['▶', '◷'];
       const details = choice.kind === 'project' ? ['⚡16  ◉12  ▧12  →  ⬡◈', '⚡13  ◉18  ▧10  →  ✦', '⚡17  ◉8  ▧15  →  ◇', '⚡22  ◉16  ▧22  →  ★']
         : choice.kind === 'supervisor' ? [t('running.supervisor.supportiveDetail'), t('running.supervisor.controllingDetail'), t('running.supervisor.handsOffDetail')]
           : choice.kind === 'lifestyle' ? [t('running.lifestyle.restDetail'), t('running.lifestyle.exerciseDetail'), t('running.lifestyle.socialDetail'), t('running.lifestyle.mindfulnessDetail'), t('running.lifestyle.weekendOvertimeDetail')]
+            : choice.kind === 'supervisorRequest' ? ['◆+  ▧+  ◷−', '◇+  ▧−', '◇  ≈?']
             : ['◉  ▶  ◆', '◷  ♡'];
       const colors = [0x79d8b0, 0xf1c867, 0x7fc6ef, 0xd99af0, 0xff9678];
       for (let index = 0; index < labels.length; index += 1) {
@@ -521,7 +537,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         this.ephemeralText(x + width / 2, y + height * 0.91, String(index + 1), '#9dc8b8', 14);
       }
       const portraitTitle = choice.kind === 'supervisor' ? t('running.supervisorChoiceTitleCompact') : choice.kind === 'lifestyle' ? t('running.lifestyleTitleCompact') : '';
-      const title = choice.kind === 'supervisor' ? t('running.supervisorChoiceTitle') : choice.kind === 'lifestyle' ? t('running.lifestyleTitle') : choice.kind === 'qualifying' ? t('running.qualifying') : choice.kind === 'preDefense' ? t('running.preDefense') : choice.kind === 'defense' ? t('running.defense') : '';
+      const title = choice.kind === 'supervisor' ? t('running.supervisorChoiceTitle') : choice.kind === 'lifestyle' ? t('running.lifestyleTitle') : choice.kind === 'supervisorRequest' ? t('running.supervisorRequestTitle') : choice.kind === 'qualifying' ? t('running.qualifying') : choice.kind === 'preDefense' ? t('running.preDefense') : choice.kind === 'defense' ? t('running.defense') : '';
       if (title && !isTextOff()) this.ephemeralText(view.centerX, view.top + (this.isPortrait() ? 112 : 55), this.isPortrait() && portraitTitle ? portraitTitle : title, '#fff3bc', this.isPortrait() ? 15 : 26, true, this.isPortrait() ? Math.max(220, view.width - 28) : undefined);
     }
 
@@ -566,7 +582,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       const milestone = state.phd.milestone;
       if (!milestone) return;
       const color = milestone.kind === 'qualifying' ? 0x77d9ff : 0xffd36e;
-      if (milestone.phase === 'telegraph') {
+      if (milestone.phase !== 'presentation') {
         const pulse = 28 + Math.sin(state.time * 10) * 12;
         g.lineStyle(10, color, 0.3 + Math.abs(Math.sin(state.time * 8)) * 0.5)
           .strokeRoundedRect(pulse, pulse, RUNNING_WORLD.width - pulse * 2, RUNNING_WORLD.height - pulse * 2, 36);
@@ -609,8 +625,8 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         if (state.meeting.phase === 'telegraph' && prior.meeting.phase !== 'telegraph') this.audio.cue('meeting-warning');
         if (state.meeting.phase === 'active' && prior.meeting.phase === 'telegraph') this.audio.cue('meeting-start');
         if (state.enemies.some((enemy) => enemy.kind === 'phone' && !prior.enemies.some((old) => old.id === enemy.id))) this.audio.cue('phone');
-        if (state.phd.milestone?.phase === 'telegraph' && !prior.phd.milestone) this.audio.cue('milestone-warning');
-        if (state.phd.milestone?.phase === 'active' && prior.phd.milestone?.phase === 'telegraph') this.audio.cue(state.phd.milestone.kind === 'defense' ? 'boss' : 'meeting-start');
+        if (state.phd.milestone?.phase === 'preparation' && !prior.phd.milestone) this.audio.cue('milestone-warning');
+        if (state.phd.milestone?.phase === 'presentation' && prior.phd.milestone?.phase === 'rehearsal') this.audio.cue(state.phd.milestone.kind === 'defense' ? 'boss' : 'meeting-start');
         if (state.gameOver && !prior.gameOver) this.audio.cue('game-over');
         if (state.phd.qualifying === 'passed' && prior.phd.qualifying !== 'passed') {
           this.audio.cue('success');

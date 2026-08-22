@@ -106,6 +106,7 @@ describe('PhD systems', () => {
     const system = new PhdSystems();
     system.startReviewMilestone('qualifying');
     system.step(4, 3.1);
+    system.step(7, 2.6);
     system.onDefeated(4, false);
     expect(system.snapshot().milestone?.progress).toBe(0);
     system.onDefeated(2, true);
@@ -172,11 +173,13 @@ describe('PhD systems', () => {
     expect(system.snapshot().choice?.kind).toBe('qualifying');
     expect(system.choose('attempt', 135)).toBe(true);
     expect(system.snapshot().qualifying).toBe('ready');
-    expect(system.snapshot().milestone?.phase).toBe('telegraph');
+    expect(system.snapshot().milestone?.phase).toBe('preparation');
     system.step(136, 3.1);
-    expect(system.snapshot().milestone?.phase).toBe('active');
+    expect(system.snapshot().milestone?.phase).toBe('rehearsal');
+    system.step(139, 2.6);
+    expect(system.snapshot().milestone?.phase).toBe('presentation');
     system.step(175, 40);
-    expect(system.snapshot().milestone?.phase).toBe('active');
+    expect(system.snapshot().milestone?.phase).toBe('presentation');
     expect(system.snapshot().year).toBe(4);
     const qualifyingTarget = system.snapshot().milestone!.target;
     system.onDefeated(qualifyingTarget, true);
@@ -192,6 +195,7 @@ describe('PhD systems', () => {
     expect(system.snapshot().choice?.kind).toBe('defense');
     expect(system.choose('attempt', 210)).toBe(true);
     system.step(215, 4.1);
+    system.step(218, 2.6);
     for (let index = 0; index < 30; index += 1) system.onDefeated();
     expect(system.snapshot().defense).toBe('passed');
     expect(system.snapshot().graduated).toBe(true);

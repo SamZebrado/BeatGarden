@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { getLocale, setLocale, t } from '../src/i18n/strings';
+import { getLocale, languageTargetAction, languageTargetLabel, setLocale, t } from '../src/i18n/strings';
 import { FireflyDockStage } from '../src/stages/fireflyDock/FireflyDockStage';
 import type { ScheduledJudgeTarget } from '../src/timing/Scheduler';
 
@@ -48,6 +48,15 @@ describe('Firefly Dock first-player readability contract', () => {
       t('feedback.OK'),
       t('feedback.MISS'),
     ]).toEqual(['完美！', '很棒！', '可以！', '错过！']);
+  });
+
+  it('labels every language switch with the target locale and target action', () => {
+    setLocale('zh-CN');
+    expect(languageTargetLabel()).toBe('English');
+    expect(languageTargetAction()).toBe('Switch to English');
+    setLocale('en');
+    expect(languageTargetLabel()).toBe('中文');
+    expect(languageTargetAction()).toBe('切换到中文');
   });
 
   it('auto-MISS never moves the player-operated lever', () => {
