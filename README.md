@@ -1,9 +1,9 @@
 # BeatGarden
 
-BeatGarden is an original, touch-first rhythm garden for desktop browsers and
-Android-tablet PWAs. It includes four procedural stages and a local AutoChart
-mode that turns a user-selected audio file into a playable chart without an
-upload or backend.
+BeatGarden is an original touch-first browser/PWA game with two top-level modes.
+Rhythm Mode includes four procedural stages and a local AutoChart flow. Running
+Mode is a free-movement survivor game with PhD, Master and Work gardens; Cultivation
+is visible as a future locked world.
 
 ## Run locally
 
@@ -25,9 +25,14 @@ static hosts.
 
 ## Product flow
 
-- Original stages: Firefly Dock, Bubble Kitchen, Cloud Post, Sleepy Greenhouse.
+- Mode Select preserves legacy Rhythm deep links and lazy-loads Phaser only after
+  entering Running.
+- Rhythm stages: Firefly Dock, Bubble Kitchen, Cloud Post, Sleepy Greenhouse.
 - Your Music: local file decode, Web Worker DSP analysis, chart preview, difficulty
   and seed controls, then playable Pulse Garden.
+- Running: keyboard/touch movement, automatic offense, pickups, Portfolio Orbit,
+  world events, choices and milestone bosses in PhD, Master and Work.
+- Running difficulty: Sprout, Garden and Storm. Garden is the default.
 - Timing calibration, persistent volume/motion settings, and local best scores.
 - Audio/streaming test plus an in-product asset and stream-safety explanation.
 - Offline shell, install manifest, responsive logical canvas, mouse and touch input.
@@ -52,7 +57,8 @@ record.
 
 ## Current verification boundary
 
-Desktop Chrome runtime, static `/BeatGarden/` hosting, TypeScript, unit tests, and the
-production build are exercised during release work. Android hardware remains explicitly
-`UNVERIFIED` until a real tablet run is available; no desktop result is substituted for
-that gate.
+Desktop production runtime, static `/BeatGarden/` hosting, TypeScript, unit tests,
+production build, real server-stop PWA cold starts and Android tablet touch launches
+were exercised for the Running integration. The Android evidence is functional, not a
+long-duration thermal/battery benchmark. See
+[docs/RUNNING_MODE_STATUS.md](docs/RUNNING_MODE_STATUS.md) for exact gate boundaries.

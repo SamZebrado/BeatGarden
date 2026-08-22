@@ -9,7 +9,10 @@ import { AudioTestView } from '../settings/AudioTestView';
 import { StreamSafeView } from '../settings/StreamSafeView';
 
 export class AppController {
-  constructor(private readonly root: HTMLElement) {}
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly options: { onExitToModeSelect?: () => void } = {},
+  ) {}
 
   start(): void {
     const requested = new URLSearchParams(window.location.search).get('screen');
@@ -26,7 +29,7 @@ export class AppController {
     const page = document.createElement('main');
     page.style.cssText = 'width:min(980px,calc(100% - 40px));padding:34px;color:#fff;font-family:system-ui;text-align:center;';
     page.innerHTML = `
-      <div style="display:flex;justify-content:flex-end"><button data-role="language" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">${t('language.switch')}</button></div>
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><button data-role="modes" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">← ${t('mode.backToModes')}</button><button data-role="language" style="padding:10px 16px;border-radius:999px;border:1px solid #53618d;background:#151c38;color:#fff">${t('language.switch')}</button></div>
       <div style="font-size:72px;margin-top:10px">🌱</div>
       <h1 style="font-size:58px;letter-spacing:-2px">BeatGarden</h1>
       <p style="font-size:21px;color:#cad7ff;margin-top:12px">${t('menu.tagline')}</p>
@@ -45,6 +48,9 @@ export class AppController {
     utilities.querySelector<HTMLButtonElement>('[data-role="audio-test"]')!.addEventListener('click', this.showAudioTest);
     utilities.querySelector<HTMLButtonElement>('[data-role="provenance"]')!.addEventListener('click', this.showProvenance);
     page.querySelector<HTMLButtonElement>('[data-role="language"]')!.addEventListener('click', () => { toggleLocale(); this.showMenu(); });
+    const modes = page.querySelector<HTMLButtonElement>('[data-role="modes"]')!;
+    if (this.options.onExitToModeSelect) modes.addEventListener('click', this.options.onExitToModeSelect);
+    else modes.remove();
     this.root.appendChild(page);
   };
 

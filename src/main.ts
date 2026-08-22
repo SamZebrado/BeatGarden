@@ -5,7 +5,7 @@
 // boot into stage 1.
 
 import { t } from './i18n/strings';
-import { AppController } from './app/AppController';
+import { RootController } from './app/RootController';
 import { registerServiceWorker } from './pwa/registerServiceWorker';
 
 function boot(): void {
@@ -14,7 +14,7 @@ function boot(): void {
     document.body.innerHTML = `<div style="padding:24px;color:#fff;font-family:sans-serif">${t('error.missingRoot')}</div>`;
     return;
   }
-  new AppController(root).start();
+  new RootController(root).start();
 }
 
 if (document.readyState === 'loading') {

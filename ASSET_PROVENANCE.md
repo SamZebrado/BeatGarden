@@ -23,6 +23,7 @@ Goal for v1: 0 third-party files imported as binary assets.
 | vite          | 8.2.1   | MIT        | Dev server + bundler       |
 | vitest        | 4.1.10  | MIT        | Unit tests                 |
 | jsdom         | 29.1.1  | MIT        | Test-only DOM environment  |
+| phaser        | 3.90.0  | MIT        | Running Mode rendering/input shell |
 
 These are **code dependencies**, not creative assets (music/sfx/art/fonts).
 

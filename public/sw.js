@@ -1,11 +1,20 @@
-const CACHE_NAME = 'beatgarden-shell-v3';
+const CACHE_NAME = 'beatgarden-shell-v4';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './icons/beatgarden.svg',
   './icons/beatgarden-192.png', './icons/beatgarden-512.png',
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll(SHELL);
+    const index = await fetch('./index.html');
+    const html = await index.text();
+    const moduleScripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)]
+      .map((match) => new URL(match[1], self.registration.scope).href)
+      .filter((url) => new URL(url).origin === self.location.origin);
+    await cache.addAll(moduleScripts);
+  })());
   self.skipWaiting();
 });
 
@@ -52,4 +61,20 @@ self.addEventListener('fetch', (event) => {
       });
     }),
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type !== 'WARM_RUNNING_CACHE' || !Array.isArray(event.data.urls)) return;
+  const urls = event.data.urls.filter((value) => {
+    if (typeof value !== 'string') return false;
+    const url = new URL(value, self.registration.scope);
+    return url.origin === self.location.origin && url.pathname.startsWith(new URL(self.registration.scope).pathname) && url.pathname.includes('/assets/');
+  });
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await Promise.all(urls.map(async (url) => {
+      const response = await fetch(url);
+      if (response.ok) await cache.put(url, response);
+    }));
+  })());
 });
