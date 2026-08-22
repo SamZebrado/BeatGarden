@@ -45,13 +45,21 @@ describe('Running fixed-step authority', () => {
   });
 
   it('telegraphs and starts the first periodic Lab Meeting deterministically', () => {
-    const simulation = new RunningSimulation(9);
-    for (let frame = 0; frame < 28.1 * 60; frame += 1) {
+    const simulation = new RunningSimulation(9, { firstMeetingAt: 0 });
+    for (let frame = 0; frame < 44.9 * 60; frame += 1) {
       if (simulation.snapshot().upgradePending) simulation.chooseUpgrade('vitality');
       choosePending(simulation);
       const angle = frame / 150;
       simulation.step(1 / 60, { x: Math.cos(angle), y: Math.sin(angle) });
     }
+    expect(simulation.snapshot().phd.supervisorId).toBeNull();
+    expect(simulation.snapshot().meeting.phase).toBe('idle');
+    for (let frame = 0; frame < .3 * 60; frame += 1) {
+      if (simulation.snapshot().upgradePending) simulation.chooseUpgrade('vitality');
+      choosePending(simulation);
+      simulation.step(1 / 60, { x: 1, y: 0 });
+    }
+    expect(simulation.snapshot().phd.supervisorId).not.toBeNull();
     expect(simulation.snapshot().meeting.phase).toBe('telegraph');
     for (let frame = 0; frame < 3.1 * 60; frame += 1) {
       if (simulation.snapshot().upgradePending) simulation.chooseUpgrade('vitality');
@@ -102,6 +110,8 @@ describe('Running fixed-step authority', () => {
         expect(Math.hypot(spawn.x - point.x, spawn.y - point.y)).toBeGreaterThanOrEqual(360);
       }
       const simulation = new RunningSimulation(82, { initialPlayer: point, firstMeetingAt: 0 });
+      simulation.startChoiceReview('supervisor');
+      simulation.choosePhdOption('supportive');
       runWithUpgrades(simulation, 3.1);
       expect(simulation.snapshot().meeting.count).toBe(1);
       expect(simulation.snapshot().enemies.filter((enemy) => enemy.kind !== 'mite').length).toBeGreaterThanOrEqual(10);

@@ -6,6 +6,7 @@ import { ScenarioSimulation, type ScenarioEnemy, type ScenarioSnapshot, type Sce
 import { parseDifficulty } from '../core/difficulty';
 import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
+import { RunningLegend, createScenarioLegendEntries } from '../RunningLegend';
 import { loadRunningSave, markWorldCompleted } from '../core/save';
 import { PromotionAction } from '../PromotionAction';
 
@@ -30,6 +31,8 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
     private joystick: { id: number; x: number; y: number; currentX: number; currentY: number } | null = null;
     private hints!: SemanticHints;
     private audio!: RunningAudio;
+    private legend!: RunningLegend;
+    private legendOpen = false;
     private promotion!: PromotionAction;
     private previous: ScenarioSnapshot | null = null;
     private completionRecorded = false;
@@ -49,10 +52,12 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       this.resizeCamera();
       this.hints = new SemanticHints(root, isTextOff());
       this.audio = new RunningAudio(root, options.world);
+      this.legend = new RunningLegend(root, { world: options.world, textOff: isTextOff(), getEntries: () => createScenarioLegendEntries(this.simulation.snapshot(), loadRunningSave().seenHints), onOpenChange: (open) => { this.legendOpen = open; if (open) this.joystick = null; } });
       this.promotion = new PromotionAction(root, isTextOff());
     }
 
     override update(_time: number, deltaMs: number): void {
+      if (this.legendOpen) return;
       let state = this.simulation.snapshot();
       if (state.completed || state.gameOver) {
         if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.restart();
@@ -196,16 +201,18 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
     private updateOverlay(state: ScenarioSnapshot): void {
       const textOff = isTextOff();
       overlay.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = textOff ? `⬡${state.orbitCount} ◆${state.defeated}` : `${options.world === 'master' ? t('running.master') : t('running.work')}  ◆ ${state.defeated}`;
-      overlay.querySelector<HTMLElement>('[data-role="cycle"]')!.textContent = `${options.world === 'master' ? '▦' : '◷'}${state.cycle}  ${state.activePriority}`;
+      overlay.querySelector<HTMLElement>('[data-role="cycle"]')!.textContent = `${options.world === 'master' ? '▦' : '◷'}${state.cycle}  ${state.activePriority}${state.priorityRemaining > 0 ? ` ${Math.ceil(state.priorityRemaining)}s` : ''}`;
       overlay.querySelector<HTMLElement>('[data-role="hp"]')!.style.width = `${Math.max(0, state.player.hp / state.player.maxHp) * 100}%`;
       overlay.querySelector<HTMLElement>('[data-role="progress"]')!.style.width = `${state.progress / state.progressTarget * 100}%`;
       overlay.querySelector<HTMLElement>('[data-role="resources"]')!.textContent = `⚡${Math.round(state.energy)} ◉${Math.round(state.focus)} ♡${Math.round(state.spirit)} ▧${Math.round(state.calendar)}`;
       overlay.querySelector<HTMLElement>('[data-role="event"]')!.textContent = state.event.phase === 'telegraph' ? `${state.event.kind === 'weekly' ? '◎' : options.world === 'master' ? '▦' : '!' } ${textOff ? '' : t(`running.event.${state.event.kind}` as StringKey)} ${Math.max(1, Math.ceil(state.event.remaining))}` : '';
       overlay.dataset.world = state.world;
+      overlay.dataset.simulationTime = state.time.toFixed(3);
       overlay.dataset.difficulty = state.difficulty;
       overlay.dataset.event = `${state.event.kind}:${state.event.phase}`;
       overlay.dataset.climax = state.climax.phase;
       overlay.dataset.completed = String(state.completed);
+      overlay.dataset.priorityRemaining = state.priorityRemaining.toFixed(2);
     }
 
     private drawChoice(g: Phaser.GameObjects.Graphics, state: ScenarioSnapshot): void {
@@ -225,6 +232,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         g.lineStyle(4, colors[index], 0.9).strokeRoundedRect(x, y, width, height, 22);
         this.label(x + width / 2, y + height * 0.38, icons[index], `#${colors[index].toString(16)}`, portrait ? 42 : 64);
         if (!isTextOff()) this.label(x + width / 2, y + height * 0.65, t(`running.choice.${choice.options[index]}` as StringKey), '#ffffff', 17);
+        if (!isTextOff() && choice.kind === 'workPriority') this.label(x + width / 2, y + height * 0.78, portrait ? t(`running.choice.${choice.options[index]}Detail` as StringKey).replace(/, /g, ',\n') : t(`running.choice.${choice.options[index]}Detail` as StringKey), '#c8ddcf', portrait ? 11 : 14, portrait ? Math.max(180, width - 30) : undefined);
         this.label(x + width / 2, y + height * 0.86, String(index + 1), '#a9c9c0', 15);
       }
     }
@@ -236,8 +244,8 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       if (!isTextOff()) this.label(view.centerX, view.centerY + 58, state.completed ? t('running.completed') : t('running.resting'), '#d8eee5', 24);
     }
 
-    private label(x: number, y: number, value: string, color: string, size: number): void {
-      const text = this.add.text(x, y, value, { color, fontFamily: 'system-ui', fontSize: `${size}px`, fontStyle: 'bold' }).setOrigin(0.5).setDepth(30);
+    private label(x: number, y: number, value: string, color: string, size: number, wrapWidth?: number): void {
+      const text = this.add.text(x, y, value, { color, fontFamily: 'system-ui', fontSize: `${size}px`, fontStyle: 'bold', align: 'center', ...(wrapWidth ? { wordWrap: { width: wrapWidth, useAdvancedWrap: false } } : {}) }).setOrigin(0.5).setDepth(30);
       this.time.delayedCall(20, () => text.destroy());
     }
     private updateSemanticsAndAudio(state: ScenarioSnapshot): void {
@@ -263,7 +271,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         if (state.climax.phase === 'active' && prior.climax.phase === 'telegraph') this.audio.cue('boss');
         if (state.gameOver && !prior.gameOver) this.audio.cue('game-over');
       }
-      if (state.event.phase !== 'idle') this.hints.show(state.event.kind === 'weekly' ? 'meeting' : state.world === 'master' ? 'milestone' : 'meeting', state.event.kind === 'weekly' ? 'running.hint.meeting' : 'running.hint.milestone');
+      if (state.event.phase !== 'idle') this.hints.show(state.event.kind === 'weekly' ? 'meeting' : state.world === 'master' ? 'milestone' : 'meeting', state.event.kind === 'weekly' ? 'running.hint.weeklyWork' : 'running.hint.milestone');
       if (state.completed && !this.completionRecorded) {
         this.completionRecorded = true;
         this.audio.cue('complete');
@@ -277,7 +285,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       }
       this.previous = state;
     }
-    destroyRuntime(): void { this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
+    destroyRuntime(): void { this.legend?.destroy(); this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
     private isPortrait(): boolean { return this.scale.width / this.scale.height < 0.75; }
   }
 

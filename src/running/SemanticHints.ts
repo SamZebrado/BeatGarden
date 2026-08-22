@@ -40,7 +40,7 @@ export class SemanticHints {
       { opacity: 1, transform: 'translate(-50%,0)', offset: 0.14 },
       { opacity: 1, transform: 'translate(-50%,-4px)', offset: 0.72 },
       { opacity: 0, transform: 'translate(-50%,-14px)' },
-    ], { duration: 1350, easing: 'ease-out', fill: 'forwards' });
+    ], { duration: 4000, easing: 'ease-out', fill: 'forwards' });
     void this.active.finished.then(() => { this.activeId = null; this.active = null; this.runNext(); }).catch(() => undefined);
   }
 

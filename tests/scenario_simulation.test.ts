@@ -60,6 +60,48 @@ describe('Master and Work scenario strategies', () => {
     expect(state.enemies.filter((enemy) => enemy.source === 'periodic')).toHaveLength(4);
   });
 
+  it('makes the full 13-second Rush window keep draining resources without restoring farming progress', () => {
+    const simulation = new ScenarioSimulation('work', 12);
+    const protectedRun = new ScenarioSimulation('work', 12);
+    runUntilChoice(simulation, 5.1);
+    runUntilChoice(protectedRun, 5.1);
+    expect(simulation.choose('acceptRush')).toBe(true);
+    expect(protectedRun.choose('protectFocus')).toBe(true);
+    const start = simulation.snapshot();
+    const protectedStart = protectedRun.snapshot();
+    run(simulation, 4);
+    run(protectedRun, 4);
+    const active = simulation.snapshot();
+    const protectedActive = protectedRun.snapshot();
+    expect(active.priorityRemaining).toBeGreaterThan(8.8);
+    expect(active.priorityRemaining).toBeLessThan(9.2);
+    expect(active.energy - start.energy).toBeLessThan(protectedActive.energy - protectedStart.energy);
+    expect(active.focus - start.focus).toBeLessThan(protectedActive.focus - protectedStart.focus);
+    expect(active.calendar - start.calendar).toBeGreaterThan(protectedActive.calendar - protectedStart.calendar);
+    expect(active.progress).toBe(start.progress);
+  });
+
+  it('separates harassment handling from Work portfolio growth and gives Protect Focus an ongoing benefit', () => {
+    const rush = new ScenarioSimulation('work', 22);
+    const protectedRun = new ScenarioSimulation('work', 22);
+    runUntilChoice(rush, 5.1);
+    runUntilChoice(protectedRun, 5.1);
+    rush.choose('acceptRush');
+    protectedRun.choose('protectFocus');
+    const protectedStart = protectedRun.snapshot();
+    run(rush, 4);
+    run(protectedRun, 4);
+    const rushed = rush.snapshot();
+    const protectedState = protectedRun.snapshot();
+    expect(rushed.defeated).toBeGreaterThan(0);
+    expect(rushed.progress).toBe(15);
+    expect(rushed.orbitCount).toBe(1);
+    expect(protectedState.focus).toBeGreaterThan(rushed.focus);
+    expect(protectedState.calendar).toBeLessThan(rushed.calendar);
+    expect(protectedState.progress).toBeGreaterThan(protectedStart.progress);
+    expect(protectedState.priorityRemaining).toBeGreaterThan(0);
+  });
+
   it('uses visibly different first periodic events for Master and Work', () => {
     const master = new ScenarioSimulation('master', 3);
     const work = new ScenarioSimulation('work', 3);

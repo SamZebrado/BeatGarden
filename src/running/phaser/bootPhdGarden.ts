@@ -5,6 +5,7 @@ import { t, type StringKey } from '../../i18n/strings';
 import { parseDifficulty } from '../core/difficulty';
 import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
+import { RunningLegend, createPhdLegendEntries } from '../RunningLegend';
 import { loadRunningSave, markWorldCompleted, updateRunningSave } from '../core/save';
 import type { AnnualMilestoneKind } from '../core/phdSystems';
 import { PromotionAction } from '../PromotionAction';
@@ -21,7 +22,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
   const hudOverlay = document.createElement('div');
   hudOverlay.dataset.role = 'running-hud';
   hudOverlay.style.cssText = 'position:fixed;z-index:40;left:max(18px,env(safe-area-inset-left));right:max(18px,env(safe-area-inset-right));top:max(16px,env(safe-area-inset-top));pointer-events:none;color:#e7fff1;font:700 18px system-ui;text-shadow:0 2px 8px #000;';
-  hudOverlay.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px"><span data-role="stats"></span><span data-role="systems" style="font-size:14px;color:#d7eddc;text-align:right"></span><span data-role="help" style="color:#8fb9ab;font-size:14px;font-weight:500">${t('running.help')}</span></div><div style="width:min(220px,58vw);height:12px;border-radius:8px;background:#0b1614;margin-top:10px;overflow:hidden"><i data-role="hp" style="display:block;height:100%;background:#f27878"></i></div><div style="width:min(220px,58vw);height:8px;border-radius:6px;background:#0b1614;margin-top:7px;overflow:hidden"><i data-role="xp" style="display:block;height:100%;background:#74e2c2"></i></div><div data-role="resources" style="margin-top:8px;font-size:13px;letter-spacing:3px"></div><div data-role="meeting" style="position:fixed;left:50%;top:max(18px,env(safe-area-inset-top));transform:translateX(-50%);color:#ffdda1;font-size:22px;white-space:nowrap"></div>`;
+  hudOverlay.innerHTML = `<div style="display:flex;justify-content:space-between;gap:12px"><span data-role="stats"></span><span data-role="systems" style="font-size:14px;color:#d7eddc;text-align:right"></span><span data-role="help" style="color:#8fb9ab;font-size:14px;font-weight:500">${t('running.help')}</span></div><div style="width:min(220px,58vw);height:12px;border-radius:8px;background:#0b1614;margin-top:10px;overflow:hidden"><i data-role="hp" style="display:block;height:100%;background:#f27878"></i></div><div style="width:min(220px,58vw);height:8px;border-radius:6px;background:#0b1614;margin-top:7px;overflow:hidden"><i data-role="xp" style="display:block;height:100%;background:#74e2c2"></i></div><div data-role="resources" style="margin-top:8px;font-size:13px;letter-spacing:3px"></div><div data-role="meeting" style="position:fixed;left:50%;top:max(18px,env(safe-area-inset-top));transform:translateX(-50%);color:#ffdda1;font-size:22px;white-space:nowrap"></div><div data-role="milestone-objective" style="position:fixed;left:50%;top:max(74px,calc(env(safe-area-inset-top) + 62px));transform:translateX(-50%);width:min(440px,calc(100vw - 36px));padding:8px 12px;border-radius:12px;background:#07100edb;text-align:center;font-size:14px;line-height:1.35;white-space:pre-line;display:none"></div>`;
   root.appendChild(hudOverlay);
 
   class PhdGardenScene extends Phaser.Scene {
@@ -36,10 +37,14 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     private joystick: { pointerId: number; x: number; y: number; currentX: number; currentY: number } | null = null;
     private hints!: SemanticHints;
     private audio!: RunningAudio;
+    private legend!: RunningLegend;
+    private legendOpen = false;
     private promotion!: PromotionAction;
     private previous: RunningSnapshot | null = null;
     private completionRecorded = false;
     private touchCount = 0;
+    private pollutionTrail: Array<{ x: number; y: number }> = [];
+    private lastPollutionSample = -1;
 
     constructor() { super('phd-garden'); }
 
@@ -55,7 +60,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.help.setVisible(false);
       const keyboard = this.input.keyboard;
       if (!keyboard) throw new Error('Keyboard input unavailable');
-      this.keys = keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,ONE,TWO,THREE,FOUR,SPACE') as Record<string, Phaser.Input.Keyboard.Key>;
+      this.keys = keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,ONE,TWO,THREE,FOUR,FIVE,SPACE') as Record<string, Phaser.Input.Keyboard.Key>;
       this.input.on('pointerdown', this.onPointerDown, this);
       this.input.on('pointermove', this.onPointerMove, this);
       this.input.on('pointerup', this.onPointerUp, this);
@@ -64,11 +69,13 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.resizeCamera();
       this.hints = new SemanticHints(root, isTextOff());
       this.audio = new RunningAudio(root, 'phd');
+      this.legend = new RunningLegend(root, { world: 'phd', textOff: isTextOff(), getEntries: () => createPhdLegendEntries(this.simulation.snapshot(), loadRunningSave().seenHints), onOpenChange: (open) => { this.legendOpen = open; if (open) this.joystick = null; } });
       this.promotion = new PromotionAction(root, isTextOff());
       this.render(this.simulation.snapshot());
     }
 
     override update(_time: number, deltaMs: number): void {
+      if (this.legendOpen) return;
       const snapshot = this.simulation.snapshot();
       if (snapshot.phd.terminal === 'ended' || snapshot.phd.terminal === 'graduated') {
         if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.restart();
@@ -119,7 +126,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     private handlePhdChoiceKeys(state: RunningSnapshot): void {
       const choice = state.phd.choice;
       if (!choice) return;
-      const keys = [this.keys.ONE, this.keys.TWO, this.keys.THREE, this.keys.FOUR];
+      const keys = [this.keys.ONE, this.keys.TWO, this.keys.THREE, this.keys.FOUR, this.keys.FIVE];
       for (let index = 0; index < choice.options.length; index += 1) {
         if (Phaser.Input.Keyboard.JustDown(keys[index])) this.simulation.choosePhdOption(choice.options[index]);
       }
@@ -170,6 +177,8 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.joystick = null;
       this.previous = null;
       this.completionRecorded = false;
+      this.pollutionTrail = [];
+      this.lastPollutionSample = -1;
       this.promotion.hide();
     }
 
@@ -232,15 +241,30 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       hudOverlay.querySelector<HTMLElement>('[data-role="meeting"]')!.textContent = state.meeting.phase === 'telegraph' ? `◉  ${Math.max(1, Math.ceil(state.meeting.remaining))}` : state.meeting.phase === 'active' ? (textOff ? '◉' : `◉  ${t('running.meeting')}`) : '';
       const thesisSymbol = { seed: '·', sapling: '♧', tree: '♣', bloom: '✿' }[state.phd.thesisStage];
       hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent = textOff ? `◷${state.phd.year}  ${thesisSymbol}` : `Y${state.phd.year}  🌱 ${t(`running.thesis.${state.phd.thesisStage}` as const)}`;
+      if (state.phd.supervisorId) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += textOff ? '  ◆' : `  ·  ◆ ${t(`running.supervisor.${state.phd.supervisorId}` as StringKey)}`;
       if (!textOff && state.phd.annualMilestone) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += `  ·  ${t(annualMilestoneKey(state.phd.annualMilestone.kind))}`;
       if (!textOff && state.phd.revisionRemaining > 0) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += `  ·  ${t('running.revision')}`;
+      if (state.phd.lifestyle) {
+        const lifestyleIcon = { rest: '☾', exercise: '↗', social: '◇◇', mindfulness: '◌', weekendOvertime: '⚡+' }[state.phd.lifestyle.id];
+        hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += textOff ? `  ${lifestyleIcon}` : `  ·  ${lifestyleIcon} ${t(`running.lifestyle.${state.phd.lifestyle.id}` as StringKey)} ${Math.ceil(state.phd.lifestyle.remaining)}s`;
+      }
       hudOverlay.querySelector<HTMLElement>('[data-role="resources"]')!.textContent = `⚡${Math.round(state.phd.energy)}  ◉${Math.round(state.phd.focus)}  ♡${Math.round(state.phd.spirit)}  ▧${Math.round(state.phd.calendarLoad)}  ◈${Math.round(state.phd.pollution)}`;
+      const objective = hudOverlay.querySelector<HTMLElement>('[data-role="milestone-objective"]')!;
+      if (state.phd.milestone) {
+        const title = state.phd.milestone.kind === 'qualifying' ? t('running.qualifying') : t('running.defense');
+        const detail = state.phd.milestone.kind === 'qualifying' ? t('running.milestone.qualifyingObjective') : t('running.milestone.defenseObjective');
+        objective.textContent = textOff ? `△?  ${state.phd.milestone.progress} / ${state.phd.milestone.target}` : `${title}\n${detail}   △?  ${state.phd.milestone.progress} / ${state.phd.milestone.target}`;
+        objective.style.display = 'block';
+      } else objective.style.display = 'none';
       hudOverlay.dataset.year = String(state.phd.year);
+      hudOverlay.dataset.simulationTime = state.time.toFixed(3);
       hudOverlay.dataset.difficulty = state.difficulty;
       hudOverlay.dataset.choiceKind = state.phd.choice?.kind ?? '';
       hudOverlay.dataset.upgradePending = String(state.upgradePending);
       hudOverlay.dataset.milestone = state.phd.milestone ? `${state.phd.milestone.kind}:${state.phd.milestone.phase}` : '';
       hudOverlay.dataset.milestoneProgress = state.phd.milestone ? `${state.phd.milestone.progress}/${state.phd.milestone.target}` : '';
+      hudOverlay.dataset.supervisor = state.phd.supervisorId ?? 'unselected';
+      hudOverlay.dataset.lifestyle = state.phd.lifestyle?.id ?? '';
       hudOverlay.querySelector<HTMLElement>('[data-role="help"]')!.style.display = textOff || this.isPortrait() || state.upgradePending || state.phd.choice || state.gameOver || state.phd.terminal === 'ended' || state.phd.terminal === 'graduated' ? 'none' : 'inline';
       if (state.phd.choice) this.drawPhdChoice(g, state);
       if (state.upgradePending && !state.phd.milestone) this.drawUpgradeOverlay(g);
@@ -295,17 +319,61 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       }
       else if (enemy.kind === 'reviewer') g.fillTriangle(enemy.x, enemy.y - 23, enemy.x - 21, enemy.y + 18, enemy.x + 21, enemy.y + 18);
       else g.fillCircle(enemy.x, enemy.y, enemy.radius);
+      if (enemy.source === 'milestone') {
+        const marker = enemy.radius + 14;
+        g.lineStyle(4, 0x8de5ff, .95);
+        g.lineBetween(enemy.x, enemy.y - marker - 8, enemy.x - 8, enemy.y - marker + 3);
+        g.lineBetween(enemy.x - 8, enemy.y - marker + 3, enemy.x + 8, enemy.y - marker + 3);
+        g.lineBetween(enemy.x + 8, enemy.y - marker + 3, enemy.x, enemy.y - marker - 8);
+        g.lineStyle(3, 0x8de5ff, .65).strokeCircle(enemy.x, enemy.y, marker);
+      }
     }
 
     private drawPhdSystems(g: Phaser.GameObjects.Graphics, state: RunningSnapshot): void {
       const phd = state.phd;
-      // One stable, supportive primary supervisor/PI. It is never part of the enemy list.
-      const supervisorX = 180;
-      const supervisorY = 120;
-      g.lineStyle(3, 0x9be8c2, .45).strokeCircle(supervisorX, supervisorY, 34);
-      g.fillStyle(0x9be8c2, .95).fillCircle(supervisorX, supervisorY, 18);
-      g.fillStyle(0x163c31, 1).fillCircle(supervisorX + 5, supervisorY - 4, 4);
-      g.lineStyle(3, 0x9be8c2, .3).lineBetween(supervisorX + 28, supervisorY + 18, state.player.x, state.player.y);
+      // A slow, bounded diamond silhouette keeps the supervisor distinct from the
+      // circular player. Connections exist only during an actual feedback event.
+      if (phd.supervisorId) {
+      const supervisorX = 230 + Math.sin(state.time * 0.105 + 0.7) * 135;
+      const supervisorY = 150 + Math.cos(state.time * 0.083 + 1.4) * 72;
+      const supervisorColor = phd.supervisorId === 'controlling' ? 0xf1c36d : phd.supervisorId === 'handsOff' ? 0x9fc8e8 : 0x9be8c2;
+      g.lineStyle(3, supervisorColor, .42).strokeCircle(supervisorX, supervisorY, 34);
+      g.fillStyle(supervisorColor, .96).fillTriangle(supervisorX, supervisorY - 25, supervisorX - 22, supervisorY, supervisorX + 22, supervisorY);
+      g.fillTriangle(supervisorX, supervisorY + 25, supervisorX - 22, supervisorY, supervisorX + 22, supervisorY);
+      g.fillStyle(0x163c31, 1).fillRect(supervisorX - 5, supervisorY - 5, 10, 10);
+      if (phd.supervisorFeedback) {
+        const dx = state.player.x - supervisorX;
+        const dy = state.player.y - supervisorY;
+        const length = Math.max(1, Math.hypot(dx, dy));
+        const ux = dx / length;
+        const uy = dy / length;
+        if (phd.supervisorFeedback.signal > 0) {
+          g.lineStyle(4, 0x8ce9ff, Math.min(.9, .38 + phd.supervisorFeedback.signal / 34));
+          for (let offset = 28; offset < Math.min(length - 28, 190); offset += 32) {
+            g.lineBetween(supervisorX + ux * offset, supervisorY + uy * offset, supervisorX + ux * (offset + 20), supervisorY + uy * (offset + 20));
+          }
+          const arrowX = supervisorX + ux * Math.min(length - 28, 215);
+          const arrowY = supervisorY + uy * Math.min(length - 28, 215);
+          g.fillStyle(0x8ce9ff, .9).fillTriangle(arrowX + ux * 12, arrowY + uy * 12, arrowX - uy * 8, arrowY + ux * 8, arrowX + uy * 8, arrowY - ux * 8);
+        }
+        if (phd.supervisorFeedback.noise > 0) {
+          const px = -uy;
+          const py = ux;
+          g.lineStyle(4, 0x9d58b5, Math.min(.85, .28 + phd.supervisorFeedback.noise / 24));
+          let priorX = supervisorX;
+          let priorY = supervisorY;
+          for (let index = 1; index <= 7; index += 1) {
+            const distance = Math.min(length * .72, index * 25);
+            const jitter = (index % 2 ? 12 : -12) + Math.sin(state.time * 18 + index) * 5;
+            const nextX = supervisorX + ux * distance + px * jitter;
+            const nextY = supervisorY + uy * distance + py * jitter;
+            g.lineBetween(priorX, priorY, nextX, nextY);
+            priorX = nextX;
+            priorY = nextY;
+          }
+        }
+      }
+      }
       for (let index = 0; index < Math.min(4, phd.completedProjects); index += 1) {
         const angle = -state.time * 0.8 + index / Math.max(1, phd.completedProjects) * Math.PI * 2;
         const x = state.player.x + Math.cos(angle) * 94;
@@ -317,11 +385,18 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         const ratio = phd.activeProject.progress / phd.activeProject.goal;
         g.lineStyle(5, 0x8bdcc1, 0.35 + ratio * 0.6).strokeCircle(state.player.x, state.player.y, 108 + ratio * 16);
       }
-      if (phd.signal > 0) {
-        g.lineStyle(3, 0x8ce9ff, Math.min(0.7, phd.signal / 100)).strokeCircle(state.player.x, state.player.y, 34);
-      }
       if (phd.pollution > 0) {
-        g.fillStyle(0x793d8f, Math.min(0.24, phd.pollution / 300)).fillCircle(state.player.x, state.player.y, 48 + phd.pollution * 0.35);
+        if (state.time - this.lastPollutionSample >= .13) {
+          this.lastPollutionSample = state.time;
+          this.pollutionTrail.unshift({ x: state.player.x, y: state.player.y });
+          this.pollutionTrail.length = Math.min(7, this.pollutionTrail.length);
+        }
+        const alpha = Math.min(.34, .12 + phd.pollution / 420);
+        this.pollutionTrail.forEach((point, index) => {
+          const drift = Math.sin(state.time * 1.7 + index * 2.1) * (5 + index * 1.5);
+          g.fillStyle(0x9d58b5, alpha * (1 - index / 9)).fillCircle(point.x - index * 5, point.y + drift, 16 + index * 2 + phd.pollution * .08);
+          g.fillStyle(0x603168, alpha * .8).fillCircle(point.x - 8 - index * 4, point.y + drift + 7, 7 + index);
+        });
       }
       const treeX = 1080;
       const treeY = 610;
@@ -420,29 +495,34 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       if (!choice) return;
       const view = this.cameras.main.worldView;
       g.fillStyle(0x030908, 0.86).fillRect(view.left, view.top, view.width, view.height);
-      const labels = choice.kind === 'project'
-        ? [t('running.projectReplication'), t('running.projectIdea'), t('running.projectHelping'), t('running.projectPrestige')]
-        : [t('running.attempt'), t('running.defer')];
-      const icons = choice.kind === 'project' ? ['▣', '✦', '◇', '★'] : ['▶', '◷'];
-      const details = choice.kind === 'project'
-        ? ['⚡16  ◉12  ▧12  →  ⬡◈', '⚡13  ◉18  ▧10  →  ✦', '⚡17  ◉8  ▧15  →  ◇', '⚡22  ◉16  ▧22  →  ★']
-        : ['◉  ▶  ◆', '◷  ♡'];
-      const colors = [0x79d8b0, 0xf1c867, 0x7fc6ef, 0xd99af0];
+      const labels = choice.kind === 'project' ? [t('running.projectReplication'), t('running.projectIdea'), t('running.projectHelping'), t('running.projectPrestige')]
+        : choice.kind === 'supervisor' ? [t('running.supervisor.supportive'), t('running.supervisor.controlling'), t('running.supervisor.handsOff')]
+          : choice.kind === 'lifestyle' ? [t('running.lifestyle.rest'), t('running.lifestyle.exercise'), t('running.lifestyle.social'), t('running.lifestyle.mindfulness'), t('running.lifestyle.weekendOvertime')]
+            : [t('running.attempt'), t('running.defer')];
+      const icons = choice.kind === 'project' ? ['▣', '✦', '◇', '★']
+        : choice.kind === 'supervisor' ? ['◆◇', '◆!', '◆·']
+          : choice.kind === 'lifestyle' ? ['☾', '↗', '◇◇', '◌', '⚡+'] : ['▶', '◷'];
+      const details = choice.kind === 'project' ? ['⚡16  ◉12  ▧12  →  ⬡◈', '⚡13  ◉18  ▧10  →  ✦', '⚡17  ◉8  ▧15  →  ◇', '⚡22  ◉16  ▧22  →  ★']
+        : choice.kind === 'supervisor' ? [t('running.supervisor.supportiveDetail'), t('running.supervisor.controllingDetail'), t('running.supervisor.handsOffDetail')]
+          : choice.kind === 'lifestyle' ? [t('running.lifestyle.restDetail'), t('running.lifestyle.exerciseDetail'), t('running.lifestyle.socialDetail'), t('running.lifestyle.mindfulnessDetail'), t('running.lifestyle.weekendOvertimeDetail')]
+            : ['◉  ▶  ◆', '◷  ♡'];
+      const colors = [0x79d8b0, 0xf1c867, 0x7fc6ef, 0xd99af0, 0xff9678];
       for (let index = 0; index < labels.length; index += 1) {
         const portrait = this.isPortrait();
         const width = portrait ? view.width - 48 : view.width / labels.length - 32;
-        const height = portrait ? view.height / labels.length - 28 : 260;
+        const height = portrait ? (view.height - 150) / labels.length - 8 : 260;
         const x = portrait ? view.left + 24 : view.left + index * (view.width / labels.length) + 16;
-        const y = portrait ? view.top + index * (view.height / labels.length) + 14 : view.centerY - 130;
+        const y = portrait ? view.top + 140 + index * ((view.height - 150) / labels.length) : view.centerY - 130;
         g.fillStyle(0x132e28, 1).fillRoundedRect(x, y, width, height, 22);
         g.lineStyle(4, colors[index], 0.9).strokeRoundedRect(x, y, width, height, 22);
-        this.ephemeralText(x + width / 2, y + height * 0.38, icons[index], `#${colors[index].toString(16)}`, portrait ? 38 : 58);
-        if (!isTextOff()) this.ephemeralText(x + width / 2, y + height * 0.62, labels[index], '#ffffff', portrait ? 16 : 18, true);
-        this.ephemeralText(x + width / 2, y + height * 0.78, details[index], '#c8ddcf', portrait ? 13 : 15);
+        this.ephemeralText(x + width / 2, y + height * (portrait ? 0.22 : 0.38), icons[index], `#${colors[index].toString(16)}`, portrait ? 31 : 58);
+        if (!isTextOff()) this.ephemeralText(x + width / 2, y + height * (portrait ? 0.5 : 0.62), labels[index], '#ffffff', portrait ? 14 : 18, true, portrait ? Math.max(180, width - 24) : undefined);
+        if (!isTextOff() || choice.kind === 'project' || choice.kind === 'qualifying' || choice.kind === 'preDefense' || choice.kind === 'defense') this.ephemeralText(x + width / 2, y + height * (portrait ? 0.73 : 0.78), portrait ? details[index].replace(' · ', '\n') : details[index], '#c8ddcf', portrait ? 10 : 14, false, portrait ? Math.max(180, width - 24) : undefined);
         this.ephemeralText(x + width / 2, y + height * 0.91, String(index + 1), '#9dc8b8', 14);
       }
-      const title = choice.kind === 'qualifying' ? t('running.qualifying') : choice.kind === 'preDefense' ? t('running.preDefense') : choice.kind === 'defense' ? t('running.defense') : '';
-      if (title && !isTextOff()) this.ephemeralText(view.centerX, view.top + 55, title, '#fff3bc', 26, true);
+      const portraitTitle = choice.kind === 'supervisor' ? t('running.supervisorChoiceTitleCompact') : choice.kind === 'lifestyle' ? t('running.lifestyleTitleCompact') : '';
+      const title = choice.kind === 'supervisor' ? t('running.supervisorChoiceTitle') : choice.kind === 'lifestyle' ? t('running.lifestyleTitle') : choice.kind === 'qualifying' ? t('running.qualifying') : choice.kind === 'preDefense' ? t('running.preDefense') : choice.kind === 'defense' ? t('running.defense') : '';
+      if (title && !isTextOff()) this.ephemeralText(view.centerX, view.top + (this.isPortrait() ? 112 : 55), this.isPortrait() && portraitTitle ? portraitTitle : title, '#fff3bc', this.isPortrait() ? 15 : 26, true, this.isPortrait() ? Math.max(220, view.width - 28) : undefined);
     }
 
     private drawWorldSeason(g: Phaser.GameObjects.Graphics, state: RunningSnapshot): void {
@@ -500,7 +580,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     }
 
     private updateSemanticsAndAudio(state: RunningSnapshot): void {
-      this.hints.show('supervisor', 'running.supervisorHint');
+      if (state.phd.supervisorId) this.hints.show('supervisor', 'running.supervisorHint');
       this.hints.show('orbit', 'running.hint.orbit');
       this.hints.show('resources', 'running.hint.resources');
       if (state.phd.completedProjects > 0) this.hints.show('satellite', 'running.hint.satellite');
@@ -557,10 +637,10 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       }
       this.previous = state;
     }
-    destroyRuntime(): void { this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
+    destroyRuntime(): void { this.legend?.destroy(); this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
 
-    private ephemeralText(x: number, y: number, value: string, color: string, size: number, bold = false): void {
-      const label = this.add.text(x, y, value, { color, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal', fontFamily: 'system-ui' }).setOrigin(0.5).setDepth(30);
+    private ephemeralText(x: number, y: number, value: string, color: string, size: number, bold = false, wrapWidth?: number): void {
+      const label = this.add.text(x, y, value, { color, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal', fontFamily: 'system-ui', align: 'center', ...(wrapWidth ? { wordWrap: { width: wrapWidth, useAdvancedWrap: false } } : {}) }).setOrigin(0.5).setDepth(30);
       this.time.delayedCall(20, () => label.destroy());
     }
 
@@ -611,6 +691,15 @@ function createSimulation(): RunningSimulation {
   if (import.meta.env.DEV && (reviewMilestone === 'qualifying' || reviewMilestone === 'defense')) {
     simulation.startMilestoneReview(reviewMilestone);
   }
+  const reviewChoice = search.get('reviewChoice');
+  if (import.meta.env.DEV && (reviewChoice === 'supervisor' || reviewChoice === 'lifestyle')) simulation.startChoiceReview(reviewChoice);
+  const reviewSupervisor = search.get('reviewSupervisor');
+  if (import.meta.env.DEV && (reviewSupervisor === 'supportive' || reviewSupervisor === 'controlling' || reviewSupervisor === 'handsOff')) {
+    simulation.startChoiceReview('supervisor');
+    simulation.choosePhdOption(reviewSupervisor);
+  }
+  const reviewFeedback = search.get('reviewFeedback');
+  if (import.meta.env.DEV && (reviewFeedback === 'supportive' || reviewFeedback === 'controlling' || reviewFeedback === 'handsOff')) simulation.startSupervisorFeedbackReview(reviewFeedback);
   const reviewScene = search.get('reviewScene');
   if (import.meta.env.DEV && isReviewScene(reviewScene)) simulation.startSceneReview(reviewScene);
   return simulation;

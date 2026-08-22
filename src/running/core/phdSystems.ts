@@ -1,7 +1,11 @@
 export type ProjectId = 'replication' | 'riskyIdea' | 'helping' | 'prestige';
 export type ThesisStage = 'seed' | 'sapling' | 'tree' | 'bloom';
+export type SupervisorId = 'supportive' | 'controlling' | 'handsOff';
+export type LifestyleId = 'rest' | 'exercise' | 'social' | 'mindfulness' | 'weekendOvertime';
 export type PhdChoice =
   | { kind: 'project'; options: readonly ProjectId[] }
+  | { kind: 'supervisor'; options: readonly SupervisorId[] }
+  | { kind: 'lifestyle'; options: readonly LifestyleId[] }
   | { kind: 'qualifying'; options: readonly ['attempt', 'defer'] }
   | { kind: 'preDefense'; options: readonly ['attempt', 'defer'] }
   | { kind: 'defense'; options: readonly ['attempt', 'defer'] };
@@ -45,6 +49,9 @@ export interface PhdSnapshot {
   year: number;
   seasonPulse: number;
   annualReviews: number;
+  supervisorId: SupervisorId | null;
+  supervisorFeedback: { signal: number; noise: number; remaining: number } | null;
+  lifestyle: { id: LifestyleId; remaining: number } | null;
   activeProject: { id: ProjectId; progress: number; goal: number } | null;
   completedProjects: number;
   thesisStage: ThesisStage;
@@ -64,6 +71,18 @@ export const SUPPORTIVE_SUPERVISOR: MentorVector = {
   emotionalSafety: 0.94, boundaryRespect: 0.9, stability: 0.9, projectMatch: 0.86,
 };
 
+export const SUPERVISORS: Record<SupervisorId, MentorVector> = {
+  supportive: SUPPORTIVE_SUPERVISOR,
+  controlling: {
+    expertise: 0.96, resources: 0.9, clarity: 0.86, autonomySupport: 0.24,
+    emotionalSafety: 0.3, boundaryRespect: 0.18, stability: 0.42, projectMatch: 0.82,
+  },
+  handsOff: {
+    expertise: 0.58, resources: 0.34, clarity: 0.32, autonomySupport: 0.88,
+    emotionalSafety: 0.72, boundaryRespect: 0.9, stability: 0.62, projectMatch: 0.52,
+  },
+};
+
 const PROJECTS: Record<ProjectId, {
   energy: number; focus: number; calendar: number; goal: number;
   rewards: Partial<Record<'logic' | 'clarity' | 'boundary' | 'purpose' | 'connection' | 'evidence', number>>;
@@ -80,12 +99,15 @@ export class PhdSystems {
     signal: 0, noise: 0, pollution: 0,
     logic: 20, clarity: 20, boundary: 20, purpose: 20, connection: 20, evidence: 12,
     year: 1, seasonPulse: 0, annualReviews: 0, activeProject: null, completedProjects: 0,
+    supervisorId: null, supervisorFeedback: null, lifestyle: null,
     thesisStage: 'seed', qualifying: 'locked', annualMilestone: null, preDefense: 'hidden', revisionRemaining: 0, defense: 'hidden', choice: null, milestone: null,
     graduated: false, terminal: 'ongoing',
   };
   private nextProjectAt = 12;
   private nextQualifyingPrompt = 0;
   private nextDefensePrompt = 0;
+  private nextLifestyleAt = 68;
+  private pausedAcademicTime = 0;
   private contributions = new Set<ProjectId>();
 
   constructor(options: { initialResources?: Partial<Pick<PhdSnapshot, 'energy' | 'focus' | 'spirit'>> } = {}) {
@@ -99,10 +121,11 @@ export class PhdSystems {
   step(time: number, dt: number): void {
     if (this.state.graduated || this.state.terminal === 'ended' || this.state.choice) return;
     if (this.state.milestone) {
-      this.stepMilestone(time, dt);
+      this.pausedAcademicTime += dt;
+      this.stepMilestone(dt);
       return;
     }
-    const rawYear = Math.floor(time / 45) + 1;
+    const rawYear = Math.floor(Math.max(0, time - this.pausedAcademicTime) / 45) + 1;
     if (rawYear > 9) {
       this.state.year = 9;
       this.state.terminal = 'ended';
@@ -117,6 +140,7 @@ export class PhdSystems {
       this.state.year = year;
       this.state.seasonPulse = 4;
       this.applyAnnualReview(year);
+      if (this.state.choice) return;
     }
     if (year === 9) {
       this.state.terminal = 'finalYear';
@@ -128,6 +152,11 @@ export class PhdSystems {
       this.state.annualMilestone.remaining = Math.max(0, this.state.annualMilestone.remaining - dt);
       if (this.state.annualMilestone.remaining === 0) this.state.annualMilestone = null;
     }
+    if (this.state.supervisorFeedback) {
+      this.state.supervisorFeedback.remaining = Math.max(0, this.state.supervisorFeedback.remaining - dt);
+      if (this.state.supervisorFeedback.remaining === 0) this.state.supervisorFeedback = null;
+    }
+    this.applyLifestyle(dt);
     if (this.state.revisionRemaining > 0) {
       this.state.revisionRemaining = Math.max(0, this.state.revisionRemaining - dt);
       this.state.focus = bound(this.state.focus - .18 * dt);
@@ -142,6 +171,12 @@ export class PhdSystems {
     this.state.calendarLoad = bound(this.state.calendarLoad - 0.08 * dt);
     this.state.pollution = bound(this.state.pollution - (0.035 + this.state.boundary / 5000) * dt);
     this.state.noise = bound(this.state.noise - 0.05 * dt);
+
+    if (this.state.year >= 2 && !this.state.lifestyle && time >= this.nextLifestyleAt) {
+      this.state.choice = { kind: 'lifestyle', options: ['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime'] };
+      this.nextLifestyleAt = time + 58;
+      return;
+    }
 
     if (this.state.qualifying === 'ready' && time >= this.nextQualifyingPrompt) {
       this.state.choice = { kind: 'qualifying', options: ['attempt', 'defer'] };
@@ -168,12 +203,17 @@ export class PhdSystems {
     const project = this.state.activeProject;
     if (!project || this.state.choice) return;
     const focusFactor = resourceModifiers(this.state).projectEfficiency;
-    project.progress = Math.min(project.goal, project.progress + count * 4 * focusFactor);
+    const lifestyleFactor = !this.state.lifestyle ? 1
+      : this.state.lifestyle.id === 'weekendOvertime' ? 1.12
+        : this.state.lifestyle.id === 'exercise' ? 0.92 : 0.8;
+    project.progress = Math.min(project.goal, project.progress + count * 4 * focusFactor * lifestyleFactor);
     if (project.progress >= project.goal) this.completeProject(project.id);
   }
 
   onMeeting(): void {
-    const feedback = evaluateMentor(SUPPORTIVE_SUPERVISOR, {
+    if (!this.state.supervisorId) return;
+    const supervisor = SUPERVISORS[this.state.supervisorId];
+    const feedback = evaluateMentor(supervisor, {
       logic: this.state.logic, clarity: this.state.clarity, boundary: this.state.boundary,
       purpose: this.state.purpose, connection: this.state.connection, evidence: this.state.evidence,
     });
@@ -184,6 +224,9 @@ export class PhdSystems {
     this.state.pollution = bound(this.state.pollution + feedback.noise * (1 - this.state.purpose / 180));
     this.state.spirit = bound(this.state.spirit - feedback.noise * 0.32);
     this.state.calendarLoad = bound(this.state.calendarLoad + 7 * (1 - this.state.boundary / 150));
+    if (this.state.supervisorId === 'controlling') this.state.calendarLoad = bound(this.state.calendarLoad + 6);
+    if (this.state.supervisorId === 'handsOff') this.state.clarity = bound(this.state.clarity - 2);
+    this.state.supervisorFeedback = { ...feedback, remaining: 3.2 };
   }
 
   onInterruption(): void {
@@ -192,12 +235,20 @@ export class PhdSystems {
     this.state.noise = bound(this.state.noise + 8 * (1 - boundaryShield * 0.5));
     this.state.pollution = bound(this.state.pollution + 6 * (1 - this.state.purpose / 160));
     this.state.spirit = bound(this.state.spirit - 5 * (1 - this.state.connection / 180));
+    if (this.state.supervisorId === 'controlling') {
+      this.state.calendarLoad = bound(this.state.calendarLoad + 5);
+      this.state.pollution = bound(this.state.pollution + 4);
+    } else if (this.state.supervisorId === 'handsOff') {
+      this.state.noise = bound(this.state.noise - 2);
+    }
   }
 
   choose(option: string, time: number): boolean {
     const choice = this.state.choice;
     if (!choice || !choice.options.includes(option as never)) return false;
     if (choice.kind === 'project') this.startProject(option as ProjectId, time);
+    else if (choice.kind === 'supervisor') this.selectSupervisor(option as SupervisorId);
+    else if (choice.kind === 'lifestyle') this.selectLifestyle(option as LifestyleId);
     else if (choice.kind === 'qualifying') this.resolveQualifying(option, time);
     else if (choice.kind === 'preDefense') this.resolvePreDefense(option, time);
     else this.resolveDefense(option, time);
@@ -211,6 +262,12 @@ export class PhdSystems {
       progress: 0, target: kind === 'qualifying' ? 8 : 14,
       damageScale: kind === 'qualifying' ? 0.86 : 0.94,
     };
+  }
+
+  startReviewChoice(kind: 'supervisor' | 'lifestyle'): void {
+    this.state.choice = kind === 'supervisor'
+      ? { kind: 'supervisor', options: ['supportive', 'controlling', 'handsOff'] }
+      : { kind: 'lifestyle', options: ['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime'] };
   }
 
   startReviewProgression(scene: 'thesis' | 'defenseGate' | 'year9'): void {
@@ -249,8 +306,9 @@ export class PhdSystems {
     this.state.year = bounded + 1;
     this.state.annualMilestone = bounded === 3 ? null : { kind: bounded === 1 ? 'firstYearTalk' : bounded === 2 ? 'proposal' : 'annualCommittee', completedYear: bounded, remaining: 4 };
     if (bounded === 3) this.state.qualifying = 'ready';
+    if (bounded === 1) this.state.choice = { kind: 'supervisor', options: ['supportive', 'controlling', 'handsOff'] };
     this.state.seasonPulse = 4;
-    this.state.choice = null;
+    if (bounded !== 1) this.state.choice = null;
   }
 
   startReviewTerminal(terminal: 'ended' | 'graduated'): void {
@@ -269,6 +327,8 @@ export class PhdSystems {
       activeProject: this.state.activeProject ? { ...this.state.activeProject } : null,
       choice: this.state.choice ? { ...this.state.choice, options: [...this.state.choice.options] } as PhdChoice : null,
       milestone: this.state.milestone ? { ...this.state.milestone } : null,
+      supervisorFeedback: this.state.supervisorFeedback ? { ...this.state.supervisorFeedback } : null,
+      lifestyle: this.state.lifestyle ? { ...this.state.lifestyle } : null,
     };
   }
 
@@ -305,6 +365,9 @@ export class PhdSystems {
     this.state.calendarLoad = bound(this.state.calendarLoad + 8);
     const completedYear = year - 1;
     this.state.annualMilestone = completedYear === 3 ? null : { kind: completedYear === 1 ? 'firstYearTalk' : completedYear === 2 ? 'proposal' : 'annualCommittee', completedYear, remaining: 4 };
+    if (completedYear === 1 && !this.state.supervisorId) {
+      this.state.choice = { kind: 'supervisor', options: ['supportive', 'controlling', 'handsOff'] };
+    }
     if (this.state.activeProject) this.state.pollution = bound(this.state.pollution + 5);
     if (year >= 6) {
       this.state.evidence = bound(this.state.evidence + 3);
@@ -321,6 +384,7 @@ export class PhdSystems {
     if (this.state.qualifying === 'locked' && this.state.year >= 4) {
       this.state.qualifying = 'ready';
     }
+    if (this.state.year >= 4 && this.state.defense === 'hidden') this.state.defense = 'visible';
     if (this.state.preDefense === 'hidden' && this.state.qualifying === 'passed' && this.state.thesisStage === 'bloom' && this.state.evidence >= 30) {
       this.state.preDefense = 'ready';
     }
@@ -356,24 +420,75 @@ export class PhdSystems {
     };
   }
 
-  private stepMilestone(time: number, dt: number): void {
+  private stepMilestone(dt: number): void {
     const milestone = this.state.milestone;
     if (!milestone) return;
     milestone.remaining -= dt;
     if (milestone.phase === 'telegraph' && milestone.remaining <= 0) {
       milestone.phase = 'active';
-      milestone.remaining = milestone.kind === 'qualifying'
-        ? 25 + this.state.clarity * 0.08
-        : 38 + this.state.connection * 0.06;
+      milestone.remaining = 0;
       return;
     }
-    if (milestone.phase === 'active' && milestone.remaining <= 0) {
-      const kind = milestone.kind;
-      this.state.milestone = null;
-      this.state.spirit = bound(this.state.spirit - (kind === 'qualifying' ? 10 : 14));
-      if (kind === 'qualifying') this.nextQualifyingPrompt = time + 20;
-      else this.nextDefensePrompt = time + 24;
+  }
+
+  private selectSupervisor(id: SupervisorId): void {
+    this.state.supervisorId = id;
+    this.state.choice = null;
+    if (id === 'supportive') {
+      this.state.clarity = bound(this.state.clarity + 5);
+      this.state.spirit = bound(this.state.spirit + 4);
+    } else if (id === 'controlling') {
+      this.state.evidence = bound(this.state.evidence + 7);
+      this.state.calendarLoad = bound(this.state.calendarLoad + 9);
+      this.state.pollution = bound(this.state.pollution + 5);
+    } else {
+      this.state.boundary = bound(this.state.boundary + 5);
+      this.state.clarity = bound(this.state.clarity - 4);
     }
+  }
+
+  private selectLifestyle(id: LifestyleId): void {
+    this.state.choice = null;
+    this.state.lifestyle = { id, remaining: 28 };
+    if (id === 'rest') this.state.calendarLoad = bound(this.state.calendarLoad + 5);
+    else if (id === 'exercise') this.state.calendarLoad = bound(this.state.calendarLoad + 4);
+    else if (id === 'social') { this.state.calendarLoad = bound(this.state.calendarLoad + 4); this.state.focus = bound(this.state.focus - 4); }
+    else if (id === 'mindfulness') this.state.calendarLoad = bound(this.state.calendarLoad + 3);
+    else {
+      this.state.evidence = bound(this.state.evidence + 7);
+      this.state.energy = bound(this.state.energy - 13);
+      this.state.spirit = bound(this.state.spirit - 9);
+      this.state.calendarLoad = bound(this.state.calendarLoad + 12);
+      this.state.pollution = bound(this.state.pollution + 9);
+    }
+  }
+
+  private applyLifestyle(dt: number): void {
+    const lifestyle = this.state.lifestyle;
+    if (!lifestyle) return;
+    lifestyle.remaining = Math.max(0, lifestyle.remaining - dt);
+    if (lifestyle.id === 'rest') {
+      this.state.energy = bound(this.state.energy + 0.5 * dt);
+      this.state.focus = bound(this.state.focus + 0.18 * dt);
+    } else if (lifestyle.id === 'exercise') {
+      this.state.energy = bound(this.state.energy + 0.22 * dt);
+      this.state.spirit = bound(this.state.spirit + 0.38 * dt);
+      this.state.calendarLoad = bound(this.state.calendarLoad + 0.05 * dt);
+    } else if (lifestyle.id === 'social') {
+      this.state.spirit = bound(this.state.spirit + 0.42 * dt);
+      this.state.connection = bound(this.state.connection + 0.2 * dt);
+      this.state.calendarLoad = bound(this.state.calendarLoad + 0.05 * dt);
+    } else if (lifestyle.id === 'mindfulness') {
+      this.state.noise = bound(this.state.noise - 0.45 * dt);
+      this.state.pollution = bound(this.state.pollution - 0.32 * dt);
+      this.state.clarity = bound(this.state.clarity + 0.12 * dt);
+    } else {
+      this.state.evidence = bound(this.state.evidence + 0.16 * dt);
+      this.state.energy = bound(this.state.energy - 0.22 * dt);
+      this.state.spirit = bound(this.state.spirit - 0.16 * dt);
+      this.state.pollution = bound(this.state.pollution + 0.12 * dt);
+    }
+    if (lifestyle.remaining === 0) this.state.lifestyle = null;
   }
 
   private passMilestone(): void {
@@ -418,6 +533,17 @@ export function evaluateMentor(
     signal: Math.round(signalBase * comprehension * 16),
     noise: Math.round(harmBase * Math.max(0.35, 1 - protection) * 16),
   };
+}
+
+export function graduationRequirements(state: Pick<PhdSnapshot, 'qualifying' | 'thesisStage' | 'evidence' | 'preDefense' | 'revisionRemaining' | 'defense'>): Array<{ id: 'qualifying' | 'thesis' | 'evidence' | 'preDefense' | 'revisions' | 'defense'; complete: boolean }> {
+  return [
+    { id: 'qualifying', complete: state.qualifying === 'passed' },
+    { id: 'thesis', complete: state.thesisStage === 'bloom' },
+    { id: 'evidence', complete: state.evidence >= 30 },
+    { id: 'preDefense', complete: state.preDefense === 'passed' },
+    { id: 'revisions', complete: state.preDefense === 'passed' && state.revisionRemaining === 0 },
+    { id: 'defense', complete: state.defense === 'passed' },
+  ];
 }
 
 function bound(value: number): number { return Math.max(0, Math.min(100, value)); }

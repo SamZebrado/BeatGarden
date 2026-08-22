@@ -39,6 +39,7 @@ export interface ScenarioSnapshot {
   cycle: number;
   choice: ScenarioChoice | null;
   activePriority: string;
+  priorityRemaining: number;
   event: { kind: 'none' | 'termRush' | 'daily' | 'weekly'; phase: 'idle' | 'telegraph' | 'active'; remaining: number };
   climax: { phase: 'none' | 'telegraph' | 'active'; progress: number; target: number };
   completed: boolean;
@@ -83,6 +84,7 @@ export class ScenarioSimulation {
   private progress = 0;
   private choice: ScenarioChoice | null = null;
   private activePriority = '◆';
+  private priorityRemaining = 0;
   private enemies: ScenarioEnemy[] = [];
   private projectiles: ScenarioProjectile[] = [];
   private pickups: ScenarioPickup[] = [];
@@ -99,6 +101,7 @@ export class ScenarioSimulation {
     if (dt <= 0 || dt > 0.1 || this.choice || this.completed || this.gameOver) return;
     this.time += dt;
     this.player.invulnerable = Math.max(0, this.player.invulnerable - dt);
+    this.priorityRemaining = Math.max(0, this.priorityRemaining - dt);
     this.move(dt, input);
     this.updatePressure(dt);
     this.updateEvent(dt);
@@ -109,7 +112,8 @@ export class ScenarioSimulation {
     if (this.climaxPhase === 'none' && this.spawnTimer <= 0) {
       const kind = this.config.ambient[this.defeated % this.config.ambient.length];
       this.spawn(kind, undefined, 'ambient');
-      this.spawnTimer = adjustSpawnInterval(this.world === 'master' ? 0.82 : 0.64, this.difficulty);
+      const protecting = this.world === 'work' && this.activePriority === '▣' && this.priorityRemaining > 0;
+      this.spawnTimer = adjustSpawnInterval((this.world === 'master' ? 0.82 : 0.64) * (protecting ? 1.45 : 1), this.difficulty);
     }
     this.shotTimer -= dt;
     if (this.shotTimer <= 0 && this.enemies.length) {
@@ -133,11 +137,13 @@ export class ScenarioSimulation {
       this.progress = Math.min(this.config.progressTarget, this.progress + [9, 13, 10, 15][index]);
     } else if (option === 'protectFocus') {
       this.activePriority = '▣';
+      this.priorityRemaining = 13;
       this.focus = bound(this.focus + 13);
-      this.calendar = bound(this.calendar + 5);
+      this.calendar = bound(this.calendar + 3);
       this.spirit = bound(this.spirit + 4);
     } else {
       this.activePriority = '⚡';
+      this.priorityRemaining = 13;
       this.progress = Math.min(this.config.progressTarget, this.progress + 15);
       this.energy = bound(this.energy - 15);
       this.focus = bound(this.focus - 10);
@@ -168,12 +174,13 @@ export class ScenarioSimulation {
     return {
       world: this.world, difficulty: this.difficulty, time: this.time, player: { ...this.player },
       enemies: this.enemies.map((item) => ({ ...item })), projectiles: this.projectiles.map((item) => ({ ...item })), pickups: this.pickups.map((item) => ({ ...item })),
-      orbitCount: Math.min(6, 1 + Math.floor(this.defeated / 8)), defeated: this.defeated,
+      orbitCount: this.world === 'work' ? Math.min(6, 1 + Math.floor(this.progress / 20)) : Math.min(6, 1 + Math.floor(this.defeated / 8)), defeated: this.defeated,
       energy: this.energy, focus: this.focus, spirit: this.spirit, calendar: this.calendar,
       progress: this.progress, progressTarget: this.config.progressTarget,
       cycle: Math.min(this.world === 'master' ? 4 : 7, Math.floor(this.time / this.config.cycleSeconds) + 1),
       choice: this.choice ? { ...this.choice, options: [...this.choice.options] } as ScenarioChoice : null,
       activePriority: this.activePriority,
+      priorityRemaining: this.priorityRemaining,
       event: { kind: this.eventKind, phase: this.eventPhase, remaining: this.eventRemaining },
       climax: { phase: this.climaxPhase, progress: this.climaxProgress, target: this.world === 'master' ? 12 : 16 },
       completed: this.completed, gameOver: this.gameOver,
@@ -190,10 +197,13 @@ export class ScenarioSimulation {
 
   private updatePressure(dt: number): void {
     const intensity = this.world === 'master' ? 0.34 : 0.46;
-    this.energy = bound(this.energy - intensity * (0.4 + this.calendar / 120) * dt);
-    this.focus = bound(this.focus - intensity * (0.35 + this.enemies.length / 40) * dt);
+    const protecting = this.world === 'work' && this.activePriority === '▣' && this.priorityRemaining > 0;
+    const rushing = this.world === 'work' && this.activePriority === '⚡' && this.priorityRemaining > 0;
+    this.energy = bound(this.energy - (intensity * (0.4 + this.calendar / 120) + (rushing ? 0.62 : 0)) * dt);
+    this.focus = bound(this.focus + (protecting ? 0.34 : -intensity * (0.35 + this.enemies.length / 40) - (rushing ? 0.48 : 0)) * dt);
     this.spirit = bound(this.spirit + (0.09 - this.calendar / 850) * dt);
-    this.calendar = bound(this.calendar + (this.world === 'master' ? 0.16 : 0.24) * dt);
+    this.calendar = bound(this.calendar + (this.world === 'master' ? 0.16 : protecting ? 0.08 : rushing ? 0.52 : 0.24) * dt);
+    if (protecting) this.progress = Math.min(this.config.progressTarget, this.progress + 0.24 * dt);
   }
 
   private updateEvent(dt: number): void {
@@ -315,7 +325,8 @@ export class ScenarioSimulation {
       if (enemy.hp > 0) alive.push(enemy);
       else {
         this.defeated += 1;
-        this.progress = Math.min(this.config.progressTarget, this.progress + (enemy.source === 'climax' ? 12 : 2));
+        const progressGain = enemy.source === 'climax' ? 12 : this.world === 'master' ? 2 : 0;
+        this.progress = Math.min(this.config.progressTarget, this.progress + progressGain);
         if (this.climaxPhase === 'active' && enemy.source === 'climax') this.climaxProgress += this.world === 'master' ? 12 : 16;
         this.pickups.push({ id: this.nextId++, x: enemy.x, y: enemy.y, value: 5, radius: 8 });
       }

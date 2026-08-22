@@ -150,6 +150,16 @@ export class RunningSimulation {
     this.phd.startReviewMilestone(kind);
   }
 
+  startChoiceReview(kind: 'supervisor' | 'lifestyle'): void {
+    this.phd.startReviewChoice(kind);
+  }
+
+  startSupervisorFeedbackReview(id: 'supportive' | 'controlling' | 'handsOff'): void {
+    this.phd.startReviewChoice('supervisor');
+    this.phd.choose(id, this.time);
+    this.phd.onMeeting();
+  }
+
   startSceneReview(scene: ReviewScene): void {
     if (scene === 'dense') {
       this.upgrades.orbit = 3;
@@ -204,6 +214,7 @@ export class RunningSimulation {
   }
 
   private updateMeeting(dt: number): void {
+    if (!this.phd.snapshot().supervisorId) return;
     if (this.meetingPhase === 'idle' && this.time >= this.meetingAt) {
       this.meetingPhase = 'telegraph';
       this.meetingRemaining = adjustTelegraphDuration(3, this.difficulty);
@@ -233,7 +244,9 @@ export class RunningSimulation {
     const sideAngle = angle ?? this.rng.next() * Math.PI * 2;
     const distance = 360 + this.rng.next() * 90;
     const roll = this.rng.next();
-    const chosen = kind ?? (this.time > 35 && roll < 0.09 ? 'phone' : this.time > 45 && roll < 0.23 ? 'reviewer' : 'mite');
+    const supervisorId = this.phd.snapshot().supervisorId;
+    const phoneChance = supervisorId === 'controlling' ? 0.18 : supervisorId === 'handsOff' ? 0.035 : 0.075;
+    const chosen = kind ?? (this.time > 35 && roll < phoneChance ? 'phone' : this.time > 45 && roll < 0.23 ? 'reviewer' : 'mite');
     const stats = chosen === 'reviewer'
       ? { hp: 34, radius: 21 }
       : chosen === 'phone'

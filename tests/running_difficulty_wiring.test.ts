@@ -25,6 +25,10 @@ describe('three-world difficulty runtime wiring', () => {
   it('wires PhD to difficulty and changes actual approach/meeting timing', () => {
     const sprout = new RunningSimulation(77, { difficulty: 'sprout', firstMeetingAt: 0 });
     const storm = new RunningSimulation(77, { difficulty: 'storm', firstMeetingAt: 0 });
+    sprout.startChoiceReview('supervisor');
+    storm.startChoiceReview('supervisor');
+    sprout.choosePhdOption('supportive');
+    storm.choosePhdOption('supportive');
     sprout.step(1 / 60, { x: 0, y: 0 });
     storm.step(1 / 60, { x: 0, y: 0 });
     const a = sprout.snapshot();

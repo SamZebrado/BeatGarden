@@ -31,6 +31,8 @@ describe('PhD systems', () => {
 
   it('turns recurring meetings into both useful feedback and pollution', () => {
     const system = new PhdSystems();
+    system.startReviewChoice('supervisor');
+    system.choose('supportive', 0);
     system.onMeeting();
     const state = system.snapshot();
     expect(state.signal).toBeGreaterThan(0);
@@ -51,6 +53,8 @@ describe('PhD systems', () => {
 
   it('keeps every front-facing resource bounded under repeated harmful events', () => {
     const system = new PhdSystems();
+    system.startReviewChoice('supervisor');
+    system.choose('controlling', 0);
     for (let index = 0; index < 100; index += 1) {
       system.onMeeting();
       system.onInterruption();
@@ -60,6 +64,18 @@ describe('PhD systems', () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(100);
     }
+  });
+
+  it('produces no supervisor feedback before a supervisor is selected', () => {
+    const system = new PhdSystems();
+    const before = system.snapshot();
+    system.onMeeting();
+    const after = system.snapshot();
+    expect(after.supervisorId).toBeNull();
+    expect(after.supervisorFeedback).toBeNull();
+    expect(after.signal).toBe(before.signal);
+    expect(after.noise).toBe(before.noise);
+    expect(after.pollution).toBe(before.pollution);
   });
 
   it('makes low Energy, Focus, and Spirit produce distinct felt gameplay penalties', () => {
@@ -101,7 +117,10 @@ describe('PhD systems', () => {
     system.step(45, 1 / 60);
     expect(system.snapshot().year).toBe(2);
     expect(system.snapshot().annualReviews).toBe(1);
-    expect(system.choose('replication', 45)).toBe(true);
+    expect(system.snapshot().choice?.kind).toBe('supervisor');
+    expect(system.choose('supportive', 45)).toBe(true);
+    system.step(45.1, 1 / 60);
+    expect(system.choose('replication', 45.1)).toBe(true);
     system.step(225, 1 / 60);
     expect(system.snapshot().year).toBe(6);
     expect(system.snapshot().annualReviews).toBe(2);
@@ -112,7 +131,9 @@ describe('PhD systems', () => {
     const system = new PhdSystems();
     system.step(45, 1 / 60);
     expect(system.snapshot().seasonPulse).toBeGreaterThan(3.9);
-    expect(system.choose('replication', 45)).toBe(true);
+    expect(system.choose('supportive', 45)).toBe(true);
+    system.step(45.1, 1 / 60);
+    expect(system.choose('replication', 45.1)).toBe(true);
     system.step(46, 1);
     expect(system.snapshot().seasonPulse).toBeLessThan(3.1);
     expect(system.snapshot().seasonPulse).toBeGreaterThanOrEqual(0);
@@ -133,12 +154,17 @@ describe('PhD systems', () => {
     system.step(45, 1 / 60);
     expect(system.snapshot().year).toBe(2);
     expect(system.snapshot().annualMilestone?.kind).toBe('firstYearTalk');
-    expect(system.snapshot().choice).toBeNull();
+    expect(system.snapshot().choice?.kind).toBe('supervisor');
+    expect(system.choose('supportive', 45)).toBe(true);
+    for (let index = 0; index < 5; index += 1) system.onMeeting();
     system.step(90, 1 / 60);
     expect(system.snapshot().year).toBe(3);
     expect(system.snapshot().annualMilestone?.kind).toBe('proposal');
+    expect(system.snapshot().choice?.kind).toBe('lifestyle');
+    expect(system.choose('rest', 90)).toBe(true);
+    system.step(90.1, 1 / 60);
     expect(system.snapshot().choice?.kind).toBe('project');
-    expect(system.choose('replication', 90)).toBe(true);
+    expect(system.choose('replication', 90.1)).toBe(true);
     for (let index = 0; index < 20; index += 1) system.onDefeated();
     system.step(135, 1 / 60);
     expect(system.snapshot().year).toBe(4);
@@ -150,19 +176,11 @@ describe('PhD systems', () => {
     system.step(136, 3.1);
     expect(system.snapshot().milestone?.phase).toBe('active');
     system.step(175, 40);
-    expect(system.snapshot().milestone).toBeNull();
-    expect(system.snapshot().spirit).toBeLessThan(100);
-
-    system.step(176, 1 / 60);
-    expect(system.snapshot().choice?.kind).toBe('project');
-    expect(system.choose('replication', 176)).toBe(true);
-    for (let index = 0; index < 20; index += 1) system.onDefeated();
+    expect(system.snapshot().milestone?.phase).toBe('active');
+    expect(system.snapshot().year).toBe(4);
+    const qualifyingTarget = system.snapshot().milestone!.target;
+    system.onDefeated(qualifyingTarget, true);
     expect(system.snapshot().thesisStage).toBe('bloom');
-    system.step(195, 1 / 60);
-    expect(system.snapshot().choice?.kind).toBe('qualifying');
-    expect(system.choose('attempt', 195)).toBe(true);
-    system.step(196, 3.1);
-    for (let index = 0; index < 20; index += 1) system.onDefeated();
     expect(system.snapshot().qualifying).toBe('passed');
     expect(system.snapshot().preDefense).toBe('ready');
     system.step(197, 1 / 60);
@@ -186,13 +204,47 @@ describe('PhD systems', () => {
     expect(system.choose('prestige', 12)).toBe(true);
     expect(system.snapshot().completedProjects).toBe(0);
     system.step(45, 1 / 60);
+    expect(system.choose('handsOff', 45)).toBe(true);
     system.step(90, 45);
+    if (system.snapshot().choice?.kind === 'lifestyle') expect(system.choose('mindfulness', 90)).toBe(true);
     system.step(135, 45);
     expect(system.snapshot().year).toBe(4);
     expect(system.snapshot().completedProjects).toBe(0);
     expect(system.snapshot().annualMilestone).toBeNull();
     expect(system.snapshot().qualifying).toBe('ready');
     expect(system.snapshot().choice?.kind).toBe('qualifying');
+  });
+
+  it('offers exactly three stable supervisor archetypes with observably different consequences', () => {
+    const outcomes = (['supportive', 'controlling', 'handsOff'] as const).map((id) => {
+      const system = new PhdSystems();
+      system.startReviewAnnualMilestone(1);
+      expect(system.snapshot().choice?.options).toEqual(['supportive', 'controlling', 'handsOff']);
+      expect(system.choose(id, 45)).toBe(true);
+      system.onMeeting();
+      system.onInterruption();
+      return system.snapshot();
+    });
+    expect(outcomes.map((state) => state.supervisorId)).toEqual(['supportive', 'controlling', 'handsOff']);
+    expect(outcomes[1].calendarLoad).toBeGreaterThan(outcomes[0].calendarLoad);
+    expect(outcomes[1].pollution).toBeGreaterThan(outcomes[2].pollution);
+    expect(outcomes[0].signal).toBeGreaterThan(outcomes[2].signal);
+  });
+
+  it('keeps one deterministic bounded lifestyle tendency with real opposing effects', () => {
+    const system = new PhdSystems({ initialResources: { energy: 70, focus: 70, spirit: 70 } });
+    system.startReviewAnnualMilestone(1);
+    system.choose('supportive', 45);
+    system.step(70, 1 / 60);
+    expect(system.snapshot().choice?.kind).toBe('lifestyle');
+    expect(system.snapshot().choice?.options).toEqual(['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime']);
+    const before = system.snapshot();
+    expect(system.choose('weekendOvertime', 70)).toBe(true);
+    const chosen = system.snapshot();
+    expect(chosen.lifestyle?.id).toBe('weekendOvertime');
+    expect(chosen.evidence).toBeGreaterThan(before.evidence);
+    expect(chosen.energy).toBeLessThan(before.energy);
+    expect(chosen.calendarLoad).toBeGreaterThan(before.calendarLoad);
   });
 
   it('turns Year Nine into a bounded final year instead of an infinite capped label', () => {

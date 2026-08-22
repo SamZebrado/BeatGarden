@@ -22,18 +22,25 @@ ChatGPT review conversation.
   migrated. V2 owns completions, milestone records, difficulty records, persistent
   semantic hints, local Boss metadata and Running mute state.
 
-### Product-depth checkpoint — 2026-08-22
+### Reality & Clarity checkpoint — 2026-08-23
 
 - Player-visible Running terminology is localized in English and Simplified Chinese;
   internal choice/event IDs no longer leak into cards. English recurring PhD meetings
   are consistently named **Lab Meeting**.
-- A generic queued, persistent first-seen hint surface explains resources, hazards,
-  completed satellites, milestones, Signal/Noise, the stable supervisor and distinct
-  reviewer/committee roles. `textOff=1` suppresses explanatory prose.
-- PhD now uses one stable supportive primary supervisor. Annual progression separates
-  the first-year talk, proposal, end-Year-3 Qualifying Exam and later annual committee
-  meetings. Pre-defense, timed final revisions and the final Defense are distinct and
-  voluntary transitions.
+- A queued, persistent first-seen hint surface keeps each explanation visible for about
+  four seconds. The bilingual Legend explains symbols, mechanics, progression and unmet
+  graduation requirements while authoritatively pausing simulation. `textOff=1`
+  creates neither hint prose nor Legend controls.
+- PhD offers exactly three partially described supervisor candidates after the Year-1
+  talk and renders no supervisor or supervisor feedback before selection. The visible
+  path is supervisor selection, Year-2 Lab Meeting, Year-3 Proposal, Year-4 Qualifying
+  Exam, annual Lab Meetings thereafter, Pre-Defense, revisions and final Defense.
+- Five bounded lifestyle choices expose opposing resource/trade-off effects: rest,
+  exercise, social connection, mindfulness and weekend overtime. Active Qualifying and
+  Defense arenas have progress targets but no forced timeout failure.
+- Work ordinary defeats do not create Delivery progress or Orbit farming. Accept Rush
+  opens a 13-second continuing resource/Calendar cost window; Protect Focus opens a
+  13-second recovery/progress window with an immediate Calendar opportunity cost.
 - Three procedural world-specific music identities, compact event SFX, pressure
   variation and a persistent top-right mute control are wired through browser-safe
   pointer and keyboard audio unlock.
@@ -43,27 +50,25 @@ ChatGPT review conversation.
 - World completion records progress but never auto-creates a Boss. An explicit terminal
   action maps the selected final run snapshot into a bounded `promoted-player` Boss.
 
-### Current checkpoint verification — 2026-08-22
+### Current checkpoint verification — 2026-08-23
 
 - `npm run lint`: PASS.
-- `npm test -- --run`: PASS — 176/176 tests in 27 files.
+- `npm test`: PASS — 185/185 tests in 29 files.
 - `npm run build`: PASS; the known lazy Phaser chunk warning remains.
-- `npm audit --audit-level=high`: PASS — 0 known vulnerabilities from a live query.
-- Fresh browser checks: Year-4 review seam exposes the single Qualifying choice;
-  English active meeting reads `LAB MEETING`; world completion leaves the Boss library
-  unchanged until the explicit promotion button is clicked (1→1→2 observed); 390×844
-  has no horizontal overflow and keeps 48px mute plus the promotion action in bounds;
-  text-off has zero semantic-hint nodes while the audio control remains; a fresh final
-  page reported no browser warnings/errors.
-- In-app file-chooser automation remained blocked waiting for its native event. JSON
-  paste/preview/confirm and strict validation have runtime/unit coverage, but native
-  file selection is not claimed as browser-verified in this checkpoint.
-- Android device `bbda35e` became available during closeout. With `adb reverse`, Chrome
-  opened the live Running selector and launched Work Garden; UI hierarchy reported
-  `?mode=running&world=work`, live HUD/resources/audio-control nodes, and the captured
-  2136×3200 frame visibly showed the Phaser choice arena. Temporary device files and
-  the reverse mapping were removed. This is a launch/render canary, not audible-listening,
-  thermal or long-session performance evidence.
+- Fresh desktop and 390×844 browser checks covered all three supervisor cards, all five
+  lifestyle cards, both Work choices, Legend scrolling/pause, Text Off, bilingual year
+  seams, simultaneous Signal + Noise, designated target markers and the approximately
+  four-second hint dwell. Legend-open sampling froze simulation and closing resumed it.
+- Rhythm Mode route/menu smoke passed after Running changes. No claim is made that this
+  bounded smoke replaces the older full Rhythm release evidence below.
+- Android device `bbda35e` opened live PhD Garden through `adb reverse`; the captured
+  3200×2136 frame showed the live HUD, hint, controls and choice cards, and real key input
+  advanced the defeated count. Temporary device files and reverse mapping were removed.
+  This is a functional launch/input canary, not audible-listening, thermal or long-session
+  performance evidence.
+- The designated ChatGPT review returned three bounded P1 findings. Supervisor behavior
+  is now gated until selection, the Legend path now matches runtime, and Accept Rush has
+  continuing 13-second costs; focused regression tests raised the suite from 183 to 185.
 
 ### Playable scope
 
@@ -127,6 +132,23 @@ ChatGPT review conversation.
   or battery benchmark. No regression is inferred from desktop performance alone.
 
 ## LOG
+
+### 2026-08-23 — Running Mode Reality & Clarity MVP
+
+- Added approximately four-second first-seen hints plus a bilingual, scrollable Legend
+  whose open state pauses both PhD and scenario simulation. Text Off removes both prose
+  surfaces entirely.
+- Added three supervisor candidates, five lifestyle trade-offs, the revised supervisor /
+  Signal / Noise / pollution / milestone-target visual grammar, and the exact visible
+  PhD institutional sequence with no forced active-milestone timeout failure.
+- Removed Work kill-derived progress farming and made both 13-second priority choices
+  mechanically persistent. Kept Rhythm and additive Running save boundaries unchanged.
+- Used one bounded Terra implementation task for Legend/i18n wiring; the primary agent
+  reviewed and corrected integration. Explicit Spark custom-role runtime selection was
+  unavailable in the current harness, so no TOML configuration was claimed or installed.
+- The designated ChatGPT review completed with its requested terminal marker. Its three
+  P1 findings were reproduced, repaired minimally and covered by final tests; the stale
+  maintained status document was updated here rather than duplicated.
 
 ### 2026-08-22 — Running product-depth checkpoint
 
