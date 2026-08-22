@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "description": "BeatGarden - Original rhythm micro-game collection for web/PWA",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
