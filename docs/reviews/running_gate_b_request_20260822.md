@@ -18,7 +18,7 @@ systems or additional worlds yet.
 - XP pickups with attraction/collection, level-up pause and three actual choices:
   growing Portfolio Orbit, faster cadence, or vitality.
 - Portfolio Orbit is visible from the first second and gains nodes after its upgrade.
-- First group meeting is telegraphed for 3 seconds at simulation time 28s, then spawns
+- First Lab Meeting is telegraphed for 3 seconds at simulation time 28s, then spawns
   a deterministic ring; it repeats after the active window.
 - Master, Work and Cultivation remain locked silhouettes. No Signal/Noise, Calendar,
   mentor, Thesis, year, boss or other conceptual system has been added.

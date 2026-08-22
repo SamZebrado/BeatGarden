@@ -17,8 +17,53 @@ ChatGPT review conversation.
   Cultivation remains visible and locked under the Gate E scope contract.
 - Sprout, Garden and Storm difficulty profiles change enemy speed, damage, spawn
   interval and telegraph duration. Garden is the defensive default.
-- Running storage is additive at `beatgarden.running.v1`; Rhythm settings and best
-  score keys are neither renamed nor migrated. Cross-world storage is deferred.
+- Running storage is additively migrated from `beatgarden.running.v1` to
+  `beatgarden.running.v2`; Rhythm settings and best-score keys are neither renamed nor
+  migrated. V2 owns completions, milestone records, difficulty records, persistent
+  semantic hints, local Boss metadata and Running mute state.
+
+### Product-depth checkpoint — 2026-08-22
+
+- Player-visible Running terminology is localized in English and Simplified Chinese;
+  internal choice/event IDs no longer leak into cards. English recurring PhD meetings
+  are consistently named **Lab Meeting**.
+- A generic queued, persistent first-seen hint surface explains resources, hazards,
+  completed satellites, milestones, Signal/Noise, the stable supervisor and distinct
+  reviewer/committee roles. `textOff=1` suppresses explanatory prose.
+- PhD now uses one stable supportive primary supervisor. Annual progression separates
+  the first-year talk, proposal, end-Year-3 Qualifying Exam and later annual committee
+  meetings. Pre-defense, timed final revisions and the final Defense are distinct and
+  voluntary transitions.
+- Three procedural world-specific music identities, compact event SFX, pressure
+  variation and a persistent top-right mute control are wired through browser-safe
+  pointer and keyboard audio unlock.
+- Boss Studio provides strict data-only v1 JSON paste/file import, localized validation
+  and preview, explicit confirmation, local export/delete and a self-contained AI
+  conversion prompt. Persisted Boss payloads are revalidated on load.
+- World completion records progress but never auto-creates a Boss. An explicit terminal
+  action maps the selected final run snapshot into a bounded `promoted-player` Boss.
+
+### Current checkpoint verification — 2026-08-22
+
+- `npm run lint`: PASS.
+- `npm test -- --run`: PASS — 176/176 tests in 27 files.
+- `npm run build`: PASS; the known lazy Phaser chunk warning remains.
+- `npm audit --audit-level=high`: PASS — 0 known vulnerabilities from a live query.
+- Fresh browser checks: Year-4 review seam exposes the single Qualifying choice;
+  English active meeting reads `LAB MEETING`; world completion leaves the Boss library
+  unchanged until the explicit promotion button is clicked (1→1→2 observed); 390×844
+  has no horizontal overflow and keeps 48px mute plus the promotion action in bounds;
+  text-off has zero semantic-hint nodes while the audio control remains; a fresh final
+  page reported no browser warnings/errors.
+- In-app file-chooser automation remained blocked waiting for its native event. JSON
+  paste/preview/confirm and strict validation have runtime/unit coverage, but native
+  file selection is not claimed as browser-verified in this checkpoint.
+- Android device `bbda35e` became available during closeout. With `adb reverse`, Chrome
+  opened the live Running selector and launched Work Garden; UI hierarchy reported
+  `?mode=running&world=work`, live HUD/resources/audio-control nodes, and the captured
+  2136×3200 frame visibly showed the Phaser choice arena. Temporary device files and
+  the reverse mapping were removed. This is a launch/render canary, not audible-listening,
+  thermal or long-session performance evidence.
 
 ### Playable scope
 
@@ -82,6 +127,21 @@ ChatGPT review conversation.
   or battery benchmark. No regression is inferred from desktop performance alone.
 
 ## LOG
+
+### 2026-08-22 — Running product-depth checkpoint
+
+- Added localization, persistent semantic hints, smaller touch presentation, stable
+  supervisor semantics, distinct annual/qualifying/pre-defense/revision/defense stages,
+  procedural audio and persisted mute.
+- Added additive Running v2 migration and strict AI-agnostic Boss Schema v1 Studio with
+  example JSON, revalidation and explicit final-snapshot player promotion.
+- First designated ChatGPT review returned `REVISE`; corrected the duplicate Year-3
+  Qualifying semantics, real music spacing/keyboard unlock, Boss Studio localization and
+  origin policy, snapshot-sensitive explicit promotion, persisted-data revalidation and
+  missing resource/satellite hints. The bounded re-review found three remaining finite
+  defects: project-gated Year-3 Qualifying, a delayed-unlock/destroy audio race, and
+  unknown Boss-field path loss. All three were repaired with regression tests; no
+  further reviewer loop was opened.
 
 ### 2026-08-22 — takeover through PhD closure
 

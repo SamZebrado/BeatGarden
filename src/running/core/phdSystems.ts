@@ -3,7 +3,10 @@ export type ThesisStage = 'seed' | 'sapling' | 'tree' | 'bloom';
 export type PhdChoice =
   | { kind: 'project'; options: readonly ProjectId[] }
   | { kind: 'qualifying'; options: readonly ['attempt', 'defer'] }
+  | { kind: 'preDefense'; options: readonly ['attempt', 'defer'] }
   | { kind: 'defense'; options: readonly ['attempt', 'defer'] };
+
+export type AnnualMilestoneKind = 'firstYearTalk' | 'proposal' | 'annualCommittee';
 
 export interface MilestoneArena {
   kind: 'qualifying' | 'defense';
@@ -46,6 +49,9 @@ export interface PhdSnapshot {
   completedProjects: number;
   thesisStage: ThesisStage;
   qualifying: 'locked' | 'ready' | 'passed';
+  annualMilestone: { kind: AnnualMilestoneKind; completedYear: number; remaining: number } | null;
+  preDefense: 'hidden' | 'ready' | 'passed';
+  revisionRemaining: number;
   defense: 'hidden' | 'visible' | 'ready' | 'passed';
   choice: PhdChoice | null;
   milestone: MilestoneArena | null;
@@ -53,9 +59,9 @@ export interface PhdSnapshot {
   terminal: 'ongoing' | 'finalYear' | 'ended' | 'graduated';
 }
 
-const DEFAULT_MENTOR: MentorVector = {
-  expertise: 0.86, resources: 0.65, clarity: 0.7, autonomySupport: 0.42,
-  emotionalSafety: 0.48, boundaryRespect: 0.4, stability: 0.58, projectMatch: 0.76,
+export const SUPPORTIVE_SUPERVISOR: MentorVector = {
+  expertise: 0.92, resources: 0.82, clarity: 0.9, autonomySupport: 0.88,
+  emotionalSafety: 0.94, boundaryRespect: 0.9, stability: 0.9, projectMatch: 0.86,
 };
 
 const PROJECTS: Record<ProjectId, {
@@ -74,7 +80,7 @@ export class PhdSystems {
     signal: 0, noise: 0, pollution: 0,
     logic: 20, clarity: 20, boundary: 20, purpose: 20, connection: 20, evidence: 12,
     year: 1, seasonPulse: 0, annualReviews: 0, activeProject: null, completedProjects: 0,
-    thesisStage: 'seed', qualifying: 'locked', defense: 'hidden', choice: null, milestone: null,
+    thesisStage: 'seed', qualifying: 'locked', annualMilestone: null, preDefense: 'hidden', revisionRemaining: 0, defense: 'hidden', choice: null, milestone: null,
     graduated: false, terminal: 'ongoing',
   };
   private nextProjectAt = 12;
@@ -118,6 +124,17 @@ export class PhdSystems {
       this.state.pollution = bound(this.state.pollution + 0.05 * dt);
     }
     this.state.seasonPulse = Math.max(0, this.state.seasonPulse - dt);
+    if (this.state.annualMilestone) {
+      this.state.annualMilestone.remaining = Math.max(0, this.state.annualMilestone.remaining - dt);
+      if (this.state.annualMilestone.remaining === 0) this.state.annualMilestone = null;
+    }
+    if (this.state.revisionRemaining > 0) {
+      this.state.revisionRemaining = Math.max(0, this.state.revisionRemaining - dt);
+      this.state.focus = bound(this.state.focus - .18 * dt);
+      this.state.evidence = bound(this.state.evidence + .22 * dt);
+      this.state.clarity = bound(this.state.clarity + .18 * dt);
+      if (this.state.revisionRemaining === 0) this.state.defense = 'ready';
+    }
     const strain = this.state.calendarLoad / 100 + this.state.pollution / 160;
     this.state.energy = bound(this.state.energy + (0.55 - strain) * dt);
     this.state.focus = bound(this.state.focus + (0.48 - strain - this.state.noise / 240) * dt);
@@ -128,6 +145,10 @@ export class PhdSystems {
 
     if (this.state.qualifying === 'ready' && time >= this.nextQualifyingPrompt) {
       this.state.choice = { kind: 'qualifying', options: ['attempt', 'defer'] };
+      return;
+    }
+    if (this.state.preDefense === 'ready' && time >= this.nextDefensePrompt) {
+      this.state.choice = { kind: 'preDefense', options: ['attempt', 'defer'] };
       return;
     }
     if (this.state.defense === 'ready' && time >= this.nextDefensePrompt) {
@@ -152,7 +173,7 @@ export class PhdSystems {
   }
 
   onMeeting(): void {
-    const feedback = evaluateMentor(DEFAULT_MENTOR, {
+    const feedback = evaluateMentor(SUPPORTIVE_SUPERVISOR, {
       logic: this.state.logic, clarity: this.state.clarity, boundary: this.state.boundary,
       purpose: this.state.purpose, connection: this.state.connection, evidence: this.state.evidence,
     });
@@ -178,6 +199,7 @@ export class PhdSystems {
     if (!choice || !choice.options.includes(option as never)) return false;
     if (choice.kind === 'project') this.startProject(option as ProjectId, time);
     else if (choice.kind === 'qualifying') this.resolveQualifying(option, time);
+    else if (choice.kind === 'preDefense') this.resolvePreDefense(option, time);
     else this.resolveDefense(option, time);
     return true;
   }
@@ -200,7 +222,7 @@ export class PhdSystems {
     this.state.connection = scene === 'year9' ? 52 : 36;
     this.state.terminal = scene === 'year9' ? 'finalYear' : 'ongoing';
     this.updateMilestones();
-    if (scene === 'defenseGate') this.state.defense = 'visible';
+    if (scene === 'defenseGate') this.state.preDefense = 'ready';
     this.state.choice = null;
   }
 
@@ -219,6 +241,15 @@ export class PhdSystems {
     this.state.year = Math.max(1, Math.min(9, Math.round(year)));
     this.state.terminal = this.state.year === 9 ? 'finalYear' : 'ongoing';
     this.state.seasonPulse = pulse ? 4 : 0;
+    this.state.choice = null;
+  }
+
+  startReviewAnnualMilestone(completedYear: number): void {
+    const bounded = Math.max(1, Math.min(8, Math.round(completedYear)));
+    this.state.year = bounded + 1;
+    this.state.annualMilestone = bounded === 3 ? null : { kind: bounded === 1 ? 'firstYearTalk' : bounded === 2 ? 'proposal' : 'annualCommittee', completedYear: bounded, remaining: 4 };
+    if (bounded === 3) this.state.qualifying = 'ready';
+    this.state.seasonPulse = 4;
     this.state.choice = null;
   }
 
@@ -272,6 +303,8 @@ export class PhdSystems {
   private applyAnnualReview(year: number): void {
     this.state.annualReviews += 1;
     this.state.calendarLoad = bound(this.state.calendarLoad + 8);
+    const completedYear = year - 1;
+    this.state.annualMilestone = completedYear === 3 ? null : { kind: completedYear === 1 ? 'firstYearTalk' : completedYear === 2 ? 'proposal' : 'annualCommittee', completedYear, remaining: 4 };
     if (this.state.activeProject) this.state.pollution = bound(this.state.pollution + 5);
     if (year >= 6) {
       this.state.evidence = bound(this.state.evidence + 3);
@@ -283,13 +316,23 @@ export class PhdSystems {
   private updateMilestones(): void {
     const diversity = this.contributions.size;
     this.state.thesisStage = diversity >= 3 ? 'bloom' : diversity === 2 ? 'tree' : diversity === 1 ? 'sapling' : 'seed';
-    if (this.state.qualifying === 'locked' && this.state.year >= 2 && this.state.completedProjects >= 2) {
+    // The institutional exam stays fixed at the completed-Year-3 boundary. Project
+    // readiness changes its target/damage in resolveQualifying; it never reschedules it.
+    if (this.state.qualifying === 'locked' && this.state.year >= 4) {
       this.state.qualifying = 'ready';
     }
-    if (this.state.year >= 5 && this.state.defense === 'hidden') this.state.defense = 'visible';
-    if (this.state.defense === 'visible' && this.state.qualifying === 'passed' && this.state.thesisStage === 'bloom') {
-      this.state.defense = 'ready';
+    if (this.state.preDefense === 'hidden' && this.state.qualifying === 'passed' && this.state.thesisStage === 'bloom' && this.state.evidence >= 30) {
+      this.state.preDefense = 'ready';
     }
+  }
+
+  private resolvePreDefense(option: string, time: number): void {
+    this.state.choice = null;
+    if (option === 'defer') { this.nextDefensePrompt = time + 25; return; }
+    this.state.preDefense = 'passed';
+    this.state.revisionRemaining = 12;
+    this.state.defense = 'visible';
+    this.state.calendarLoad = bound(this.state.calendarLoad + 10);
   }
 
   private resolveQualifying(option: string, time: number): void {

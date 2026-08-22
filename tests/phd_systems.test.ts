@@ -126,46 +126,73 @@ describe('PhD systems', () => {
     }
   });
 
-  it('supports qualifying failure/retry, Thesis diversity, Year Five gate, and Defense completion', () => {
+  it('uses distinct annual milestones, voluntary pre-defense, revisions, and a final Defense', () => {
     const system = new PhdSystems();
     finishProject(system, 12, 'riskyIdea');
     finishProject(system, 31, 'helping');
     system.step(45, 1 / 60);
     expect(system.snapshot().year).toBe(2);
+    expect(system.snapshot().annualMilestone?.kind).toBe('firstYearTalk');
+    expect(system.snapshot().choice).toBeNull();
+    system.step(90, 1 / 60);
+    expect(system.snapshot().year).toBe(3);
+    expect(system.snapshot().annualMilestone?.kind).toBe('proposal');
+    expect(system.snapshot().choice?.kind).toBe('project');
+    expect(system.choose('replication', 90)).toBe(true);
+    for (let index = 0; index < 20; index += 1) system.onDefeated();
+    system.step(135, 1 / 60);
+    expect(system.snapshot().year).toBe(4);
+    expect(system.snapshot().annualMilestone).toBeNull();
     expect(system.snapshot().choice?.kind).toBe('qualifying');
-    expect(system.choose('attempt', 45)).toBe(true);
+    expect(system.choose('attempt', 135)).toBe(true);
     expect(system.snapshot().qualifying).toBe('ready');
     expect(system.snapshot().milestone?.phase).toBe('telegraph');
-    system.step(46, 3.1);
+    system.step(136, 3.1);
     expect(system.snapshot().milestone?.phase).toBe('active');
-    system.step(80, 40);
+    system.step(175, 40);
     expect(system.snapshot().milestone).toBeNull();
     expect(system.snapshot().spirit).toBeLessThan(100);
 
-    system.step(81, 1 / 60);
+    system.step(176, 1 / 60);
     expect(system.snapshot().choice?.kind).toBe('project');
-    expect(system.choose('replication', 81)).toBe(true);
+    expect(system.choose('replication', 176)).toBe(true);
     for (let index = 0; index < 20; index += 1) system.onDefeated();
     expect(system.snapshot().thesisStage).toBe('bloom');
-    system.step(100, 1 / 60);
+    system.step(195, 1 / 60);
     expect(system.snapshot().choice?.kind).toBe('qualifying');
-    expect(system.choose('attempt', 100)).toBe(true);
-    system.step(101, 3.1);
+    expect(system.choose('attempt', 195)).toBe(true);
+    system.step(196, 3.1);
     for (let index = 0; index < 20; index += 1) system.onDefeated();
     expect(system.snapshot().qualifying).toBe('passed');
-    finishProject(system, 102, 'replication');
-    finishProject(system, 120, 'replication');
-
-    system.step(180, 1 / 60);
-    expect(system.snapshot().year).toBe(5);
-    expect(system.snapshot().defense).toBe('ready');
+    expect(system.snapshot().preDefense).toBe('ready');
+    system.step(197, 1 / 60);
+    expect(system.snapshot().choice?.kind).toBe('preDefense');
+    expect(system.choose('attempt', 197)).toBe(true);
+    expect(system.snapshot().revisionRemaining).toBe(12);
+    expect(system.snapshot().milestone).toBeNull();
+    system.step(210, 13);
     expect(system.snapshot().choice?.kind).toBe('defense');
-    expect(system.choose('attempt', 180)).toBe(true);
-    system.step(181, 4.1);
+    expect(system.choose('attempt', 210)).toBe(true);
+    system.step(215, 4.1);
     for (let index = 0; index < 30; index += 1) system.onDefeated();
     expect(system.snapshot().defense).toBe('passed');
     expect(system.snapshot().graduated).toBe(true);
     expect(system.snapshot().terminal).toBe('graduated');
+  });
+
+  it('presents the single Qualifying Exam at the Year-4 boundary even with fewer than two completed projects', () => {
+    const system = new PhdSystems();
+    system.step(12, 1 / 60);
+    expect(system.choose('prestige', 12)).toBe(true);
+    expect(system.snapshot().completedProjects).toBe(0);
+    system.step(45, 1 / 60);
+    system.step(90, 45);
+    system.step(135, 45);
+    expect(system.snapshot().year).toBe(4);
+    expect(system.snapshot().completedProjects).toBe(0);
+    expect(system.snapshot().annualMilestone).toBeNull();
+    expect(system.snapshot().qualifying).toBe('ready');
+    expect(system.snapshot().choice?.kind).toBe('qualifying');
   });
 
   it('turns Year Nine into a bounded final year instead of an infinite capped label', () => {

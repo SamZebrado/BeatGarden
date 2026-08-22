@@ -164,6 +164,8 @@ export class RunningSimulation {
       this.phd.startReviewThesisStage({ thesisSeed: 'seed', thesisSapling: 'sapling', thesisTree: 'tree', thesisBloom: 'bloom' }[scene] as PhdSnapshot['thesisStage']);
     } else if (scene === 'seasonBefore' || scene === 'seasonAfter') {
       this.phd.startReviewYear(scene === 'seasonBefore' ? 1 : 2, scene === 'seasonAfter');
+    } else if (scene === 'annual1' || scene === 'annual2' || scene === 'annual3' || scene === 'annual4') {
+      this.phd.startReviewAnnualMilestone(Number(scene.slice(-1)));
     } else if (scene === 'year9End' || scene === 'graduated') {
       this.phd.startReviewTerminal(scene === 'year9End' ? 'ended' : 'graduated');
     } else {
@@ -386,6 +388,7 @@ export type ReviewScene =
   | 'dense' | 'meeting' | 'phone' | 'thesis' | 'defenseGate' | 'year9'
   | 'thesisSeed' | 'thesisSapling' | 'thesisTree' | 'thesisBloom'
   | 'seasonBefore' | 'seasonAfter'
+  | 'annual1' | 'annual2' | 'annual3' | 'annual4'
   | 'year9End' | 'graduated';
 
 function circlesTouch(a: Vec2 & { radius: number }, b: Vec2 & { radius: number }): boolean {

@@ -1,8 +1,13 @@
 import Phaser from 'phaser';
 import type { RunningGameHandle } from '../RunningModeHost';
 import { RUNNING_WORLD, RunningSimulation, type ReviewScene, type RunningInput, type RunningSnapshot, type UpgradeId } from '../core/simulation';
-import { t } from '../../i18n/strings';
+import { t, type StringKey } from '../../i18n/strings';
 import { parseDifficulty } from '../core/difficulty';
+import { SemanticHints } from '../SemanticHints';
+import { RunningAudio } from '../RunningAudio';
+import { loadRunningSave, markWorldCompleted, updateRunningSave } from '../core/save';
+import type { AnnualMilestoneKind } from '../core/phdSystems';
+import { PromotionAction } from '../PromotionAction';
 
 const STEP = 1 / 60;
 
@@ -29,6 +34,12 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     private keys!: Record<string, Phaser.Input.Keyboard.Key>;
     private accumulator = 0;
     private joystick: { pointerId: number; x: number; y: number; currentX: number; currentY: number } | null = null;
+    private hints!: SemanticHints;
+    private audio!: RunningAudio;
+    private promotion!: PromotionAction;
+    private previous: RunningSnapshot | null = null;
+    private completionRecorded = false;
+    private touchCount = 0;
 
     constructor() { super('phd-garden'); }
 
@@ -51,6 +62,9 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.input.on('pointerupoutside', this.onPointerUp, this);
       this.scale.on('resize', this.resizeCamera, this);
       this.resizeCamera();
+      this.hints = new SemanticHints(root, isTextOff());
+      this.audio = new RunningAudio(root, 'phd');
+      this.promotion = new PromotionAction(root, isTextOff());
       this.render(this.simulation.snapshot());
     }
 
@@ -134,6 +148,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         return;
       }
       this.joystick = { pointerId: pointer.id, x: pointer.x, y: pointer.y, currentX: pointer.x, currentY: pointer.y };
+      this.touchCount += 1;
     }
 
     private onPointerMove(pointer: Phaser.Input.Pointer): void {
@@ -153,6 +168,9 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.simulation = createSimulation();
       this.accumulator = 0;
       this.joystick = null;
+      this.previous = null;
+      this.completionRecorded = false;
+      this.promotion.hide();
     }
 
     private resizeCamera(): void {
@@ -201,12 +219,9 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         g.fillStyle(0x123c30, 1).fillCircle(state.player.x + 5, state.player.y - 4, 4);
       }
       if (this.joystick) {
-        g.lineStyle(3, 0xd7fff0, 0.35).strokeCircle(this.joystick.x, this.joystick.y, 48);
-        const dx = this.joystick.currentX - this.joystick.x;
-        const dy = this.joystick.currentY - this.joystick.y;
-        const length = Math.max(1, Math.hypot(dx, dy));
-        const radius = Math.min(40, length);
-        g.fillStyle(0xd7fff0, 0.55).fillCircle(this.joystick.x + dx / length * radius, this.joystick.y + dy / length * radius, 15);
+        const alpha = this.touchCount === 1 ? .38 : .2;
+        g.lineStyle(2, 0xd7fff0, alpha).lineBetween(this.joystick.x, this.joystick.y, this.joystick.currentX, this.joystick.currentY);
+        g.fillStyle(0xd7fff0, alpha + .14).fillCircle(this.joystick.currentX, this.joystick.currentY, this.touchCount === 1 ? 8 : 6);
       }
       this.drawBars(this.uiGraphics, state);
       this.uiGraphics.setVisible(false);
@@ -217,6 +232,8 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       hudOverlay.querySelector<HTMLElement>('[data-role="meeting"]')!.textContent = state.meeting.phase === 'telegraph' ? `◉  ${Math.max(1, Math.ceil(state.meeting.remaining))}` : state.meeting.phase === 'active' ? (textOff ? '◉' : `◉  ${t('running.meeting')}`) : '';
       const thesisSymbol = { seed: '·', sapling: '♧', tree: '♣', bloom: '✿' }[state.phd.thesisStage];
       hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent = textOff ? `◷${state.phd.year}  ${thesisSymbol}` : `Y${state.phd.year}  🌱 ${t(`running.thesis.${state.phd.thesisStage}` as const)}`;
+      if (!textOff && state.phd.annualMilestone) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += `  ·  ${t(annualMilestoneKey(state.phd.annualMilestone.kind))}`;
+      if (!textOff && state.phd.revisionRemaining > 0) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += `  ·  ${t('running.revision')}`;
       hudOverlay.querySelector<HTMLElement>('[data-role="resources"]')!.textContent = `⚡${Math.round(state.phd.energy)}  ◉${Math.round(state.phd.focus)}  ♡${Math.round(state.phd.spirit)}  ▧${Math.round(state.phd.calendarLoad)}  ◈${Math.round(state.phd.pollution)}`;
       hudOverlay.dataset.year = String(state.phd.year);
       hudOverlay.dataset.difficulty = state.difficulty;
@@ -229,6 +246,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       if (state.upgradePending && !state.phd.milestone) this.drawUpgradeOverlay(g);
       if (state.gameOver) this.drawGameOver(g);
       else if (state.phd.terminal === 'ended' || state.phd.terminal === 'graduated') this.drawPhdTerminal(g, state.phd.terminal);
+      this.updateSemanticsAndAudio(state);
     }
 
     private drawEnemy(g: Phaser.GameObjects.Graphics, enemy: RunningSnapshot['enemies'][number], state: RunningSnapshot): void {
@@ -271,12 +289,23 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         g.lineStyle(3, 0xe1f7ff, 1).strokeRoundedRect(x - 13, enemy.y - 22, 26, 44, 7);
         g.lineStyle(3, 0x1e5875, 1).lineBetween(x - 8, enemy.y - 14, x + 8, enemy.y + 13);
       }
+      else if (enemy.kind === 'reviewer' && enemy.source === 'meeting') {
+        g.lineStyle(5, color, 1).strokeRoundedRect(enemy.x - 22, enemy.y - 16, 44, 32, 9);
+        g.fillStyle(color, 1).fillTriangle(enemy.x - 6, enemy.y + 16, enemy.x + 7, enemy.y + 16, enemy.x, enemy.y + 27);
+      }
       else if (enemy.kind === 'reviewer') g.fillTriangle(enemy.x, enemy.y - 23, enemy.x - 21, enemy.y + 18, enemy.x + 21, enemy.y + 18);
       else g.fillCircle(enemy.x, enemy.y, enemy.radius);
     }
 
     private drawPhdSystems(g: Phaser.GameObjects.Graphics, state: RunningSnapshot): void {
       const phd = state.phd;
+      // One stable, supportive primary supervisor/PI. It is never part of the enemy list.
+      const supervisorX = 180;
+      const supervisorY = 120;
+      g.lineStyle(3, 0x9be8c2, .45).strokeCircle(supervisorX, supervisorY, 34);
+      g.fillStyle(0x9be8c2, .95).fillCircle(supervisorX, supervisorY, 18);
+      g.fillStyle(0x163c31, 1).fillCircle(supervisorX + 5, supervisorY - 4, 4);
+      g.lineStyle(3, 0x9be8c2, .3).lineBetween(supervisorX + 28, supervisorY + 18, state.player.x, state.player.y);
       for (let index = 0; index < Math.min(4, phd.completedProjects); index += 1) {
         const angle = -state.time * 0.8 + index / Math.max(1, phd.completedProjects) * Math.PI * 2;
         const x = state.player.x + Math.cos(angle) * 94;
@@ -306,7 +335,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
           g.lineBetween(x, y, treeX + 28 + (1170 - treeX - 28) * next, treeY - 31 + (455 - treeY + 31) * next);
         }
       }
-      if (phd.defense !== 'hidden') {
+      if (phd.preDefense !== 'hidden' || phd.defense !== 'hidden') {
         const ready = phd.defense === 'ready' || phd.defense === 'passed';
         g.lineStyle(ready ? 9 : 5, ready ? 0xffe080 : 0x65736e, ready ? 0.95 : 0.45).strokeRoundedRect(1170, 265, 70, 190, 24);
       }
@@ -412,7 +441,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         this.ephemeralText(x + width / 2, y + height * 0.78, details[index], '#c8ddcf', portrait ? 13 : 15);
         this.ephemeralText(x + width / 2, y + height * 0.91, String(index + 1), '#9dc8b8', 14);
       }
-      const title = choice.kind === 'qualifying' ? t('running.qualifying') : choice.kind === 'defense' ? t('running.defense') : '';
+      const title = choice.kind === 'qualifying' ? t('running.qualifying') : choice.kind === 'preDefense' ? t('running.preDefense') : choice.kind === 'defense' ? t('running.defense') : '';
       if (title && !isTextOff()) this.ephemeralText(view.centerX, view.top + 55, title, '#fff3bc', 26, true);
     }
 
@@ -470,6 +499,66 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       }
     }
 
+    private updateSemanticsAndAudio(state: RunningSnapshot): void {
+      this.hints.show('supervisor', 'running.supervisorHint');
+      this.hints.show('orbit', 'running.hint.orbit');
+      this.hints.show('resources', 'running.hint.resources');
+      if (state.phd.completedProjects > 0) this.hints.show('satellite', 'running.hint.satellite');
+      if (state.phd.activeProject) this.hints.show('activeProject', 'running.hint.activeProject');
+      if (state.phd.thesisStage !== 'seed') this.hints.show('thesis', 'running.hint.thesis');
+      if (state.phd.signal > 0) this.hints.show('signal', 'running.hint.signal');
+      if (state.phd.noise > 0 || state.phd.pollution > 0) this.hints.show('noise', 'running.hint.noise');
+      if (state.meeting.phase !== 'idle') this.hints.show('meeting', 'running.hint.meeting');
+      if (state.phd.annualMilestone || state.phd.milestone) this.hints.show('milestone', 'running.hint.milestone');
+      for (const enemy of state.enemies) {
+        if (enemy.kind === 'phone') this.hints.show('phone', 'running.hint.phone');
+        else if (enemy.kind === 'reviewer' || enemy.kind === 'chair') this.hints.show('reviewer', 'running.hint.reviewer');
+        else if (enemy.kind === 'committee') this.hints.show('committee', 'running.hint.committee');
+      }
+      const prior = this.previous;
+      this.audio.setPressure(state.meeting.phase === 'active' || !!state.phd.milestone);
+      if (prior) {
+        if (state.hitPulses.some((pulse) => pulse.color === 0xf9f29f && !prior.hitPulses.some((old) => old.id === pulse.id))) this.audio.cue('hit');
+        if (state.defeated > prior.defeated) this.audio.cue('defeat');
+        if (prior.pickups.some((pickup) => !state.pickups.some((current) => current.id === pickup.id))) this.audio.cue('pickup');
+        if (state.player.hp < prior.player.hp) this.audio.cue(state.enemies.some((enemy) => enemy.kind === 'phone') ? 'phone' : 'damage');
+        if (state.level > prior.level) this.audio.cue('orbit');
+        if (state.upgradePending && !prior.upgradePending) this.audio.cue('choice');
+        if (state.phd.completedProjects > prior.phd.completedProjects) this.audio.cue('project');
+        if (state.phd.signal > prior.phd.signal) this.audio.cue('signal');
+        if (state.meeting.phase === 'telegraph' && prior.meeting.phase !== 'telegraph') this.audio.cue('meeting-warning');
+        if (state.meeting.phase === 'active' && prior.meeting.phase === 'telegraph') this.audio.cue('meeting-start');
+        if (state.enemies.some((enemy) => enemy.kind === 'phone' && !prior.enemies.some((old) => old.id === enemy.id))) this.audio.cue('phone');
+        if (state.phd.milestone?.phase === 'telegraph' && !prior.phd.milestone) this.audio.cue('milestone-warning');
+        if (state.phd.milestone?.phase === 'active' && prior.phd.milestone?.phase === 'telegraph') this.audio.cue(state.phd.milestone.kind === 'defense' ? 'boss' : 'meeting-start');
+        if (state.gameOver && !prior.gameOver) this.audio.cue('game-over');
+        if (state.phd.qualifying === 'passed' && prior.phd.qualifying !== 'passed') {
+          this.audio.cue('success');
+          const save = loadRunningSave();
+          updateRunningSave({ milestoneCompletions: [...save.milestoneCompletions, 'phd:qualifying'] });
+        }
+        if (state.phd.preDefense === 'passed' && prior.phd.preDefense !== 'passed') {
+          this.audio.cue('success');
+          const save = loadRunningSave();
+          updateRunningSave({ milestoneCompletions: [...save.milestoneCompletions, 'phd:pre-defense'] });
+        }
+      }
+      if (state.phd.terminal === 'graduated' && !this.completionRecorded) {
+        this.completionRecorded = true;
+        this.audio.cue('complete');
+        markWorldCompleted('phd', state.difficulty);
+        const refreshed = loadRunningSave();
+        updateRunningSave({ milestoneCompletions: [...refreshed.milestoneCompletions, 'phd:defense'] });
+        this.promotion.show({
+          world: 'phd', completionNumber: refreshed.worldCompletions.phd ?? 1, difficulty: state.difficulty,
+          orbitCount: state.orbitCount, energy: state.phd.energy, focus: state.phd.focus, spirit: state.phd.spirit,
+          evidence: state.phd.evidence, connection: state.phd.connection,
+        });
+      }
+      this.previous = state;
+    }
+    destroyRuntime(): void { this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
+
     private ephemeralText(x: number, y: number, value: string, color: string, size: number, bold = false): void {
       const label = this.add.text(x, y, value, { color, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal', fontFamily: 'system-ui' }).setOrigin(0.5).setDepth(30);
       this.time.delayedCall(20, () => label.destroy());
@@ -496,7 +585,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
   exit.style.cssText = 'position:fixed;z-index:50;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));width:48px;height:48px;border-radius:50%;border:1px solid #7ea996;background:#102d25;color:#fff;font-size:22px;cursor:pointer;';
   exit.addEventListener('click', options.onExit);
   root.appendChild(exit);
-  return { destroy: () => { exit.remove(); hudOverlay.remove(); game.destroy(true); } };
+  return { destroy: () => { const scene = game.scene.getScene('phd-garden') as PhdGardenScene | undefined; scene?.destroyRuntime(); exit.remove(); hudOverlay.remove(); game.destroy(true); } };
 }
 
 function seedFromUrl(): number {
@@ -509,6 +598,10 @@ function seedFromUrl(): number {
 
 function isTextOff(): boolean {
   return new URLSearchParams(window.location.search).get('textOff') === '1';
+}
+
+function annualMilestoneKey(kind: AnnualMilestoneKind): StringKey {
+  return kind === 'firstYearTalk' ? 'running.milestone.year1' : kind === 'proposal' ? 'running.milestone.year2' : 'running.milestone.annual';
 }
 
 function createSimulation(): RunningSimulation {
@@ -526,5 +619,6 @@ function createSimulation(): RunningSimulation {
 function isReviewScene(value: string | null): value is ReviewScene {
   return value === 'dense' || value === 'meeting' || value === 'phone' || value === 'thesis' || value === 'defenseGate' || value === 'year9'
     || value === 'thesisSeed' || value === 'thesisSapling' || value === 'thesisTree' || value === 'thesisBloom'
-    || value === 'seasonBefore' || value === 'seasonAfter' || value === 'year9End' || value === 'graduated';
+    || value === 'seasonBefore' || value === 'seasonAfter' || value === 'year9End' || value === 'graduated'
+    || value === 'annual1' || value === 'annual2' || value === 'annual3' || value === 'annual4';
 }

@@ -44,7 +44,7 @@ describe('Running fixed-step authority', () => {
     }
   });
 
-  it('telegraphs and starts the first periodic group meeting deterministically', () => {
+  it('telegraphs and starts the first periodic Lab Meeting deterministically', () => {
     const simulation = new RunningSimulation(9);
     for (let frame = 0; frame < 28.1 * 60; frame += 1) {
       if (simulation.snapshot().upgradePending) simulation.chooseUpgrade('vitality');

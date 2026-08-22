@@ -1,9 +1,13 @@
 import Phaser from 'phaser';
-import { t } from '../../i18n/strings';
+import { t, type StringKey } from '../../i18n/strings';
 import type { RunningGameHandle } from '../RunningModeHost';
 import { RUNNING_WORLD, type RunningInput } from '../core/simulation';
 import { ScenarioSimulation, type ScenarioEnemy, type ScenarioSnapshot, type ScenarioWorld } from '../core/scenarioSimulation';
 import { parseDifficulty } from '../core/difficulty';
+import { SemanticHints } from '../SemanticHints';
+import { RunningAudio } from '../RunningAudio';
+import { loadRunningSave, markWorldCompleted } from '../core/save';
+import { PromotionAction } from '../PromotionAction';
 
 const STEP = 1 / 60;
 
@@ -24,6 +28,12 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
     private keys!: Record<string, Phaser.Input.Keyboard.Key>;
     private accumulator = 0;
     private joystick: { id: number; x: number; y: number; currentX: number; currentY: number } | null = null;
+    private hints!: SemanticHints;
+    private audio!: RunningAudio;
+    private promotion!: PromotionAction;
+    private previous: ScenarioSnapshot | null = null;
+    private completionRecorded = false;
+    private touchCount = 0;
 
     constructor() { super(`${options.world}-garden`); }
 
@@ -37,6 +47,9 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       this.input.on('pointerup', this.onPointerUp, this);
       this.scale.on('resize', this.resizeCamera, this);
       this.resizeCamera();
+      this.hints = new SemanticHints(root, isTextOff());
+      this.audio = new RunningAudio(root, options.world);
+      this.promotion = new PromotionAction(root, isTextOff());
     }
 
     override update(_time: number, deltaMs: number): void {
@@ -59,7 +72,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       this.render(state);
     }
 
-    private restart(): void { this.simulation = createSimulation(options.world); this.accumulator = 0; this.joystick = null; }
+    private restart(): void { this.simulation = createSimulation(options.world); this.accumulator = 0; this.joystick = null; this.previous = null; this.completionRecorded = false; this.promotion.hide(); }
 
     private readInput(): RunningInput {
       const keyboard = { x: Number(this.keys.D.isDown || this.keys.RIGHT.isDown) - Number(this.keys.A.isDown || this.keys.LEFT.isDown), y: Number(this.keys.S.isDown || this.keys.DOWN.isDown) - Number(this.keys.W.isDown || this.keys.UP.isDown) };
@@ -82,6 +95,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         return;
       }
       this.joystick = { id: pointer.id, x: pointer.x, y: pointer.y, currentX: pointer.x, currentY: pointer.y };
+      this.touchCount += 1;
     }
 
     private onPointerMove(pointer: Phaser.Input.Pointer): void { if (this.joystick?.id === pointer.id) { this.joystick.currentX = pointer.x; this.joystick.currentY = pointer.y; } }
@@ -110,8 +124,13 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       g.fillStyle(options.world === 'master' ? 0x9de7ff : 0xffda85, 0.25).fillCircle(state.player.x, state.player.y, 30);
       g.fillStyle(0xd6fff0, 1).fillCircle(state.player.x, state.player.y, state.player.radius);
       g.fillStyle(0x17252d, 1).fillCircle(state.player.x + 5, state.player.y - 4, 4);
-      if (this.joystick) { g.lineStyle(3, 0xffffff, 0.35).strokeCircle(this.joystick.x, this.joystick.y, 48); }
+      if (this.joystick) {
+        const alpha = this.touchCount === 1 ? .38 : .2;
+        g.lineStyle(2, 0xffffff, alpha).lineBetween(this.joystick.x, this.joystick.y, this.joystick.currentX, this.joystick.currentY);
+        g.fillStyle(0xffffff, alpha + .12).fillCircle(this.joystick.currentX, this.joystick.currentY, this.touchCount === 1 ? 8 : 6);
+      }
       this.updateOverlay(state);
+      this.updateSemanticsAndAudio(state);
       if (state.choice) this.drawChoice(g, state);
       if (state.completed || state.gameOver) this.drawTerminal(g, state);
     }
@@ -181,7 +200,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       overlay.querySelector<HTMLElement>('[data-role="hp"]')!.style.width = `${Math.max(0, state.player.hp / state.player.maxHp) * 100}%`;
       overlay.querySelector<HTMLElement>('[data-role="progress"]')!.style.width = `${state.progress / state.progressTarget * 100}%`;
       overlay.querySelector<HTMLElement>('[data-role="resources"]')!.textContent = `⚡${Math.round(state.energy)} ◉${Math.round(state.focus)} ♡${Math.round(state.spirit)} ▧${Math.round(state.calendar)}`;
-      overlay.querySelector<HTMLElement>('[data-role="event"]')!.textContent = state.event.phase === 'telegraph' ? `${state.event.kind === 'weekly' ? '◎' : options.world === 'master' ? '▦' : '!' } ${Math.max(1, Math.ceil(state.event.remaining))}` : '';
+      overlay.querySelector<HTMLElement>('[data-role="event"]')!.textContent = state.event.phase === 'telegraph' ? `${state.event.kind === 'weekly' ? '◎' : options.world === 'master' ? '▦' : '!' } ${textOff ? '' : t(`running.event.${state.event.kind}` as StringKey)} ${Math.max(1, Math.ceil(state.event.remaining))}` : '';
       overlay.dataset.world = state.world;
       overlay.dataset.difficulty = state.difficulty;
       overlay.dataset.event = `${state.event.kind}:${state.event.phase}`;
@@ -205,7 +224,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         g.fillStyle(0x172832, 1).fillRoundedRect(x, y, width, height, 22);
         g.lineStyle(4, colors[index], 0.9).strokeRoundedRect(x, y, width, height, 22);
         this.label(x + width / 2, y + height * 0.38, icons[index], `#${colors[index].toString(16)}`, portrait ? 42 : 64);
-        if (!isTextOff()) this.label(x + width / 2, y + height * 0.65, choice.options[index], '#ffffff', 17);
+        if (!isTextOff()) this.label(x + width / 2, y + height * 0.65, t(`running.choice.${choice.options[index]}` as StringKey), '#ffffff', 17);
         this.label(x + width / 2, y + height * 0.86, String(index + 1), '#a9c9c0', 15);
       }
     }
@@ -221,6 +240,44 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       const text = this.add.text(x, y, value, { color, fontFamily: 'system-ui', fontSize: `${size}px`, fontStyle: 'bold' }).setOrigin(0.5).setDepth(30);
       this.time.delayedCall(20, () => text.destroy());
     }
+    private updateSemanticsAndAudio(state: ScenarioSnapshot): void {
+      this.hints.show('orbit', 'running.hint.orbit');
+      this.hints.show('resources', 'running.hint.resources');
+      if (state.orbitCount > 1) this.hints.show('satellite', 'running.hint.satellite');
+      for (const enemy of state.enemies) {
+        if (enemy.kind === 'courseBlock') this.hints.show('courseBlock', 'running.hint.courseBlock');
+        else if (enemy.kind === 'deadline') this.hints.show('deadline', 'running.hint.deadline');
+        else if (enemy.kind === 'request') this.hints.show('request', 'running.hint.request');
+        else if (enemy.kind === 'notification') this.hints.show('notification', 'running.hint.notification');
+      }
+      const prior = this.previous;
+      this.audio.setPressure(state.event.phase === 'active' || state.climax.phase !== 'none');
+      if (prior) {
+        if (state.defeated > prior.defeated) this.audio.cue('defeat');
+        if (prior.pickups.some((pickup) => !state.pickups.some((current) => current.id === pickup.id))) this.audio.cue('pickup');
+        if (state.player.hp < prior.player.hp) this.audio.cue('damage');
+        if (state.choice && !prior.choice) this.audio.cue('choice');
+        if (state.event.phase === 'telegraph' && prior.event.phase !== 'telegraph') this.audio.cue('meeting-warning');
+        if (state.event.phase === 'active' && prior.event.phase === 'telegraph') this.audio.cue('meeting-start');
+        if (state.climax.phase === 'telegraph' && prior.climax.phase === 'none') this.audio.cue('milestone-warning');
+        if (state.climax.phase === 'active' && prior.climax.phase === 'telegraph') this.audio.cue('boss');
+        if (state.gameOver && !prior.gameOver) this.audio.cue('game-over');
+      }
+      if (state.event.phase !== 'idle') this.hints.show(state.event.kind === 'weekly' ? 'meeting' : state.world === 'master' ? 'milestone' : 'meeting', state.event.kind === 'weekly' ? 'running.hint.meeting' : 'running.hint.milestone');
+      if (state.completed && !this.completionRecorded) {
+        this.completionRecorded = true;
+        this.audio.cue('complete');
+        markWorldCompleted(state.world, state.difficulty);
+        const refreshed = loadRunningSave();
+        this.promotion.show({
+          world: state.world, completionNumber: refreshed.worldCompletions[state.world] ?? 1, difficulty: state.difficulty,
+          orbitCount: state.orbitCount, energy: state.energy, focus: state.focus, spirit: state.spirit,
+          activePriority: state.activePriority,
+        });
+      }
+      this.previous = state;
+    }
+    destroyRuntime(): void { this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
     private isPortrait(): boolean { return this.scale.width / this.scale.height < 0.75; }
   }
 
@@ -231,7 +288,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
   exit.style.cssText = 'position:fixed;z-index:50;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));width:48px;height:48px;border-radius:50%;border:1px solid #789;background:#14232a;color:#fff;font-size:22px';
   exit.addEventListener('click', options.onExit);
   root.appendChild(exit);
-  return { destroy: () => { exit.remove(); overlay.remove(); game.destroy(true); } };
+  return { destroy: () => { const scene = game.scene.getScene(`${options.world}-garden`) as ScenarioScene | undefined; scene?.destroyRuntime(); exit.remove(); overlay.remove(); game.destroy(true); } };
 }
 
 function createSimulation(world: ScenarioWorld): ScenarioSimulation {

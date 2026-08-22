@@ -1,0 +1,14 @@
+{
+  "schema": "beatgarden-boss.v1",
+  "id": "supportive-methods-mentor",
+  "name": { "en": "Supportive Methods Mentor", "zh-CN": "支持型方法导师" },
+  "origin": "custom",
+  "worlds": ["phd"],
+  "appearance": { "shape": "hexagon", "icon": "✦", "palette": ["#79E4BD", "#FFE18B"] },
+  "stats": { "hp": 180, "speed": 44, "scale": 1.1 },
+  "traits": { "expertise": 0.95, "resources": 0.82, "clarity": 0.9, "autonomySupport": 0.88, "emotionalSafety": 0.94, "fairness": 0.9, "boundaryRespect": 0.9, "projectMatch": 0.86 },
+  "behavior": { "signal": 78, "noise": 7, "attacks": ["radial-pulse", "orbiting-pressure"], "telegraphMs": 1800, "phases": 2 },
+  "weaknesses": ["connection"],
+  "resistances": ["evidence"],
+  "reward": { "title": "Clear Guidance", "profileTag": "supportive-mentor" }
+}
