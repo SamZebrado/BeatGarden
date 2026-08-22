@@ -219,6 +219,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent = textOff ? `◷${state.phd.year}  ${thesisSymbol}` : `Y${state.phd.year}  🌱 ${t(`running.thesis.${state.phd.thesisStage}` as const)}`;
       hudOverlay.querySelector<HTMLElement>('[data-role="resources"]')!.textContent = `⚡${Math.round(state.phd.energy)}  ◉${Math.round(state.phd.focus)}  ♡${Math.round(state.phd.spirit)}  ▧${Math.round(state.phd.calendarLoad)}  ◈${Math.round(state.phd.pollution)}`;
       hudOverlay.dataset.year = String(state.phd.year);
+      hudOverlay.dataset.difficulty = state.difficulty;
       hudOverlay.dataset.choiceKind = state.phd.choice?.kind ?? '';
       hudOverlay.dataset.upgradePending = String(state.upgradePending);
       hudOverlay.dataset.milestone = state.phd.milestone ? `${state.phd.milestone.kind}:${state.phd.milestone.phase}` : '';

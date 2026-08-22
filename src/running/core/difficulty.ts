@@ -16,3 +16,8 @@ export const DIFFICULTY: Record<RunningDifficulty, DifficultyProfile> = {
 export function parseDifficulty(value: string | null): RunningDifficulty {
   return value === 'sprout' || value === 'storm' ? value : 'garden';
 }
+
+export function adjustEnemySpeed(base: number, difficulty: RunningDifficulty): number { return base * DIFFICULTY[difficulty].enemySpeed; }
+export function adjustEnemyDamage(base: number, difficulty: RunningDifficulty): number { return base * DIFFICULTY[difficulty].enemyDamage; }
+export function adjustSpawnInterval(base: number, difficulty: RunningDifficulty): number { return base * DIFFICULTY[difficulty].spawnInterval; }
+export function adjustTelegraphDuration(base: number, difficulty: RunningDifficulty): number { return base * DIFFICULTY[difficulty].telegraphDuration; }

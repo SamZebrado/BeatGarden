@@ -1,6 +1,6 @@
 import { createRng, type SeededRng } from './rng';
 import { PhdSystems, resourceModifiers, type PhdSnapshot } from './phdSystems';
-import { DIFFICULTY, type RunningDifficulty } from './difficulty';
+import { adjustEnemyDamage, adjustEnemySpeed, adjustSpawnInterval, adjustTelegraphDuration, type RunningDifficulty } from './difficulty';
 
 export const RUNNING_WORLD = { width: 1280, height: 720 } as const;
 
@@ -36,6 +36,7 @@ export interface RunningSimulationOptions {
 }
 
 export interface RunningSnapshot {
+  difficulty: RunningDifficulty;
   time: number;
   player: Vec2 & { hp: number; maxHp: number; radius: number; invulnerable: number };
   enemies: readonly Enemy[];
@@ -113,7 +114,7 @@ export class RunningSimulation {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnEnemy();
-      this.spawnTimer = Math.max(0.4, 1.2 - this.time * 0.007) * DIFFICULTY[this.difficulty].spawnInterval;
+      this.spawnTimer = adjustSpawnInterval(Math.max(0.4, 1.2 - this.time * 0.007), this.difficulty);
     }
     this.shotTimer -= dt;
     if (this.shotTimer <= 0 && this.enemies.length > 0) {
@@ -155,7 +156,7 @@ export class RunningSimulation {
       for (let index = 0; index < 18; index += 1) this.spawnEnemy(index % 6 === 0 ? 'reviewer' : 'mite', index / 18 * Math.PI * 2);
     } else if (scene === 'meeting') {
       this.meetingPhase = 'telegraph';
-      this.meetingRemaining = 3 * DIFFICULTY[this.difficulty].telegraphDuration;
+      this.meetingRemaining = adjustTelegraphDuration(3, this.difficulty);
       this.meetingAt = Number.POSITIVE_INFINITY;
     } else if (scene === 'phone') {
       this.spawnEnemy('phone', 0);
@@ -173,6 +174,7 @@ export class RunningSimulation {
 
   snapshot(): RunningSnapshot {
     return {
+      difficulty: this.difficulty,
       time: this.time,
       player: { ...this.player },
       enemies: this.enemies.map((item) => ({ ...item })),
@@ -202,7 +204,7 @@ export class RunningSimulation {
   private updateMeeting(dt: number): void {
     if (this.meetingPhase === 'idle' && this.time >= this.meetingAt) {
       this.meetingPhase = 'telegraph';
-      this.meetingRemaining = 3;
+      this.meetingRemaining = adjustTelegraphDuration(3, this.difficulty);
       return;
     }
     if (this.meetingPhase === 'telegraph') {
@@ -314,13 +316,13 @@ export class RunningSimulation {
       enemy.flash = Math.max(0, enemy.flash - dt);
       const angle = Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x);
       const speed = enemy.kind === 'mite' ? 92 : enemy.kind === 'phone' ? 112 : enemy.kind === 'reviewer' ? 66 : enemy.kind === 'committee' ? 34 : 48;
-      enemy.x += Math.cos(angle) * speed * DIFFICULTY[this.difficulty].enemySpeed * dt;
-      enemy.y += Math.sin(angle) * speed * DIFFICULTY[this.difficulty].enemySpeed * dt;
+      enemy.x += Math.cos(angle) * adjustEnemySpeed(speed, this.difficulty) * dt;
+      enemy.y += Math.sin(angle) * adjustEnemySpeed(speed, this.difficulty) * dt;
       if (this.player.invulnerable <= 0 && circlesTouch(this.player, enemy)) {
         const damage = enemy.kind === 'committee' ? 24 : enemy.kind === 'chair' ? 18 : enemy.kind === 'reviewer' ? 12 : enemy.kind === 'phone' ? 6 : 8;
         if (enemy.kind === 'phone') this.phd.onInterruption();
         const arenaScale = this.phd.snapshot().milestone?.damageScale ?? 1;
-        this.player.hp -= damage * arenaScale * DIFFICULTY[this.difficulty].enemyDamage;
+        this.player.hp -= adjustEnemyDamage(damage * arenaScale, this.difficulty);
         this.player.invulnerable = 0.9;
         this.hitPulses.push({ id: this.nextId++, x: this.player.x, y: this.player.y, ttl: 0.3, color: 0xff766e });
         if (this.player.hp <= 0) this.gameOver = true;

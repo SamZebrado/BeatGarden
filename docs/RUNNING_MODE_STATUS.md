@@ -9,7 +9,8 @@ ChatGPT review conversation.
 ### Current product state
 
 - Gates A, B, C, D and E: `PASS`.
-- Gate F: ready to request after the final implementation and licensing commits.
+- Gate F: `PARTIAL`; only remote-main publication/CI and a three-world difficulty
+  runtime-wiring canary remain before re-review.
 - The product has one responsive top-level Mode Select. Legacy `?screen=...` links
   remain Rhythm-owned; `?mode=rhythm` and `?mode=running` are explicit routes.
 - Running ships three playable deterministic worlds: PhD, Master and Work.
@@ -36,8 +37,8 @@ ChatGPT review conversation.
 ### Verified evidence — 2026-08-22
 
 - `npm run lint`: PASS.
-- `npm test -- --run`: PASS — 157/157 tests in 24 files after the final difficulty
-  coverage.
+- `npm test -- --run`: PASS — 162/162 tests in 25 files after the three-world
+  difficulty runtime-wiring canary.
 - `npm run build`: PASS. Final pre-commit chunks: Rhythm/shared entry 139.71 kB
   (40.87 kB gzip), PhD renderer 19.55 kB (6.90 kB gzip), scenario renderer
   19.42 kB (6.78 kB gzip), Phaser/shared simulation 1,215.54 kB (324.35 kB gzip).
@@ -114,8 +115,10 @@ ChatGPT review conversation.
 
 ### Blocker
 
-1. Obtain `BEATGARDEN_RUNNING_FINAL_ACCEPTANCE: PASS` from the designated ChatGPT
-   conversation; correct and re-review any blocking item.
+1. Push the implementation, license and canary commits to GitHub `main`; verify
+   remote SHA/license/CI.
+2. Return the three-world canary evidence and boot wiring to the designated ChatGPT
+   conversation and obtain `BEATGARDEN_RUNNING_FINAL_ACCEPTANCE: PASS`.
 
 ### Immediate closeout
 

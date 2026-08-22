@@ -1,6 +1,6 @@
 import { createRng, type SeededRng } from './rng';
 import { RUNNING_WORLD, placeSpawnAtDistance, type RunningInput, type Vec2 } from './simulation';
-import { DIFFICULTY, type RunningDifficulty } from './difficulty';
+import { adjustEnemyDamage, adjustEnemySpeed, adjustSpawnInterval, adjustTelegraphDuration, type RunningDifficulty } from './difficulty';
 
 export type ScenarioWorld = 'master' | 'work';
 export type ScenarioEnemyKind = 'courseBlock' | 'deadline' | 'exam' | 'request' | 'notification' | 'delivery';
@@ -22,6 +22,7 @@ interface ScenarioPickup extends Vec2 { id: number; value: number; radius: numbe
 
 export interface ScenarioSnapshot {
   world: ScenarioWorld;
+  difficulty: RunningDifficulty;
   time: number;
   player: Vec2 & { hp: number; maxHp: number; radius: number; invulnerable: number };
   enemies: readonly ScenarioEnemy[];
@@ -108,7 +109,7 @@ export class ScenarioSimulation {
     if (this.climaxPhase === 'none' && this.spawnTimer <= 0) {
       const kind = this.config.ambient[this.defeated % this.config.ambient.length];
       this.spawn(kind, undefined, 'ambient');
-      this.spawnTimer = (this.world === 'master' ? 0.82 : 0.64) * DIFFICULTY[this.difficulty].spawnInterval;
+      this.spawnTimer = adjustSpawnInterval(this.world === 'master' ? 0.82 : 0.64, this.difficulty);
     }
     this.shotTimer -= dt;
     if (this.shotTimer <= 0 && this.enemies.length) {
@@ -165,7 +166,7 @@ export class ScenarioSimulation {
 
   snapshot(): ScenarioSnapshot {
     return {
-      world: this.world, time: this.time, player: { ...this.player },
+      world: this.world, difficulty: this.difficulty, time: this.time, player: { ...this.player },
       enemies: this.enemies.map((item) => ({ ...item })), projectiles: this.projectiles.map((item) => ({ ...item })), pickups: this.pickups.map((item) => ({ ...item })),
       orbitCount: Math.min(6, 1 + Math.floor(this.defeated / 8)), defeated: this.defeated,
       energy: this.energy, focus: this.focus, spirit: this.spirit, calendar: this.calendar,
@@ -199,7 +200,7 @@ export class ScenarioSimulation {
     if (this.eventPhase === 'idle' && this.time >= this.eventAt) {
       this.eventKind = this.world === 'master' ? 'termRush' : (Math.floor(this.time / this.config.eventEvery) % 3 === 2 ? 'weekly' : 'daily');
       this.eventPhase = 'telegraph';
-      this.eventRemaining = (this.eventKind === 'weekly' ? 3 : 2) * DIFFICULTY[this.difficulty].telegraphDuration;
+      this.eventRemaining = adjustTelegraphDuration(this.eventKind === 'weekly' ? 3 : 2, this.difficulty);
     } else if (this.eventPhase === 'telegraph') {
       this.eventRemaining -= dt;
       if (this.eventRemaining <= 0) {
@@ -224,7 +225,7 @@ export class ScenarioSimulation {
     this.climaxPhase = 'telegraph';
     this.eventPhase = 'idle';
     this.eventKind = 'none';
-    this.eventRemaining = 3 * DIFFICULTY[this.difficulty].telegraphDuration;
+    this.eventRemaining = adjustTelegraphDuration(3, this.difficulty);
     this.climaxProgress = 0;
     this.climaxBossSpawned = false;
     this.enemies = [];
@@ -286,10 +287,10 @@ export class ScenarioSimulation {
       const length = Math.max(1, Math.hypot(dx, dy));
       const boss = enemy.kind === 'exam' || enemy.kind === 'delivery';
       const speed = boss ? 38 : enemy.kind === 'notification' ? 118 : 70;
-      enemy.x += dx / length * speed * DIFFICULTY[this.difficulty].enemySpeed * dt;
-      enemy.y += dy / length * speed * DIFFICULTY[this.difficulty].enemySpeed * dt;
+      enemy.x += dx / length * adjustEnemySpeed(speed, this.difficulty) * dt;
+      enemy.y += dy / length * adjustEnemySpeed(speed, this.difficulty) * dt;
       if (touch(this.player, enemy) && this.player.invulnerable <= 0) {
-        this.player.hp -= (boss ? 22 : enemy.kind === 'notification' ? 7 : 11) * DIFFICULTY[this.difficulty].enemyDamage;
+        this.player.hp -= adjustEnemyDamage(boss ? 22 : enemy.kind === 'notification' ? 7 : 11, this.difficulty);
         this.player.invulnerable = 0.65;
         this.calendar = bound(this.calendar + (enemy.kind === 'notification' ? 12 : 6));
         this.focus = bound(this.focus - (enemy.kind === 'notification' ? 10 : 5));

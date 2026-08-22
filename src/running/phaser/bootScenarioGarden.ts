@@ -183,6 +183,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       overlay.querySelector<HTMLElement>('[data-role="resources"]')!.textContent = `⚡${Math.round(state.energy)} ◉${Math.round(state.focus)} ♡${Math.round(state.spirit)} ▧${Math.round(state.calendar)}`;
       overlay.querySelector<HTMLElement>('[data-role="event"]')!.textContent = state.event.phase === 'telegraph' ? `${state.event.kind === 'weekly' ? '◎' : options.world === 'master' ? '▦' : '!' } ${Math.max(1, Math.ceil(state.event.remaining))}` : '';
       overlay.dataset.world = state.world;
+      overlay.dataset.difficulty = state.difficulty;
       overlay.dataset.event = `${state.event.kind}:${state.event.phase}`;
       overlay.dataset.climax = state.climax.phase;
       overlay.dataset.completed = String(state.completed);
