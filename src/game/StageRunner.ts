@@ -391,6 +391,7 @@ color: #d9e3ff; font-size: 15px; cursor: pointer;
     d.addEventListener('pointerdown', () => void this.onUnlock());
     document.body.appendChild(d);
     this.overlays.unlock = d;
+    this.animateReveal(d);
   }
 
   private buildRuntimeStatus(): void {
@@ -682,6 +683,16 @@ cursor: pointer;
     panel.appendChild(row);
     document.body.appendChild(d);
     this.overlays.result = d;
+    this.animateReveal(panel);
+  }
+
+  private animateReveal(element: HTMLElement): void {
+    if (this.reducedMotion || typeof element.animate !== 'function') return;
+    const animation = element.animate(
+      [{ opacity: .25, transform: 'translateY(10px) scale(.985)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }],
+      { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' },
+    );
+    element.addEventListener('pointerdown', () => animation.finish(), { once: true, capture: true });
   }
 
   private removeResultOverlay(): void {

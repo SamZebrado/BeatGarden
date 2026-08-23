@@ -74,6 +74,7 @@ export class AppController {
     if (this.options.onExitToModeSelect) modes.addEventListener('click', this.options.onExitToModeSelect);
     else modes.remove();
     this.root.appendChild(page);
+    this.animateReveal(page);
   };
 
   showStageSelect = (): void => {
@@ -85,6 +86,7 @@ export class AppController {
     STAGES.forEach((spec) => page.querySelector<HTMLButtonElement>(`[data-role="${spec.role}"]`)!
       .addEventListener('click', () => this.playStage(spec.create())));
     this.root.appendChild(page);
+    this.animateReveal(page);
     const status = document.createElement('output');
     status.id = 'app-runtime-status';
     status.style.cssText = 'position:fixed;left:-10000px;width:1px;height:1px;overflow:hidden';
@@ -150,5 +152,14 @@ export class AppController {
     this.root.style.cssText = scrollable
       ? 'width:100%;min-height:100dvh;display:flex;align-items:flex-start;justify-content:center;overflow-x:hidden;overflow-y:auto;background:radial-gradient(circle at 50% 20%,#18244d,#080b1c 70%);'
       : 'width:100vw;height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 20%,#18244d,#080b1c 70%);';
+  }
+
+  private animateReveal(element: HTMLElement): void {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || typeof element.animate !== 'function') return;
+    const animation = element.animate(
+      [{ opacity: .35, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' },
+    );
+    element.addEventListener('pointerdown', () => animation.finish(), { once: true, capture: true });
   }
 }
