@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation is implemented and exact-verified with its bounded Gate request pending. R4 Product Shell / Result Loop is implemented and exact-verified locally, without pre-claiming its Gate.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation is implemented and exact-verified with its bounded Gate request confirmed in the independent-review thread and awaiting verdict. R4 Product Shell / Result Loop and R5 AutoChart are implemented and exact-verified locally, without pre-claiming either Gate.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -32,9 +32,9 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 ### Current product blockers
 
-1. R3: the exact candidate is waiting for independent bounded Gate review; Bridge send confirmation is recoverable but has not produced a nonce-owned message bubble.
+1. R3: the exact candidate is waiting for independent bounded Gate review; after the user refreshed the incomplete ChatGPT page, Bridge request `mt68rgss-2ljbfw9w` confirmed the nonce-owned message bubble exactly once and is awaiting reply.
 2. R4: implementation and exact verification at `2459de0` are complete; independent bounded review must remain ordered after R3.
-3. R5: AutoChart Normal and Hard fixtures both produced all-tap charts; phrase and mixed-gesture playability are not demonstrated.
+3. R5: implementation and exact verification at `af97fae` are complete; independent bounded review must remain ordered after R4.
 
 ## LOG
 
@@ -140,13 +140,23 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Exact detached verification at `2459de0`: `npm ci` PASS (87 packages, 0 vulnerabilities); TypeScript lint PASS; 46 files / 297 tests PASS; Pages-base production build PASS. Rhythm main 248.36 kB / gzip 68.07 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
 - Exact Android runtime `2459de0` on device `bbda35e` / Xiaomi `24091RPADC`: real CDP `touchStart` / `touchEnd` opened the result detail surface at 1163×632 CSS px / DPR 2.75 and exposed all secondary metrics. `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0` before and after; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
 
+### R5 — AutoChart phrase / playability implementation and smoke
+
+- Generated notes now carry an envelope-derived section, four-beat phrase index, accent flag and authored swipe direction. Phrase filtering adds deliberate 0.8 s rests and bounds uninterrupted action streaks by difficulty.
+- Easy remains tap-only. Normal and Hard produce section-aware high-frequency swipes and sustained, gap-safe mid-energy holds. The final ergonomic pass rejects quick reverse-swipe traps, excessive swipe streaks, impossible note proximity and active-hold overlap.
+- Deterministic quality metrics expose density, longest streak, rest ratio, gesture-change rate, hold conflicts, impossible proximity and section balance. Regressions prove mixed gestures, multi-phrase/section coverage, deliberate rests and conflict-free sustained holds.
+- The product-facing result prioritizes Song, Difficulty, Chart Style, Generate Chart and Enter Pulse Garden. Tempo/confidence/mode/onsets/note count/quality/seed are optional advanced details; imported filenames use `textContent`. Simplified Chinese and English remain complete replacement locales.
+- Desktop mouse smoke opened the advanced disclosure on the Normal “Gesture weave” fixture with no warning/error log. Android reused the existing game tab and a real touch opened the same disclosure at 1163×632 CSS px / DPR 2.75.
+- Android `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0` before and after; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
+- Exact detached verification at `af97fae`: `npm ci` PASS; TypeScript lint PASS; 46 files / 299 tests PASS; Pages-base production build PASS. Rhythm main 251.82 kB / gzip 69.25 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Recover the exact nonce-owned R3 bounded review without duplicating the request; fix only a concrete R3 blocker if returned.
+1. Collect the confirmed nonce-owned R3 bounded verdict; fix only a concrete R3 blocker if returned.
 2. On R3 PASS, submit exact R4 candidate `2459de0` plus its evidence-only closure for bounded independent review.
-3. Continue local R5 AutoChart phrase/gesture work while Gate replies are pending; do not pre-claim R4 or R5.
+3. On R4 PASS, submit exact R5 candidate `af97fae` plus its evidence-only closure for bounded independent review.
 
 Timing invariant for all future slices:
 
