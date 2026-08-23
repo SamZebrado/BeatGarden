@@ -23,6 +23,41 @@ type Profile = {
 };
 type GardenMechanic = Profile['mechanic'];
 type GardenPointerState = { down: boolean; lane: number; startX: number; x: number; y: number };
+type GardenSuccessFx = { at: number; lane: number; kind: JudgementKind };
+
+export interface GardenProgressSnapshot {
+  byLane: readonly [number, number, number];
+  total: number;
+  transientFx: number;
+}
+
+/** Durable run progression is deliberately independent of short-lived hit FX. */
+export class GardenRunProgress {
+  private byLane: [number, number, number] = [0, 0, 0];
+  private transientSuccessFx: GardenSuccessFx[] = [];
+
+  public reset(): void {
+    this.byLane = [0, 0, 0];
+    this.transientSuccessFx = [];
+  }
+
+  public record(result: JudgeResult, lane: number, at: number, durable = true): void {
+    if (result.automatic || result.kind === 'MISS') return;
+    const safeLane = Math.max(0, Math.min(2, lane));
+    if (durable) this.byLane[safeLane]++;
+    this.transientSuccessFx.push({ at, lane: safeLane, kind: result.kind });
+  }
+
+  public expireTransient(now: number): readonly GardenSuccessFx[] {
+    this.transientSuccessFx = this.transientSuccessFx.filter((fx) => now - fx.at < 1.8);
+    return this.transientSuccessFx;
+  }
+
+  public snapshot(): GardenProgressSnapshot {
+    const byLane: [number, number, number] = [...this.byLane];
+    return { byLane, total: byLane[0] + byLane[1] + byLane[2], transientFx: this.transientSuccessFx.length };
+  }
+}
 
 export function laneFromSurfaceX(x: number, surfaceWidth: number): number {
   return Math.max(0, Math.min(2, Math.floor((x / Math.max(1, surfaceWidth)) * 3)));
@@ -202,7 +237,7 @@ abstract class GardenStage implements StageDefinition {
   private services: StageRuntimeServices | null = null;
   private readonly consumed = new Set<string>();
   private feedback: { kind: FeedbackKind; at: number; lane: number } | null = null;
-  private successes: Array<{ at: number; lane: number; kind: JudgementKind }> = [];
+  private readonly progress = new GardenRunProgress();
   private pointerPreview: GardenPointerState | null = null;
 
   protected constructor(private readonly profile: Profile) {
@@ -259,11 +294,13 @@ abstract class GardenStage implements StageDefinition {
     services.scheduler.setEvents(this.buildEvents());
     this.consumed.clear();
     this.feedback = null;
-    this.successes = [];
+    this.progress.reset();
     this.pointerPreview = null;
   }
 
   public onRestart(): void { if (this.services) this.onStart(this.services); }
+
+  public progressSnapshot(): GardenProgressSnapshot { return this.progress.snapshot(); }
 
   public mapInputToTarget(action: PointerAction, live: readonly ScheduledJudgeTarget[]): { target: ScheduledJudgeTarget; inputKind: InputKind } | null {
     if (!this.services) return null;
@@ -290,7 +327,9 @@ abstract class GardenStage implements StageDefinition {
     this.consumed.add(target.id);
     const now = this.services?.transport.snapshot().audioTime ?? 0;
     const lane = (target.meta as TargetMeta | undefined)?.lane ?? 1;
-    if (!result.automatic && result.kind !== 'MISS') this.successes.push({ at: now, lane, kind: result.kind });
+    const durable = this.profile.id === 'bubble-kitchen'
+      || (this.profile.id === 'sleepy-greenhouse' && target.inputKind === 'holdRelease');
+    this.progress.record(result, lane, now, durable);
   }
 
   public onUnmatchedInput(action: PointerAction, context: UnmatchedInputContext): void {
@@ -355,7 +394,7 @@ abstract class GardenStage implements StageDefinition {
         ctx.fillText(t((['lane.left', 'lane.center', 'lane.right'] as const)[lane]!), x, 300);
         ctx.fillStyle = '#4a2b39'; ctx.beginPath(); ctx.ellipse(x, 790, 205, 62, 0, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = accent; ctx.lineWidth = 12; ctx.stroke();
-        const cooked = this.successes.filter((fx) => fx.lane === lane).length;
+        const cooked = this.progress.snapshot().byLane[lane]!;
         if (cooked > 0) {
           ctx.fillStyle = `rgba(255,207,98,${Math.min(.72, .16 + cooked * .08).toFixed(3)})`;
           ctx.beginPath(); ctx.ellipse(x, 790, 178, 44, 0, 0, Math.PI * 2); ctx.fill();
@@ -393,7 +432,7 @@ abstract class GardenStage implements StageDefinition {
       for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.moveTo(i * 240, 1080); ctx.quadraticCurveTo(i * 240 + 90, 590 - (i % 3) * 90, i * 240 + 180, 500); ctx.stroke(); }
       ctx.fillStyle = 'rgba(113,213,255,.16)'; ctx.fillRect(0, 160, 1920, 16 + pulse * 8);
       ctx.strokeStyle = secondary; ctx.lineWidth = 10; ctx.strokeRect(170, 120, 1580, 840);
-      const laneSuccess = [0, 1, 2].map((lane) => this.successes.filter((fx) => fx.lane === lane).length);
+      const laneSuccess = this.progress.snapshot().byLane;
       for (let lane = 0; lane < 3; lane++) {
         const x = 420 + lane * 540;
         const growth = Math.min(1, laneSuccess[lane]! / 3 + (section === 'CLIMAX' ? .25 : 0));
@@ -485,8 +524,7 @@ abstract class GardenStage implements StageDefinition {
 
   private drawFeedback(ctx: CanvasRenderingContext2D, snap: TransportSnapshot, accent: string): void {
     const now = snap.audioTime;
-    this.successes = this.successes.filter(fx => now - fx.at < 1.8);
-    for (const fx of this.successes) {
+    for (const fx of this.progress.expireTransient(now)) {
       const p = Math.max(0, Math.min(1, (now - fx.at) / 1.8)); const x = 420 + fx.lane * 540;
       ctx.globalAlpha = 1 - p; ctx.fillStyle = accent;
       if (this.profile.id === 'bubble-kitchen') { ctx.beginPath(); ctx.arc(x, 510 - p * 390, 36 + p * 70, 0, Math.PI * 2); ctx.fill(); }

@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage, classifyGardenUnmatched, laneFromSurfaceX, localizedGardenFeedback, nearestUnconsumedGardenTarget, updateGardenPointerPreview } from '../src/stages/original/GardenStages';
+import { BubbleKitchenStage, CloudPostStage, GardenRunProgress, SleepyGreenhouseStage, classifyGardenUnmatched, laneFromSurfaceX, localizedGardenFeedback, nearestUnconsumedGardenTarget, updateGardenPointerPreview } from '../src/stages/original/GardenStages';
 import { setLocale } from '../src/i18n/strings';
 import { FireflyDockStage } from '../src/stages/fireflyDock/FireflyDockStage';
+import { Transport } from '../src/timing/Transport';
+import { Scheduler } from '../src/timing/Scheduler';
+import { Judge } from '../src/timing/Judge';
+import { TIMING_CONFIG } from '../src/timing/config';
 
 const stages = [new BubbleKitchenStage(), new CloudPostStage(), new SleepyGreenhouseStage()];
 
@@ -90,6 +94,42 @@ describe('additional original stage content', () => {
     expect(fireflyBeats).not.toContain(38);
     expect(fireflyBeats.filter((beat) => beat >= 45 && beat <= 58)).toHaveLength(9); // climax stream
     expect(fireflyBeats.slice(-2)).toEqual([60, 62]);
+  });
+
+  it('keeps Bubble and Greenhouse progression after transient FX expire', () => {
+    for (const lane of [0, 2]) {
+      const progress = new GardenRunProgress();
+      progress.record({ kind: 'GREAT', deltaMs: 40 }, lane, 10);
+      expect(progress.snapshot()).toMatchObject({ byLane: lane === 0 ? [1, 0, 0] : [0, 0, 1], total: 1, transientFx: 1 });
+      progress.expireTransient(11.81);
+      expect(progress.snapshot()).toMatchObject({ byLane: lane === 0 ? [1, 0, 0] : [0, 0, 1], total: 1, transientFx: 0 });
+    }
+  });
+
+  it('accumulates intended successes, ignores automatic MISS, and resets on restart', () => {
+    let now = 5;
+    const transport = new Transport(() => now, 120);
+    const scheduler = new Scheduler({ config: TIMING_CONFIG, transport });
+    const judge = new Judge(TIMING_CONFIG, transport);
+    for (const stage of [new BubbleKitchenStage(), new SleepyGreenhouseStage()]) {
+      stage.onStart({ transport, scheduler, judge });
+      const firstKind = stage.id === 'sleepy-greenhouse' ? 'holdRelease' : 'tap';
+      stage.onJudge({ kind: 'PERFECT', deltaMs: 0 }, { type: 'judge-target', id: 'one', beat: 4, inputKind: firstKind, meta: { lane: 1 } });
+      now += .5;
+      stage.onJudge({ kind: 'OK', deltaMs: 90 }, { type: 'judge-target', id: 'two', beat: 5, inputKind: firstKind, meta: { lane: 1 } });
+      stage.onJudge({ kind: 'MISS', deltaMs: 170, automatic: true }, { type: 'judge-target', id: 'auto-miss', beat: 6, inputKind: 'tap', meta: { lane: 2 } });
+      expect(stage.progressSnapshot()).toMatchObject({ byLane: [0, 2, 0], total: 2, transientFx: 2 });
+      stage.onRestart();
+      expect(stage.progressSnapshot()).toEqual({ byLane: [0, 0, 0], total: 0, transientFx: 0 });
+    }
+  });
+
+  it('does not grow Greenhouse before a successful authored hold release', () => {
+    const greenhouse = new SleepyGreenhouseStage();
+    greenhouse.onJudge({ kind: 'PERFECT', deltaMs: 0 }, { type: 'judge-target', id: 'start', beat: 4, inputKind: 'holdStart', meta: { lane: 0 } });
+    expect(greenhouse.progressSnapshot()).toMatchObject({ byLane: [0, 0, 0], total: 0, transientFx: 1 });
+    greenhouse.onJudge({ kind: 'GREAT', deltaMs: 30 }, { type: 'judge-target', id: 'release', beat: 6, inputKind: 'holdRelease', meta: { lane: 0 } });
+    expect(greenhouse.progressSnapshot()).toMatchObject({ byLane: [1, 0, 0], total: 1, transientFx: 2 });
   });
 
   it('maps all three visual lane centers and boundaries in canvas-local CSS coordinates', () => {
