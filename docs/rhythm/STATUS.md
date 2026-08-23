@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel implementation and exact evidence closure are in progress.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation implementation and exact evidence closure are in progress.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -32,10 +32,9 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 ### Current product blockers
 
-1. R2: shared judgement, Combo/Groove and motion grammar are not yet productized.
-2. R3: Bubble/Cloud/Greenhouse still need deeper section and geometry differentiation beyond R1 controls.
-3. R4: Result pages still prioritize timing diagnostics over player reward.
-4. R5: AutoChart Normal and Hard fixtures both produced all-tap charts; phrase and mixed-gesture playability are not demonstrated.
+1. R3: the four authored stages need their exact candidate verification and independent bounded Gate review.
+2. R4: Result pages still prioritize timing diagnostics over player reward.
+3. R5: AutoChart Normal and Hard fixtures both produced all-tap charts; phrase and mixed-gesture playability are not demonstrated.
 
 ## LOG
 
@@ -113,13 +112,19 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Exact detached-worktree verification at `b23b79e`: TypeScript lint PASS; 45 files / 293 tests PASS; Pages-base production build PASS. Rhythm main 236.08 kB / gzip 64.59 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No file under `src/running/` changed.
 - Exact Android candidate used detached runtime `a80130a` (the following `b23b79e` changes only the smoke helper and evidence text). Device `bbda35e` / Xiaomi `24091RPADC`, 1163×632 CSS px at DPR 2.75. The unlock retry contract and 52×52 touch pause/resume passed; media remained `STREAM_MUSIC Muted: true`, `streamVolume:0` before and after. No audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
 
+### R2 Shared Game Feel Gate PASS
+
+- After repeated ChatGPT connection interruptions, nonce-owned recovery request `mt66ubbj-fpukzd5p` settled with `RHYTHM V2 R2 GAME FEEL GATE: PASS` and `No remaining R2 blockers.` The verdict explicitly confirms JudgeResult-only Game Feel state, display-only sections, bounded feedback, reduced motion, localized pause lifecycle and the unchanged timing-authority chain; R3–R5 were not pre-accepted.
+- Attachment delivery audit found a concrete Bridge false-positive: the R2 ledger marked eight files confirmed, while the nonce-owned real Chrome bubble exposed only five rendered attachment groups. The uploader had treated the message body's requested `ATTACHMENT_ACK` filename list as rendered-card evidence. A scoped Bridge regression now excludes whole-message text from attachment matching and passes 24/24 reliability tests; the BeatGarden Gate verdict used the model's inspected source/available attachments and exact pushed commits.
+- Per the approved R1→R5 sequence, work proceeds immediately to R3 Stage Differentiation.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Commit and independently verify R2 Shared Game Feel without mixing later R3/R4 work.
-2. Re-run real desktop mouse and muted Android touch/pause smoke against the exact R2 candidate.
-3. Submit R2 with real Chrome attachment-card verification; if Bridge again reports cards that DOM inspection cannot find, classify the transport result as false-positive and use pushed exact source as the independent review fallback.
+1. Commit the bounded R3 stage-progression candidate without any R4/R5 or Running changes.
+2. Verify authored section identity, distinct target geometry/payoffs and real desktop/narrow plus muted Android touch behavior against the exact R3 candidate.
+3. Submit the exact R3 candidate for bounded independent review, then enter R4 automatically on PASS.
 
 Timing invariant for all future slices:
 
