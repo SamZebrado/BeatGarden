@@ -103,6 +103,16 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Attachment transport incident: Bridge request `mt657noy-tlnkinh0` claimed all five attachments confirmed, while real Chrome inspection of the latest `[data-message-author-role="user"]` node found zero attachment cards. ChatGPT explicitly reviewed the pushed repository sources despite the missing attachment and issued the bounded verdict. The false-positive therefore remains a Bridge delivery-status defect, not evidence that the cards existed.
 - Per the approved R1→R5 order, work proceeds immediately to R2 Shared Game Feel. R2 was prepared locally during Gate waits but was neither attached nor claimed as part of R1.
 
+### R2 — Shared Game Feel implementation and smoke
+
+- `GameFeel` derives Combo, best Combo, Groove, peak Groove, judgement, signed FAST/SLOW and feedback age only from authoritative `JudgeResult` events. MISS resets Combo and lowers Groove; automatic MISS never fabricates a timing delta or tendency.
+- Shared formal-play HUD adds stage/section identity, progress, Combo (only from 2+), Groove meter and display-only atmosphere. Transport progress maps to Intro, Main A, Variation B, Climax and Outro presentation without changing targets, score or Judge windows.
+- Shared judgement cards use distinct silhouettes: six-petal PERFECT, four-ray GREAT, open-arc OK and broken-ring MISS. Feedback is capped at 520 ms; reduced motion fixes scale at 1 and removes ambient drift while retaining text, outline and static Groove state.
+- A localized 52×52 CSS px pause control is available in formal play. Real desktop and Android touch smoke both proved explicit `playing/running/Transport true → paused/suspended/false → playing/running/true` lifecycle; aria text changed `暂停 → 继续` in Chinese.
+- Firefly's duplicate stage-local judgement label was removed, while its player-triggered worker/seed payoff remains. Original-stage unmatched-cause guidance remains separate from the shared Judge card.
+- Exact detached-worktree verification at `b23b79e`: TypeScript lint PASS; 45 files / 293 tests PASS; Pages-base production build PASS. Rhythm main 236.08 kB / gzip 64.59 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No file under `src/running/` changed.
+- Exact Android candidate used detached runtime `a80130a` (the following `b23b79e` changes only the smoke helper and evidence text). Device `bbda35e` / Xiaomi `24091RPADC`, 1163×632 CSS px at DPR 2.75. The unlock retry contract and 52×52 touch pause/resume passed; media remained `STREAM_MUSIC Muted: true`, `streamVolume:0` before and after. No audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
