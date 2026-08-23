@@ -90,6 +90,13 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Exact detached-worktree verification at `549cd28` (runtime source `606d522`): TypeScript lint PASS; 44 files / 288 tests PASS; `VITE_BASE=/BeatGarden/ npm run build` PASS. Rhythm main 230.48 kB / gzip 62.91 kB; AutoChart worker 4.61 kB. The unchanged out-of-scope Running `JourneyResult` warning remains 1.216 MB / gzip 324.98 kB. An earlier 45/292 claim was withdrawn because that command chain accidentally retained the main-worktree cwd and included uncommitted R2 files; ChatGPT received this correction before the bounded verdict was accepted as evidence.
 - The earlier delta submission accidentally attached a current working-tree `StageRunner.ts` containing uncommitted R2 display-only HUD work. This second submission must use files only from the isolated R1 commit worktree; no R2 code or claim is part of the R1 Gate packet.
 
+### R1 Second Delta review PARTIAL and expiry closure
+
+- ChatGPT verified all seven exact-worktree attachment cards, accepted consumed-target filtering plus candidate/Judge boundary behavior, and returned one remaining R1 blocker: runtime auto-MISS still used the ordinary input window for every target.
+- StageRunner now computes its broad expiry scan with the maximum configured target window and delegates the per-target decision to `hasTargetExpiredForAutoMiss()`. That exact policy uses `targetJudgeWindowSeconds(config, target)` plus the explicit 10 ms expiry grace before `Judge.autoMiss()`.
+- One expiry-policy regression now exercises the same function StageRunner calls and proves: hold release at +160 ms is not expired and central Judge returns `OK`; +161 ms is not prematurely auto-consumed and central Judge returns `MISS`; no-input release becomes eligible for auto-MISS only at +170 ms; ordinary tap remains eligible at +140 ms and is not broadened.
+- Exact detached-worktree verification at `14abebe`: TypeScript lint PASS; 44 files / 289 tests PASS; Pages-base production build PASS. Rhythm main 230.52 kB / gzip 62.92 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
