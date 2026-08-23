@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation returned PARTIAL for one persistence defect; the bounded delta is implemented and exact-verified at `6b778bf` and awaits delta review. R4 Product Shell / Result Loop and R5 AutoChart are implemented and exact-verified locally, without pre-claiming either Gate.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop and R5 AutoChart are implemented and exact-verified locally, without pre-claiming either Gate.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -32,9 +32,8 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 ### Current product blockers
 
-1. R3: independent review accepted all other R3 surfaces but found Bubble/Greenhouse progression incorrectly coupled to 1.8-second FX. The bounded fix at `6b778bf` separates durable progression and awaits delta review.
-2. R4: implementation and exact verification at `2459de0` are complete; independent bounded review must remain ordered after R3.
-3. R5: implementation and exact verification at `af97fae` are complete; independent bounded review must remain ordered after R4.
+1. R4: implementation and exact verification at `2459de0` are complete; independent bounded review is next.
+2. R5: implementation and exact verification at `af97fae` are complete; independent bounded review must remain ordered after R4.
 
 ## LOG
 
@@ -138,6 +137,11 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Android reused the existing single tab and returned to `CheapLive Black Screen` afterward. `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0`; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
 - Exact detached verification at `6b778bf`: `npm ci` PASS; TypeScript lint PASS; 46 files / 302 tests PASS; Pages-base production build PASS. Rhythm main 252.38 kB / gzip 69.40 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
 
+### R3 Stage Differentiation Gate PASS
+
+- Independent delta review returned `RHYTHM V2 R3 STAGE DIFFERENTIATION GATE: PASS` and confirmed the sole persistence blocker is closed. The verdict accepted durable/transient separation, hold-release-only Greenhouse growth, MISS exclusion, restart reset, deterministic coverage and both retained-progression frames.
+- R3 is closed. The verdict preserves the approved order to R4 then R5 and reiterates the hard Running no-refactor/gameplay/persistence boundary.
+
 ### R4 — Product Shell / Result Loop implementation and smoke
 
 - Rhythm Home keeps Original Stages and Your Music as the two primary choices; calibration, audio/streaming test, settings and provenance remain lower-priority utilities in the scrollable shell.
@@ -163,9 +167,8 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 Next highest-value Rhythm slice:
 
-1. Submit the exact bounded R3 persistence delta at `6b778bf`; fix only a remaining persistence blocker if returned.
-2. On R3 PASS, submit exact R4 candidate `2459de0` plus its evidence-only closure for bounded independent review.
-3. On R4 PASS, submit exact R5 candidate `af97fae` plus its evidence-only closure for bounded independent review.
+1. Submit exact R4 candidate `2459de0` plus evidence/status HEAD `ff82e91` for bounded independent review.
+2. On R4 PASS, submit exact R5 candidate `af97fae` plus evidence/status HEAD `6cb960c` for bounded independent review.
 
 Timing invariant for all future slices:
 
