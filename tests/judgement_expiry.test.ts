@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Transport } from '../src/timing/Transport';
-import { expiredJudgeBeat, hasJudgeTargetExpired } from '../src/game/judgementExpiry';
+import { expiredJudgeBeat, hasJudgeTargetExpired, hasTargetExpiredForAutoMiss, TARGET_EXPIRY_GRACE_SEC } from '../src/game/judgementExpiry';
 import type { ScheduledJudgeTarget } from '../src/timing/Scheduler';
 import { TIMING_CONFIG } from '../src/timing/config';
-import { targetJudgeWindowSeconds } from '../src/game/targetWindows';
+import { Judge } from '../src/timing/Judge';
 
 describe('judgement expiry', () => {
   it('does not expire a beat-2 target before its OK window closes', () => {
@@ -46,17 +46,22 @@ describe('semantic hold recognition expiry', () => {
     expect(hasJudgeTargetExpired(transport, tap, 2.14, 0.14, 0.22)).toBe(true);
   });
 
-  it('does not auto-miss a hold release during its authoritative 160ms window', () => {
+  it('keeps the real release expiry path open through Judge boundaries and preserves tap expiry', () => {
     const transport = new Transport(() => 0, 120, [4, 4]);
     transport.start(0, 0);
     const release = { type: 'judge-target', id: 'release', beat: 4, inputKind: 'holdRelease' } as ScheduledJudgeTarget;
-    const expiryWindow = targetJudgeWindowSeconds(TIMING_CONFIG, release) + .01;
+    const judge = new Judge(TIMING_CONFIG, transport);
 
-    expect(expiryWindow).toBe(.17);
-    expect(hasJudgeTargetExpired(transport, release, 2.15, expiryWindow, .22)).toBe(false);
-    expect(hasJudgeTargetExpired(transport, release, 2.16, expiryWindow, .22)).toBe(false);
-    expect(hasJudgeTargetExpired(transport, release, 2.169, expiryWindow, .22)).toBe(false);
-    expect(hasJudgeTargetExpired(transport, release, 2.17, expiryWindow, .22)).toBe(true);
-    expect(hasJudgeTargetExpired(transport, release, 2.171, expiryWindow, .22)).toBe(true);
+    expect(TARGET_EXPIRY_GRACE_SEC).toBe(.01);
+    expect(hasTargetExpiredForAutoMiss(transport, release, 2.16, TIMING_CONFIG)).toBe(false);
+    expect(judge.judge(release, 2.16, 'holdRelease').kind).toBe('OK');
+    expect(hasTargetExpiredForAutoMiss(transport, release, 2.161, TIMING_CONFIG)).toBe(false);
+    expect(judge.judge(release, 2.161, 'holdRelease').kind).toBe('MISS');
+    expect(hasTargetExpiredForAutoMiss(transport, release, 2.169, TIMING_CONFIG)).toBe(false);
+    expect(hasTargetExpiredForAutoMiss(transport, release, 2.17, TIMING_CONFIG)).toBe(true);
+
+    const tap = { ...release, id: 'tap-expiry', inputKind: 'tap' } as ScheduledJudgeTarget;
+    expect(hasTargetExpiredForAutoMiss(transport, tap, 2.139, TIMING_CONFIG)).toBe(false);
+    expect(hasTargetExpiredForAutoMiss(transport, tap, 2.14, TIMING_CONFIG)).toBe(true);
   });
 });

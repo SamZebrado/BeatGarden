@@ -22,7 +22,7 @@ import { TIMING_CONFIG, type TimingConfig } from '../timing/config';
 import { CanvasManager } from '../render/CanvasManager';
 import { DebugOverlay } from '../render/DebugOverlay';
 import { resumeAfterAudioConfirmed } from './playbackLifecycle';
-import { expiredJudgeBeat, hasJudgeTargetExpired } from './judgementExpiry';
+import { expiredJudgeBeat, hasTargetExpiredForAutoMiss, TARGET_EXPIRY_GRACE_SEC } from './judgementExpiry';
 import { getLocale, languageTargetAction, languageTargetLabel, t, toggleLocale } from '../i18n/strings';
 import { loadSettings } from '../settings/settings';
 import { saveBestScore } from '../settings/scores';
@@ -710,11 +710,10 @@ cursor: pointer;
       window.setTimeout(() => this.finishRun(), delayMs as unknown as number);
     }
     // Auto-miss expired targets (past OK window).
-    const expiryGraceSec = 0.01;
     const maxBeatToCheck = expiredJudgeBeat(
       this.transport,
       snap.audioTime,
-      maxTargetJudgeWindowSeconds(this.config) + expiryGraceSec,
+      maxTargetJudgeWindowSeconds(this.config) + TARGET_EXPIRY_GRACE_SEC,
     );
     // Do not add scheduler look-ahead here: judgement expiry follows the
     // authoritative audio clock only. The previous +1 beat marked a target
@@ -725,13 +724,7 @@ cursor: pointer;
       // the original pointer-down AudioContext timestamp. Keep it eligible
       // until that semantic classification can occur; otherwise a valid hold
       // would be auto-MISSed before InputRouter is allowed to emit it.
-      if (!hasJudgeTargetExpired(
-        this.transport,
-        t,
-        snap.audioTime,
-        targetJudgeWindowSeconds(this.config, t) + expiryGraceSec,
-        this.config.holdThresholdMs / 1000,
-      )) continue;
+      if (!hasTargetExpiredForAutoMiss(this.transport, t, snap.audioTime, this.config)) continue;
       this.judge.autoMiss(t);
     }
   }
