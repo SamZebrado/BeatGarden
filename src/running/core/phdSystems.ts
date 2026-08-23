@@ -75,6 +75,17 @@ export interface PhdSnapshot {
   terminal: 'ongoing' | 'finalYear' | 'ended' | 'graduated';
 }
 
+export interface PhdSystemsStateV1 {
+  state: PhdSnapshot;
+  nextProjectAt: number;
+  nextQualifyingPrompt: number;
+  nextDefensePrompt: number;
+  nextLifestyleAt: number;
+  pausedAcademicTime: number;
+  contributions: ProjectId[];
+  milestoneTimingScale: number;
+}
+
 export const SUPERVISOR_PERSON: Record<SupervisorId, PersonId> = {
   supportive: 'mei', controlling: 'rowan', handsOff: 'lin',
 };
@@ -127,8 +138,18 @@ export class PhdSystems {
 
   private readonly milestoneTimingScale: number;
 
-  constructor(options: { initialResources?: Partial<Pick<PhdSnapshot, 'energy' | 'focus' | 'spirit'>>; milestoneTimingScale?: number } = {}) {
-    this.milestoneTimingScale = Math.max(.6, Math.min(1.4, options.milestoneTimingScale ?? 1));
+  constructor(options: { initialResources?: Partial<Pick<PhdSnapshot, 'energy' | 'focus' | 'spirit'>>; milestoneTimingScale?: number; restore?: PhdSystemsStateV1 } = {}) {
+    this.milestoneTimingScale = Math.max(.6, Math.min(1.4, options.restore?.milestoneTimingScale ?? options.milestoneTimingScale ?? 1));
+    if (options.restore) {
+      this.state = clonePhdSnapshot(options.restore.state);
+      this.nextProjectAt = options.restore.nextProjectAt;
+      this.nextQualifyingPrompt = options.restore.nextQualifyingPrompt;
+      this.nextDefensePrompt = options.restore.nextDefensePrompt;
+      this.nextLifestyleAt = options.restore.nextLifestyleAt;
+      this.pausedAcademicTime = options.restore.pausedAcademicTime;
+      this.contributions = new Set(options.restore.contributions);
+      return;
+    }
     if (options.initialResources) {
       if (options.initialResources.energy !== undefined) this.state.energy = bound(options.initialResources.energy);
       if (options.initialResources.focus !== undefined) this.state.focus = bound(options.initialResources.focus);
@@ -347,13 +368,19 @@ export class PhdSystems {
   }
 
   snapshot(): PhdSnapshot {
+    return clonePhdSnapshot(this.state);
+  }
+
+  exportState(): PhdSystemsStateV1 {
     return {
-      ...this.state,
-      activeProject: this.state.activeProject ? { ...this.state.activeProject } : null,
-      choice: this.state.choice ? { ...this.state.choice, options: [...this.state.choice.options] } as PhdChoice : null,
-      milestone: this.state.milestone ? { ...this.state.milestone } : null,
-      supervisorFeedback: this.state.supervisorFeedback ? { ...this.state.supervisorFeedback } : null,
-      lifestyle: this.state.lifestyle ? { ...this.state.lifestyle } : null,
+      state: this.snapshot(),
+      nextProjectAt: this.nextProjectAt,
+      nextQualifyingPrompt: this.nextQualifyingPrompt,
+      nextDefensePrompt: this.nextDefensePrompt,
+      nextLifestyleAt: this.nextLifestyleAt,
+      pausedAcademicTime: this.pausedAcademicTime,
+      contributions: [...this.contributions],
+      milestoneTimingScale: this.milestoneTimingScale,
     };
   }
 
@@ -618,3 +645,15 @@ export function graduationRequirements(state: Pick<PhdSnapshot, 'qualifying' | '
 }
 
 function bound(value: number): number { return Math.max(0, Math.min(100, value)); }
+
+function clonePhdSnapshot(state: PhdSnapshot): PhdSnapshot {
+  return {
+    ...state,
+    activeProject: state.activeProject ? { ...state.activeProject } : null,
+    choice: state.choice ? { ...state.choice, options: [...state.choice.options] } as PhdChoice : null,
+    milestone: state.milestone ? { ...state.milestone } : null,
+    supervisorFeedback: state.supervisorFeedback ? { ...state.supervisorFeedback } : null,
+    lifestyle: state.lifestyle ? { ...state.lifestyle } : null,
+    annualMilestone: state.annualMilestone ? { ...state.annualMilestone } : null,
+  };
+}

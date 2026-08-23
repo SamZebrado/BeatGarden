@@ -23,8 +23,8 @@ export interface ScenarioEnemy extends Vec2 {
   flash: number;
 }
 
-interface ScenarioProjectile extends Vec2 { id: number; vx: number; vy: number; damage: number; radius: number; ttl: number }
-interface ScenarioPickup extends Vec2 { id: number; value: number; radius: number }
+export interface ScenarioProjectile extends Vec2 { id: number; vx: number; vy: number; damage: number; radius: number; ttl: number }
+export interface ScenarioPickup extends Vec2 { id: number; value: number; radius: number }
 
 export interface ScenarioSnapshot {
   world: ScenarioWorld;
@@ -66,6 +66,20 @@ export interface ScenarioSnapshot {
   } | null;
   completed: boolean;
   gameOver: boolean;
+}
+
+export interface ScenarioSimulationStateV1 {
+  rngState: number; nextId: number; time: number; spawnTimer: number; shotTimer: number;
+  eventAt: number; eventPhase: ScenarioSnapshot['event']['phase']; eventRemaining: number; eventKind: ScenarioSnapshot['event']['kind']; nextChoiceAt: number;
+  climaxPhase: ScenarioSnapshot['climax']['phase']; climaxProgress: number; climaxBossSpawned: boolean;
+  completed: boolean; gameOver: boolean; defeated: number;
+  energy: number; focus: number; spirit: number; calendar: number; progress: number; choice: ScenarioChoice | null;
+  masterSupervisor: PersonId | null; masterCareerPlan: CareerPlan | null;
+  masterProposalPhase: NonNullable<ScenarioSnapshot['masterPath']>['proposal']['phase']; masterProposalRemaining: number; masterProposalProgress: number; masterProposalRosterInitialized: boolean;
+  workStage: WorkStage; managerId: ManagerId | null; marketStrength: number; experience: number; careerTime: number; workConversionScore: number; promotionProgress: number;
+  conversionChoiceShown: boolean; nextMarketAt: number; nextConversionAt: number; nextClimaxAt: number;
+  activePriority: string; priorityRemaining: number;
+  enemies: ScenarioEnemy[]; projectiles: ScenarioProjectile[]; pickups: ScenarioPickup[]; player: ScenarioSnapshot['player'];
 }
 
 const CONFIG = {
@@ -131,14 +145,18 @@ export class ScenarioSimulation {
   private readonly automaticOffense: boolean;
   private readonly damageEnabled: boolean;
 
-  constructor(readonly world: ScenarioWorld, seed = 0x51ce2026, private readonly difficulty: RunningDifficulty = 'garden', options: { automaticOffense?: boolean; damageEnabled?: boolean } = {}) {
+  constructor(readonly world: ScenarioWorld, seed = 0x51ce2026, private readonly difficulty: RunningDifficulty = 'garden', options: { automaticOffense?: boolean; damageEnabled?: boolean; restore?: ScenarioSimulationStateV1 } = {}) {
     this.config = CONFIG[world];
-    this.rng = createRng(seed);
+    this.rng = createRng(seed, options.restore?.rngState);
     this.automaticOffense = options.automaticOffense ?? true;
     this.damageEnabled = options.damageEnabled ?? true;
     this.eventAt = this.config.eventAt;
     this.nextChoiceAt = this.config.choiceAt;
     this.nextClimaxAt = this.config.climaxAt;
+    if (options.restore) {
+      this.restore(options.restore);
+      return;
+    }
     if (world === 'master') this.choice = { kind: 'masterSupervisor', options: ['mei', 'rowan', 'lin'] };
     else {
       this.marketStrength = seededMarketStrength(this.rng);
@@ -270,6 +288,13 @@ export class ScenarioSimulation {
     }
   }
 
+  startChoiceReview(kind: 'careerPlan' | 'workOffer' | 'workConversion' | 'workPriority'): void {
+    if (kind === 'careerPlan' && this.world === 'master') this.choice = { kind: 'careerPlan', options: ['researchPhd', 'employment', 'undecided'] };
+    else if (kind === 'workOffer' && this.world === 'work') this.choice = { kind: 'workOffer', options: ['offer-a', 'offer-b', 'offer-c'] };
+    else if (kind === 'workConversion' && this.world === 'work') this.choice = { kind: 'workConversion', options: ['continue', 'leaveSearch'] };
+    else if (kind === 'workPriority' && this.world === 'work') this.choice = { kind: 'workPriority', options: ['protectFocus', 'acceptRush'] };
+  }
+
   defeatDesignatedTargetForReview(id: number): boolean {
     const target = this.enemies.find((enemy) => enemy.id === id && (enemy.source === 'milestone' || enemy.source === 'climax'));
     if (!target) return false;
@@ -331,6 +356,40 @@ export class ScenarioSimulation {
       } : null,
       completed: this.completed, gameOver: this.gameOver,
     };
+  }
+
+  exportState(): ScenarioSimulationStateV1 {
+    return {
+      rngState: this.rng.state(), nextId: this.nextId, time: this.time, spawnTimer: this.spawnTimer, shotTimer: this.shotTimer,
+      eventAt: this.eventAt, eventPhase: this.eventPhase, eventRemaining: this.eventRemaining, eventKind: this.eventKind, nextChoiceAt: this.nextChoiceAt,
+      climaxPhase: this.climaxPhase, climaxProgress: this.climaxProgress, climaxBossSpawned: this.climaxBossSpawned,
+      completed: this.completed, gameOver: this.gameOver, defeated: this.defeated, energy: this.energy, focus: this.focus, spirit: this.spirit,
+      calendar: this.calendar, progress: this.progress, choice: this.choice ? { ...this.choice, options: [...this.choice.options] } as ScenarioChoice : null,
+      masterSupervisor: this.masterSupervisor, masterCareerPlan: this.masterCareerPlan, masterProposalPhase: this.masterProposalPhase,
+      masterProposalRemaining: this.masterProposalRemaining, masterProposalProgress: this.masterProposalProgress, masterProposalRosterInitialized: this.masterProposalRosterInitialized,
+      workStage: this.workStage, managerId: this.managerId, marketStrength: this.marketStrength, experience: this.experience, careerTime: this.careerTime,
+      workConversionScore: this.workConversionScore, promotionProgress: this.promotionProgress, conversionChoiceShown: this.conversionChoiceShown,
+      nextMarketAt: this.nextMarketAt, nextConversionAt: this.nextConversionAt, nextClimaxAt: this.nextClimaxAt,
+      activePriority: this.activePriority, priorityRemaining: this.priorityRemaining, enemies: this.enemies.map((item) => ({ ...item, flash: 0 })),
+      projectiles: this.projectiles.map((item) => ({ ...item })), pickups: this.pickups.map((item) => ({ ...item })), player: { ...this.player },
+    };
+  }
+
+  private restore(state: ScenarioSimulationStateV1): void {
+    this.nextId = state.nextId; this.time = state.time; this.spawnTimer = state.spawnTimer; this.shotTimer = state.shotTimer;
+    this.eventAt = state.eventAt; this.eventPhase = state.eventPhase; this.eventRemaining = state.eventRemaining; this.eventKind = state.eventKind; this.nextChoiceAt = state.nextChoiceAt;
+    this.climaxPhase = state.climaxPhase; this.climaxProgress = state.climaxProgress; this.climaxBossSpawned = state.climaxBossSpawned;
+    this.completed = state.completed; this.gameOver = state.gameOver; this.defeated = state.defeated; this.energy = state.energy; this.focus = state.focus;
+    this.spirit = state.spirit; this.calendar = state.calendar; this.progress = state.progress;
+    this.choice = state.choice ? { ...state.choice, options: [...state.choice.options] } as ScenarioChoice : null;
+    this.masterSupervisor = state.masterSupervisor; this.masterCareerPlan = state.masterCareerPlan; this.masterProposalPhase = state.masterProposalPhase;
+    this.masterProposalRemaining = state.masterProposalRemaining; this.masterProposalProgress = state.masterProposalProgress; this.masterProposalRosterInitialized = state.masterProposalRosterInitialized;
+    this.workStage = state.workStage; this.managerId = state.managerId; this.marketStrength = state.marketStrength; this.experience = state.experience; this.careerTime = state.careerTime;
+    this.workConversionScore = state.workConversionScore; this.promotionProgress = state.promotionProgress; this.conversionChoiceShown = state.conversionChoiceShown;
+    this.nextMarketAt = state.nextMarketAt; this.nextConversionAt = state.nextConversionAt; this.nextClimaxAt = state.nextClimaxAt;
+    this.activePriority = state.activePriority; this.priorityRemaining = state.priorityRemaining;
+    this.enemies = state.enemies.map((item) => ({ ...item })); this.projectiles = state.projectiles.map((item) => ({ ...item }));
+    this.pickups = state.pickups.map((item) => ({ ...item })); this.player = { ...state.player };
   }
 
   private move(dt: number, input: RunningInput): void {

@@ -22,6 +22,56 @@ ChatGPT review conversation.
   migrated. V2 owns completions, milestone records, difficulty records, persistent
   semantic hints, local Boss metadata and Running mute state.
 
+### Durable checkpoint / arbitrary resume checkpoint — 2026-08-23
+
+- The existing `beatgarden.running.v2` key remains the meta authority. One additive
+  `beatgarden.running.current.v1` key owns only the unfinished run; Starting New or
+  completing/failing a run removes that key without deleting completions, unlocks,
+  Bosses, seen hints, mute, difficulty records, Rhythm settings or Rhythm scores.
+- The v1 current-run envelope records world, difficulty, seed, advanced RNG state and
+  saved time plus the pure PhD or Master/Work simulation export. It includes player,
+  combat entities and timers, choices, upgrades/resources, PhD academic timers and
+  milestones, Master Proposal/Career Plan, and Work offer/manager/market/conversion/
+  priority/promotion authority. Phaser cameras, DOM, audio and cosmetic pulses are
+  rebuilt rather than serialized.
+- Scenes write the same validated snapshot immediately after stable semantic changes,
+  every four seconds, on `visibilitychange` to hidden, on `pagehide`, and before scene
+  destruction. They never write every frame. Continue Run is explicit and localized;
+  Start New Run explicitly discards only the unfinished snapshot.
+- Parsing requires version/world/difficulty enums, exact nested choice and progression
+  discriminants, finite bounded gameplay fields, globally unique positive entity IDs,
+  `nextId` above every restored ID, bounded object depth and arrays (64 enemies, 256
+  projectiles, 128 pickups/pulses). Finite Qualifying/Defense/Proposal/Defense rosters
+  must agree with authoritative target minus progress. Invalid JSON, old/partial
+  versions, semantic soft-lock payloads and oversized arrays discard only
+  `beatgarden.running.current.v1` and fall back safely.
+- Deterministic tests cover uninterrupted versus save/restore continuation and RNG for
+  all three worlds; full PhD authority; Qualifying restored at five of nine and then
+  passed without replenishment; Master Proposal 3/6 and one-time Career Plan; Work
+  trial, active priority and resolved conversion; corruption isolation; and Rhythm-key
+  preservation. Representative JSON simulation payloads measured about 1.7 kB normal
+  PhD, 2.5 kB nine-target Qualifying, 1.9 kB Master Proposal and 3.2 kB dense Work.
+- Desktop 390×844 pointer QA covered PhD Supervisor, Master Career Plan, Work Offer and
+  Work Conversion. Background, title, gaps and drag-out remained no-op; actual cards
+  committed only their visible option. A PhD run reloaded at 6.567 s and resumed with
+  the same controlling supervisor and pending upgrade. The exact one-time portrait
+  hint appeared only on first portrait encounter and stayed absent after reload.
+- Android `24091RPADC` reused the existing Chrome BeatGarden tab. Real touch verified
+  empty/gap/drag-out no-op and actual-card selection for an upgrade and Project; after
+  background plus reload, Continue restored at 12.000 s with the same pending Project
+  choice. The device was returned to its existing CheapLive black-screen tab, which
+  was refreshed/tapped and verified black. Temporary CDP/reverse mappings were removed.
+- Current QA is functional, not long-duration thermal/battery evidence. The prior
+  warmed-offline PWA contract remains unchanged; this checkpoint did not repeat a
+  server-stopped offline run and makes no stronger offline claim.
+- The one designated ChatGPT review completed with its terminal marker and returned
+  one finite P1: nested current-run validation was structurally bounded but not yet
+  semantically strict. The validator and focused isolation fixtures were hardened in
+  one repair pass; no persistence redesign or review loop was introduced. Final local
+  QA: lint PASS, 222/222 tests in 33 files, production build PASS, live dependency
+  audit 0 vulnerabilities. A post-repair 390×844 production reload offered Continue at
+  6 s and restored the same LV/resources with no console errors.
+
 ### Reality & Clarity checkpoint — 2026-08-23
 
 - Qualifying is now one finite designated roster: Garden initializes exactly nine
@@ -162,8 +212,27 @@ ChatGPT review conversation.
   clearance remains required before a major commercial launch.
 - Android hardware evidence is functional/touch evidence, not a long-duration thermal
   or battery benchmark. No regression is inferred from desktop performance alone.
+- LocalStorage remains synchronous and device/browser quota dependent. Snapshots are
+  strictly bounded and currently small, but there is no cross-device/cloud resume.
 
 ## LOG
+
+### 2026-08-23 — Durable Running checkpoint and arbitrary resume
+
+- Added a separately versioned current-run authority, export/import for every pure
+  simulation owner, advanced Mulberry32 state restoration, stable checkpoint writes,
+  four-second autosave, lifecycle persistence and explicit localized Continue/New UX.
+- Reused one card-geometry authority for drawing and hit-testing; choices now require
+  pointer down/up on the same visible card and cancel after a meaningful drag.
+- Added the exact one-time portrait full-view hint through persistent `seenHints` and
+  retained `textOff=1` suppression and Reset Semantic Hints eligibility.
+- Added deterministic finite-roster, one-time-transition, corruption, size, resume UI,
+  geometry and hint regression coverage. No Rhythm runtime/save code or service worker
+  code was changed.
+- Closed the designated review's single finite repair by validating all nested choice,
+  PhD/Master/Work progression and entity unions, ID sequencing and finite-roster
+  cross-field invariants. Malformed semantic snapshots now remove only current-run;
+  focused fixtures retain both Running meta and representative Rhythm data.
 
 ### 2026-08-23 — Running Mode Reality & Clarity MVP
 

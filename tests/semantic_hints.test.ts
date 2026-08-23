@@ -40,4 +40,18 @@ describe('Running semantic hints', () => {
     expect(root.childElementCount).toBe(0);
     hints.destroy();
   });
+
+  it('persists the portrait guidance as a one-time hint', () => {
+    const finished = new Promise<void>(() => undefined);
+    const animate = vi.fn(() => ({ finished, cancel: vi.fn() } as unknown as Animation));
+    Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: animate });
+    const first = new SemanticHints(document.createElement('div'), false);
+    first.show('portrait', 'running.hint.portrait');
+    first.destroy();
+
+    const second = new SemanticHints(document.createElement('div'), false);
+    second.show('portrait', 'running.hint.portrait');
+    expect(animate).toHaveBeenCalledTimes(1);
+    second.destroy();
+  });
 });

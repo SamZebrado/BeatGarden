@@ -36,6 +36,10 @@ static hosts.
   three-year Proposal/Defense path; Work follows offer, trial, conversion and
   promotion with manager and Job Market effects.
 - Running difficulty: Sprout, Garden and Storm. Garden is the default.
+- Running keeps one local, versioned unfinished-run snapshot. Players choose whether
+  to Continue Run or Start New Run; checkpoints, a four-second autosave cadence and
+  browser lifecycle saves preserve deterministic mid-run state without replacing the
+  separate long-term Running meta save.
 - Timing calibration, persistent volume/motion settings, and local best scores.
 - Audio/streaming test plus an in-product asset and stream-safety explanation.
 - Offline shell, install manifest, responsive logical canvas, mouse and touch input.

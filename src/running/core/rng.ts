@@ -4,8 +4,8 @@ export interface SeededRng {
 }
 
 /** Mulberry32: small, deterministic and adequate for gameplay scheduling. */
-export function createRng(seed: number): SeededRng {
-  let value = seed >>> 0;
+export function createRng(seed: number, restoredState?: number): SeededRng {
+  let value = (restoredState ?? seed) >>> 0;
   return {
     next(): number {
       value = (value + 0x6d2b79f5) >>> 0;

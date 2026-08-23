@@ -1,5 +1,5 @@
 import { createRng, type SeededRng } from './rng';
-import { PhdSystems, resourceModifiers, type PhdSnapshot } from './phdSystems';
+import { PhdSystems, resourceModifiers, type PhdSnapshot, type PhdSystemsStateV1 } from './phdSystems';
 import { adjustEnemyDamage, adjustEnemySpeed, adjustSpawnInterval, adjustTelegraphDuration, type RunningDifficulty } from './difficulty';
 
 export const RUNNING_WORLD = { width: 1280, height: 720 } as const;
@@ -34,6 +34,32 @@ export interface RunningSimulationOptions {
   firstMeetingAt?: number;
   difficulty?: RunningDifficulty;
   automaticOffense?: boolean;
+  restore?: RunningSimulationStateV1;
+}
+
+export interface RunningSimulationStateV1 {
+  rngState: number;
+  nextId: number;
+  spawnTimer: number;
+  shotTimer: number;
+  meetingAt: number;
+  meetingPhase: 'idle' | 'telegraph' | 'active';
+  meetingRemaining: number;
+  meetingCount: number;
+  milestoneRosterInitialized: boolean;
+  enemies: Enemy[];
+  projectiles: Projectile[];
+  pickups: Pickup[];
+  hitPulses: HitPulse[];
+  upgrades: Record<UpgradeId, number>;
+  player: RunningSnapshot['player'];
+  time: number;
+  level: number;
+  xp: number;
+  upgradePending: boolean;
+  defeated: number;
+  gameOver: boolean;
+  phd: PhdSystemsStateV1;
 }
 
 export interface RunningSnapshot {
@@ -92,10 +118,14 @@ export class RunningSimulation {
   private readonly automaticOffense: boolean;
 
   constructor(seed = 0xbea72026, options: RunningSimulationOptions = {}) {
-    this.rng = createRng(seed);
+    this.rng = createRng(seed, options.restore?.rngState);
     this.difficulty = options.difficulty ?? 'garden';
-    this.phd = new PhdSystems({ milestoneTimingScale: this.difficulty === 'sprout' ? 1.2 : this.difficulty === 'storm' ? .78 : 1 });
+    this.phd = new PhdSystems({ milestoneTimingScale: this.difficulty === 'sprout' ? 1.2 : this.difficulty === 'storm' ? .78 : 1, ...(options.restore ? { restore: options.restore.phd } : {}) });
     this.automaticOffense = options.automaticOffense ?? true;
+    if (options.restore) {
+      this.restore(options.restore);
+      return;
+    }
     if (options.initialPlayer) {
       this.player.x = clamp(options.initialPlayer.x, PLAYER_RADIUS, RUNNING_WORLD.width - PLAYER_RADIUS);
       this.player.y = clamp(options.initialPlayer.y, PLAYER_RADIUS, RUNNING_WORLD.height - PLAYER_RADIUS);
@@ -215,6 +245,28 @@ export class RunningSimulation {
       gameOver: this.gameOver,
       phd: this.phd.snapshot(),
     };
+  }
+
+  exportState(): RunningSimulationStateV1 {
+    return {
+      rngState: this.rng.state(), nextId: this.nextId, spawnTimer: this.spawnTimer, shotTimer: this.shotTimer,
+      meetingAt: Number.isFinite(this.meetingAt) ? this.meetingAt : 1e9, meetingPhase: this.meetingPhase, meetingRemaining: this.meetingRemaining,
+      meetingCount: this.meetingCount, milestoneRosterInitialized: this.phd.snapshot().milestone?.phase === 'presentation' && this.milestoneRosterInitialized,
+      enemies: this.enemies.map((item) => ({ ...item, flash: 0 })), projectiles: this.projectiles.map((item) => ({ ...item })),
+      pickups: this.pickups.map((item) => ({ ...item })), hitPulses: [],
+      upgrades: { ...this.upgrades }, player: { ...this.player }, time: this.time, level: this.level, xp: this.xp,
+      upgradePending: this.upgradePending, defeated: this.defeated, gameOver: this.gameOver, phd: this.phd.exportState(),
+    };
+  }
+
+  private restore(state: RunningSimulationStateV1): void {
+    this.nextId = state.nextId; this.spawnTimer = state.spawnTimer; this.shotTimer = state.shotTimer;
+    this.meetingAt = state.meetingAt; this.meetingPhase = state.meetingPhase; this.meetingRemaining = state.meetingRemaining;
+    this.meetingCount = state.meetingCount; this.milestoneRosterInitialized = state.milestoneRosterInitialized;
+    this.enemies = state.enemies.map((item) => ({ ...item })); this.projectiles = state.projectiles.map((item) => ({ ...item }));
+    this.pickups = state.pickups.map((item) => ({ ...item })); this.hitPulses = state.hitPulses.map((item) => ({ ...item }));
+    this.upgrades = { ...state.upgrades }; this.player = { ...state.player }; this.time = state.time; this.level = state.level;
+    this.xp = state.xp; this.upgradePending = state.upgradePending; this.defeated = state.defeated; this.gameOver = state.gameOver;
   }
 
   private movePlayer(dt: number, input: RunningInput): void {

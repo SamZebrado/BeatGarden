@@ -2,17 +2,20 @@ import Phaser from 'phaser';
 import type { RunningGameHandle } from '../RunningModeHost';
 import { RUNNING_WORLD, RunningSimulation, type ReviewScene, type RunningInput, type RunningSnapshot, type UpgradeId } from '../core/simulation';
 import { t, type StringKey } from '../../i18n/strings';
-import { parseDifficulty } from '../core/difficulty';
+import type { RunningDifficulty } from '../core/difficulty';
 import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
 import { RunningLegend, createPhdLegendEntries } from '../RunningLegend';
 import { loadRunningSave, markWorldCompleted, updateRunningSave } from '../core/save';
 import type { AnnualMilestoneKind } from '../core/phdSystems';
 import { PromotionAction } from '../PromotionAction';
+import { beginCardPress, cardAtPoint, cardPressMovedTooFar, completesCardPress, phdChoiceCardRects, upgradeCardRects, type CardPress, type ChoiceViewport } from './choiceCards';
+import { clearCurrentRun, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
 
 const STEP = 1 / 60;
 
-export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => void }): Promise<RunningGameHandle> {
+export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => void; difficulty: RunningDifficulty; resume?: Extract<CurrentRunV1, { world: 'phd' }> }): Promise<RunningGameHandle> {
+  const runSeed = options.resume?.seed ?? seedFromUrl();
   root.replaceChildren();
   root.style.cssText = 'width:100vw;height:100vh;display:block;overflow:hidden;background:#071512;touch-action:none;';
   const host = document.createElement('div');
@@ -26,7 +29,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
   root.appendChild(hudOverlay);
 
   class PhdGardenScene extends Phaser.Scene {
-    private simulation = createSimulation();
+    private simulation = createSimulation(options.difficulty, options.resume);
     private graphics!: Phaser.GameObjects.Graphics;
     private uiGraphics!: Phaser.GameObjects.Graphics;
     private hud!: Phaser.GameObjects.Text;
@@ -45,6 +48,8 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     private touchCount = 0;
     private pollutionTrail: Array<{ x: number; y: number }> = [];
     private lastPollutionSample = -1;
+    private choicePress: CardPress | null = null;
+    private checkpointToken = '';
 
     constructor() { super('phd-garden'); }
 
@@ -68,10 +73,13 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.scale.on('resize', this.resizeCamera, this);
       this.resizeCamera();
       this.hints = new SemanticHints(root, isTextOff());
+      this.showPortraitHintIfNeeded();
       this.audio = new RunningAudio(root, 'phd');
       this.legend = new RunningLegend(root, { world: 'phd', textOff: isTextOff(), getEntries: () => createPhdLegendEntries(this.simulation.snapshot(), loadRunningSave().seenHints), onOpenChange: (open) => { this.legendOpen = open; if (open) this.joystick = null; } });
       this.promotion = new PromotionAction(root, isTextOff());
       this.render(this.simulation.snapshot());
+      this.time.addEvent({ delay: 4000, loop: true, callback: () => this.saveNow() });
+      this.saveNow();
     }
 
     override update(_time: number, deltaMs: number): void {
@@ -128,7 +136,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       if (!choice) return;
       const keys = [this.keys.ONE, this.keys.TWO, this.keys.THREE, this.keys.FOUR, this.keys.FIVE];
       for (let index = 0; index < choice.options.length; index += 1) {
-        if (Phaser.Input.Keyboard.JustDown(keys[index])) this.simulation.choosePhdOption(choice.options[index]);
+        if (Phaser.Input.Keyboard.JustDown(keys[index]) && this.simulation.choosePhdOption(choice.options[index])) this.saveNow();
       }
     }
 
@@ -137,21 +145,14 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       if (snapshot.gameOver || snapshot.phd.terminal === 'ended' || snapshot.phd.terminal === 'graduated') { this.restart(); return; }
       if (snapshot.phd.choice) {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-        const view = this.cameras.main.worldView;
-        const count = snapshot.phd.choice.options.length;
-        const index = this.isPortrait()
-          ? Math.max(0, Math.min(count - 1, Math.floor((world.y - view.top) / (view.height / count))))
-          : Math.max(0, Math.min(count - 1, Math.floor((world.x - view.left) / (view.width / count))));
-        this.simulation.choosePhdOption(snapshot.phd.choice.options[index]);
+        const index = cardAtPoint(phdChoiceCardRects(this.choiceViewport(), snapshot.phd.choice.options.length, this.isPortrait()), world);
+        this.choicePress = index === null ? null : beginCardPress(pointer.id, index, { x: pointer.x, y: pointer.y });
         return;
       }
       if (snapshot.upgradePending && !snapshot.phd.milestone) {
         const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-        const view = this.cameras.main.worldView;
-        const index = this.isPortrait()
-          ? Math.max(0, Math.min(2, Math.floor((world.y - view.top) / (view.height / 3))))
-          : Math.max(0, Math.min(2, Math.floor((world.x - view.left) / (view.width / 3))));
-        this.chooseUpgrade((['orbit', 'cadence', 'vitality'] as const)[index]);
+        const index = cardAtPoint(upgradeCardRects(this.choiceViewport(), this.isPortrait()), world);
+        this.choicePress = index === null ? null : beginCardPress(pointer.id, index, { x: pointer.x, y: pointer.y });
         return;
       }
       this.joystick = { pointerId: pointer.id, x: pointer.x, y: pointer.y, currentX: pointer.x, currentY: pointer.y };
@@ -159,6 +160,10 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     }
 
     private onPointerMove(pointer: Phaser.Input.Pointer): void {
+      if (this.choicePress?.pointerId === pointer.id) {
+        if (cardPressMovedTooFar(this.choicePress, { x: pointer.x, y: pointer.y })) this.choicePress = null;
+        return;
+      }
       if (this.joystick?.pointerId === pointer.id) {
         this.joystick.currentX = pointer.x;
         this.joystick.currentY = pointer.y;
@@ -166,20 +171,45 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     }
 
     private onPointerUp(pointer: Phaser.Input.Pointer): void {
+      const press = this.choicePress;
+      this.choicePress = null;
+      const snapshot = this.simulation.snapshot();
+      const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      if (snapshot.phd.choice) {
+        const cards = phdChoiceCardRects(this.choiceViewport(), snapshot.phd.choice.options.length, this.isPortrait());
+        const index = completesCardPress(press, pointer.id, cards, world, { x: pointer.x, y: pointer.y });
+        if (index !== null && this.simulation.choosePhdOption(snapshot.phd.choice.options[index])) this.saveNow();
+        return;
+      }
+      if (snapshot.upgradePending && !snapshot.phd.milestone) {
+        const index = completesCardPress(press, pointer.id, upgradeCardRects(this.choiceViewport(), this.isPortrait()), world, { x: pointer.x, y: pointer.y });
+        if (index !== null) this.chooseUpgrade((['orbit', 'cadence', 'vitality'] as const)[index]);
+        return;
+      }
       if (this.joystick?.pointerId === pointer.id) this.joystick = null;
     }
 
-    private chooseUpgrade(id: UpgradeId): void { this.simulation.chooseUpgrade(id); }
+    private chooseUpgrade(id: UpgradeId): void { if (this.simulation.chooseUpgrade(id)) this.saveNow(); }
 
     private restart(): void {
-      this.simulation = createSimulation();
+      clearCurrentRun();
+      this.simulation = createSimulation(options.difficulty);
       this.accumulator = 0;
       this.joystick = null;
+      this.choicePress = null;
       this.previous = null;
       this.completionRecorded = false;
       this.pollutionTrail = [];
       this.lastPollutionSample = -1;
+      this.checkpointToken = '';
       this.promotion.hide();
+      this.saveNow();
+    }
+
+    saveNow(): void {
+      const state = this.simulation.snapshot();
+      if (state.gameOver || state.phd.terminal === 'ended' || state.phd.terminal === 'graduated') { clearCurrentRun(); return; }
+      saveCurrentRun({ version: 1, status: 'active', savedAt: Date.now(), seed: runSeed, world: 'phd', difficulty: state.difficulty, simulation: this.simulation.exportState() });
     }
 
     private resizeCamera(): void {
@@ -188,6 +218,16 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         : Math.min(this.scale.width / RUNNING_WORLD.width, this.scale.height / RUNNING_WORLD.height);
       this.cameras.main.setBounds(0, 0, RUNNING_WORLD.width, RUNNING_WORLD.height).setZoom(zoom);
       this.positionHud(zoom);
+      this.showPortraitHintIfNeeded();
+    }
+
+    private choiceViewport(): ChoiceViewport {
+      const view = this.cameras.main.worldView;
+      return { left: view.left, top: view.top, width: view.width, height: view.height, centerX: view.centerX, centerY: view.centerY };
+    }
+
+    private showPortraitHintIfNeeded(): void {
+      if (this.isPortrait() && this.hints) this.hints.show('portrait', 'running.hint.portrait');
     }
 
     private render(state: RunningSnapshot): void {
@@ -272,6 +312,17 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       if (state.gameOver) this.drawGameOver(g);
       else if (state.phd.terminal === 'ended' || state.phd.terminal === 'graduated') this.drawPhdTerminal(g, state.phd.terminal);
       this.updateSemanticsAndAudio(state);
+      this.saveCheckpointIfChanged(state);
+    }
+
+    private saveCheckpointIfChanged(state: RunningSnapshot): void {
+      const token = [state.phd.supervisorId, state.phd.year, state.phd.annualReviews, state.phd.lifestyle?.id,
+        state.phd.activeProject?.id, state.phd.completedProjects, state.phd.assignedLabor, state.phd.lastBoundaryReaction,
+        state.phd.thesisStage, state.phd.qualifying, state.phd.preDefense, state.phd.revisionRemaining === 0,
+        state.phd.defense, state.phd.milestone?.kind, state.phd.milestone?.phase, state.phd.milestone?.progress,
+        state.phd.terminal, state.upgradePending, state.level].join('|');
+      if (!this.checkpointToken) { this.checkpointToken = token; return; }
+      if (token !== this.checkpointToken) { this.checkpointToken = token; this.saveNow(); }
     }
 
     private drawEnemy(g: Phaser.GameObjects.Graphics, enemy: RunningSnapshot['enemies'][number], state: RunningSnapshot): void {
@@ -470,16 +521,14 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     private drawUpgradeOverlay(g: Phaser.GameObjects.Graphics): void {
       const view = this.cameras.main.worldView;
       g.fillStyle(0x030908, 0.82).fillRect(view.left, view.top, view.width, view.height);
-      const cards = this.isPortrait() ? [
-        { x: view.centerX - 140, y: view.top + 70, width: 280, height: 155, color: 0x59d69d, title: t('running.upgradeOrbit'), icon: '◉', detail: '1' },
-        { x: view.centerX - 140, y: view.top + 280, width: 280, height: 155, color: 0xffda71, title: t('running.upgradeCadence'), icon: '⚡', detail: '2' },
-        { x: view.centerX - 140, y: view.top + 490, width: 280, height: 155, color: 0xff8b86, title: t('running.upgradeVitality'), icon: '♥', detail: '3' },
-      ] : [
-        { x: 95, y: 205, width: 300, height: 300, color: 0x59d69d, title: t('running.upgradeOrbit'), icon: '◉', detail: '1' },
-        { x: 450, y: 205, width: 300, height: 300, color: 0xffda71, title: t('running.upgradeCadence'), icon: '⚡', detail: '2' },
-        { x: 805, y: 205, width: 300, height: 300, color: 0xff8b86, title: t('running.upgradeVitality'), icon: '♥', detail: '3' },
+      const cards = upgradeCardRects(this.choiceViewport(), this.isPortrait());
+      const styles = [
+        { color: 0x59d69d, title: t('running.upgradeOrbit'), icon: '◉', detail: '1' },
+        { color: 0xffda71, title: t('running.upgradeCadence'), icon: '⚡', detail: '2' },
+        { color: 0xff8b86, title: t('running.upgradeVitality'), icon: '♥', detail: '3' },
       ];
-      for (const card of cards) {
+      for (let index = 0; index < cards.length; index += 1) {
+        const card = { ...cards[index], ...styles[index] };
         g.fillStyle(0x102c25, 1).fillRoundedRect(card.x, card.y, card.width, card.height, 24);
         g.lineStyle(4, card.color, 0.9).strokeRoundedRect(card.x, card.y, card.width, card.height, 24);
         const compact = this.isPortrait();
@@ -523,12 +572,10 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
             : choice.kind === 'supervisorRequest' ? ['◆+  ▧+  ◷−', '◇+  ▧−', '◇  ≈?']
             : ['◉  ▶  ◆', '◷  ♡'];
       const colors = [0x79d8b0, 0xf1c867, 0x7fc6ef, 0xd99af0, 0xff9678];
+      const cards = phdChoiceCardRects(this.choiceViewport(), labels.length, this.isPortrait());
       for (let index = 0; index < labels.length; index += 1) {
         const portrait = this.isPortrait();
-        const width = portrait ? view.width - 48 : view.width / labels.length - 32;
-        const height = portrait ? (view.height - 150) / labels.length - 8 : 260;
-        const x = portrait ? view.left + 24 : view.left + index * (view.width / labels.length) + 16;
-        const y = portrait ? view.top + 140 + index * ((view.height - 150) / labels.length) : view.centerY - 130;
+        const { x, y, width, height } = cards[index];
         g.fillStyle(0x132e28, 1).fillRoundedRect(x, y, width, height, 22);
         g.lineStyle(4, colors[index], 0.9).strokeRoundedRect(x, y, width, height, 22);
         this.ephemeralText(x + width / 2, y + height * (portrait ? 0.22 : 0.38), icons[index], `#${colors[index].toString(16)}`, portrait ? 31 : 58);
@@ -640,6 +687,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         }
       }
       if (state.phd.terminal === 'graduated' && !this.completionRecorded) {
+        clearCurrentRun();
         this.completionRecorded = true;
         this.audio.cue('complete');
         markWorldCompleted('phd', state.difficulty);
@@ -681,7 +729,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
   exit.style.cssText = 'position:fixed;z-index:50;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));width:48px;height:48px;border-radius:50%;border:1px solid #7ea996;background:#102d25;color:#fff;font-size:22px;cursor:pointer;';
   exit.addEventListener('click', options.onExit);
   root.appendChild(exit);
-  return { destroy: () => { const scene = game.scene.getScene('phd-garden') as PhdGardenScene | undefined; scene?.destroyRuntime(); exit.remove(); hudOverlay.remove(); game.destroy(true); } };
+  return { saveNow: () => { const scene = game.scene.getScene('phd-garden') as PhdGardenScene | undefined; scene?.saveNow(); }, destroy: () => { const scene = game.scene.getScene('phd-garden') as PhdGardenScene | undefined; scene?.saveNow(); scene?.destroyRuntime(); exit.remove(); hudOverlay.remove(); game.destroy(true); } };
 }
 
 function seedFromUrl(): number {
@@ -700,9 +748,10 @@ function annualMilestoneKey(kind: AnnualMilestoneKind): StringKey {
   return kind === 'firstYearTalk' ? 'running.milestone.year1' : kind === 'proposal' ? 'running.milestone.year2' : 'running.milestone.annual';
 }
 
-function createSimulation(): RunningSimulation {
+function createSimulation(difficulty: RunningDifficulty, resume?: Extract<CurrentRunV1, { world: 'phd' }>): RunningSimulation {
   const search = new URLSearchParams(window.location.search);
-  const simulation = new RunningSimulation(seedFromUrl(), { difficulty: parseDifficulty(search.get('difficulty')) });
+  const simulation = new RunningSimulation(resume?.seed ?? seedFromUrl(), { difficulty: resume?.difficulty ?? difficulty, ...(resume ? { restore: resume.simulation } : {}) });
+  if (resume) return simulation;
   const reviewMilestone = search.get('reviewMilestone');
   if (import.meta.env.DEV && (reviewMilestone === 'qualifying' || reviewMilestone === 'defense')) {
     simulation.startMilestoneReview(reviewMilestone);
@@ -720,6 +769,7 @@ function createSimulation(): RunningSimulation {
   if (import.meta.env.DEV && isReviewScene(reviewScene)) simulation.startSceneReview(reviewScene);
   return simulation;
 }
+
 
 function isReviewScene(value: string | null): value is ReviewScene {
   return value === 'dense' || value === 'meeting' || value === 'phone' || value === 'thesis' || value === 'defenseGate' || value === 'year9'

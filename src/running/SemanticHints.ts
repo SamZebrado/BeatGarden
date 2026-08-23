@@ -3,7 +3,7 @@ import { loadRunningSave, markHintSeen, updateRunningSave } from './core/save';
 
 const SYMBOLS: Record<string, string> = {
   phone: '▯≋', reviewer: '△?', committee: '◉', courseBlock: '▦', deadline: '△!', request: '▰→', notification: '●))',
-  orbit: '◎', satellite: '⬡', resources: '⚡◉♡', signal: '◇', noise: '≈', meeting: '◉', activeProject: '◆', thesis: '♧', milestone: '⬡', supervisor: '✦',
+  orbit: '◎', satellite: '⬡', resources: '⚡◉♡', signal: '◇', noise: '≈', meeting: '◉', activeProject: '◆', thesis: '♧', milestone: '⬡', supervisor: '✦', portrait: '↕',
 };
 
 /** Generic, persistent, non-blocking first-seen explanation surface. */

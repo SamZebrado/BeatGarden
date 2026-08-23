@@ -3,12 +3,15 @@ import { loadRunningSave, updateRunningSave } from './core/save';
 import { resetSemanticHints } from './SemanticHints';
 import { warmRunningOfflineCache } from '../pwa/warmRunningCache';
 import type { RunningDifficulty } from './core/difficulty';
+import { clearCurrentRun, loadCurrentRun, type CurrentRunV1 } from './core/currentRun';
 
-export interface RunningGameHandle { destroy(): void }
+export interface RunningGameHandle { destroy(): void; saveNow?(): void }
 
 export class RunningModeHost {
   private game: RunningGameHandle | null = null;
   private loading = false;
+  private readonly onVisibilityChange = (): void => { if (document.visibilityState === 'hidden') this.game?.saveNow?.(); };
+  private readonly onPageHide = (): void => this.game?.saveNow?.();
 
   constructor(
     private readonly root: HTMLElement,
@@ -23,14 +26,41 @@ export class RunningModeHost {
 
   start(): void {
     loadRunningSave();
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    window.addEventListener('pagehide', this.onPageHide);
+    const current = loadCurrentRun();
+    if (current) { this.showResumeChoice(current); return; }
     if (this.actions.initialWorld === 'phd' || this.actions.initialWorld === 'master' || this.actions.initialWorld === 'work') void this.launchWorld(this.actions.initialWorld);
     else this.showWorldSelect();
   }
 
   destroy(): void {
+    this.game?.saveNow?.();
     this.game?.destroy();
     this.game = null;
     this.root.replaceChildren();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    window.removeEventListener('pagehide', this.onPageHide);
+  }
+
+  private showResumeChoice(run: CurrentRunV1): void {
+    this.root.replaceChildren();
+    this.root.style.cssText = 'width:100vw;height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 50% 20%,#163f36,#071512 72%);color:#fff;font-family:system-ui;';
+    const panel = document.createElement('main');
+    panel.dataset.role = 'running-resume-choice';
+    panel.style.cssText = 'width:min(560px,calc(100% - 32px));padding:28px;border:1px solid #6a9685;border-radius:24px;background:#10231f;text-align:center;box-shadow:0 24px 80px #0007;';
+    const snapshot = run.simulation as { time?: number };
+    const worldName = t(`running.${run.world}` as const);
+    const detail = t('running.resumeDetail').replace('{world}', worldName).replace('{difficulty}', t(`running.difficulty.${run.difficulty}`)).replace('{time}', `${Math.max(0, Math.floor(snapshot.time ?? 0))}s`);
+    panel.innerHTML = `<div style="font-size:52px">↻</div><h1 style="font-size:clamp(28px,7vw,42px);margin:12px 0">${t('running.resumeTitle')}</h1><p style="color:#cce0d9;line-height:1.6">${detail}</p><div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:24px"><button data-role="continue-run" style="padding:13px 20px;border-radius:999px;border:1px solid #92edb5;background:#1d5a43;color:#fff;font-weight:700;cursor:pointer">${t('running.continueRun')}</button><button data-role="start-new-run" style="padding:13px 20px;border-radius:999px;border:1px solid #68877e;background:#17342d;color:#fff;cursor:pointer">${t('running.startNewRun')}</button></div>`;
+    panel.querySelector<HTMLButtonElement>('[data-role="continue-run"]')!.addEventListener('click', () => void this.launchWorld(run.world, run));
+    panel.querySelector<HTMLButtonElement>('[data-role="start-new-run"]')!.addEventListener('click', () => {
+      clearCurrentRun();
+      const requested = this.actions.initialWorld;
+      if (requested === 'phd' || requested === 'master' || requested === 'work') void this.launchWorld(requested);
+      else this.showWorldSelect();
+    });
+    this.root.appendChild(panel);
   }
 
   private showWorldSelect(): void {
@@ -65,20 +95,20 @@ export class RunningModeHost {
     this.root.appendChild(page);
   }
 
-  private async launchWorld(world: 'phd' | 'master' | 'work'): Promise<void> {
+  private async launchWorld(world: 'phd' | 'master' | 'work', resume?: CurrentRunV1): Promise<void> {
     if (this.loading) return;
     this.loading = true;
     this.showLoading();
     try {
       if (world === 'phd') {
         const module = await import('./phaser/bootPhdGarden');
-        this.game = await module.bootPhdGarden(this.root, { onExit: () => this.actions.onWorldChanged(null) });
+        this.game = await module.bootPhdGarden(this.root, { onExit: () => this.actions.onWorldChanged(null), difficulty: resume?.difficulty ?? this.actions.difficulty, ...(resume?.world === 'phd' ? { resume } : {}) });
       } else {
         const module = await import('./phaser/bootScenarioGarden');
-        this.game = await module.bootScenarioGarden(this.root, { world, onExit: () => this.actions.onWorldChanged(null) });
+        this.game = await module.bootScenarioGarden(this.root, { world, onExit: () => this.actions.onWorldChanged(null), difficulty: resume?.difficulty ?? this.actions.difficulty, ...(resume && resume.world !== 'phd' ? { resume } : {}) });
       }
       const save = loadRunningSave();
-      updateRunningSave({ lastWorld: world, totalRuns: save.totalRuns + 1, difficultyRecords: { ...save.difficultyRecords, [world]: this.actions.difficulty } });
+      updateRunningSave({ lastWorld: world, totalRuns: save.totalRuns + (resume ? 0 : 1), difficultyRecords: { ...save.difficultyRecords, [world]: resume?.difficulty ?? this.actions.difficulty } });
       await warmAllRunningWorldsForOfflineUse();
     } catch (error) {
       this.loading = false;

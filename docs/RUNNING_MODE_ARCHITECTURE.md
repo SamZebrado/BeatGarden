@@ -23,6 +23,24 @@
   localized labels and DEV review seams read snapshots and never decide outcomes.
 - Boss Schema v1 remains a strict data-only import boundary. Person profiles never
   become Boss behavior automatically, and the validator remains executable authority.
+- `core/currentRun.ts` owns the one additive resumable-run envelope at
+  `beatgarden.running.current.v1`; `core/save.ts` continues to own the compatible
+  `beatgarden.running.v2` meta state. There is no competing checkpoint format: every
+  periodic, semantic and lifecycle write serializes the same current-run schema.
+- `RunningSimulation`, `PhdSystems` and `ScenarioSimulation` explicitly export/import
+  all future-affecting pure state. Mulberry32 exports its advanced 32-bit state, so
+  restore continues from the same RNG position rather than replaying from the seed.
+  Finite entity IDs/roster-initialized flags survive; Phaser/DOM/audio/camera and
+  cosmetic hit pulses are reconstructed.
+- The host validates before restore, offers localized Continue Run / Start New Run,
+  and isolates corruption to the current-run key. Scenes checkpoint stable semantic
+  changes, save at a bounded four-second cadence and on hidden/pagehide/destruction,
+  then clear the current-run key after terminal completion/failure while retaining meta.
+- Validation is semantic as well as structural: nested discriminated unions use exact
+  allowed option sets, gameplay entities carry complete bounded fields, IDs are unique
+  across authoritative arrays with `nextId` strictly above them, and active finite
+  rosters must equal their saved target-minus-progress identity. A structurally valid
+  but semantically impossible snapshot is corruption, never restore authority.
 
 ## Decision
 
@@ -118,6 +136,11 @@ request to create empty scaffolding.
   never enumerate-delete or bulk-migrate localStorage.
 - Save migrations are pure functions with fixtures proving existing Rhythm key/value
   pairs are unchanged.
+- Post-Gate additive extension: preserve v2 meta exactly and store one optional,
+  explicitly versioned unfinished run under `beatgarden.running.current.v1`. Validation
+  bounds entities/projectiles/pickups and rejects non-finite/partial/unknown data. A
+  corrupt current run is removed independently; storage is never enumerated or bulk
+  deleted.
 
 ## PWA and deployment contract
 

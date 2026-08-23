@@ -3,16 +3,21 @@ import { t, type StringKey } from '../../i18n/strings';
 import type { RunningGameHandle } from '../RunningModeHost';
 import { RUNNING_WORLD, type RunningInput } from '../core/simulation';
 import { ScenarioSimulation, type ScenarioEnemy, type ScenarioSnapshot, type ScenarioWorld } from '../core/scenarioSimulation';
-import { parseDifficulty } from '../core/difficulty';
+import type { RunningDifficulty } from '../core/difficulty';
 import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
 import { RunningLegend, createScenarioLegendEntries } from '../RunningLegend';
 import { loadRunningSave, markWorldCompleted } from '../core/save';
 import { PromotionAction } from '../PromotionAction';
+import { beginCardPress, cardAtPoint, cardPressMovedTooFar, completesCardPress, scenarioChoiceCardRects, type CardPress, type ChoiceViewport } from './choiceCards';
+import { clearCurrentRun, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
 
 const STEP = 1 / 60;
 
-export async function bootScenarioGarden(root: HTMLElement, options: { world: ScenarioWorld; onExit: () => void }): Promise<RunningGameHandle> {
+type ScenarioCurrentRun = Extract<CurrentRunV1, { world: ScenarioWorld }>;
+
+export async function bootScenarioGarden(root: HTMLElement, options: { world: ScenarioWorld; onExit: () => void; difficulty: RunningDifficulty; resume?: ScenarioCurrentRun }): Promise<RunningGameHandle> {
+  const runSeed = options.resume?.seed ?? scenarioSeed(options.world);
   root.replaceChildren();
   root.style.cssText = `width:100vw;height:100vh;overflow:hidden;background:${options.world === 'master' ? '#0b1830' : '#171b22'};touch-action:none;`;
   const host = document.createElement('div');
@@ -24,7 +29,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
   root.appendChild(overlay);
 
   class ScenarioScene extends Phaser.Scene {
-    private simulation = createSimulation(options.world);
+    private simulation = createSimulation(options.world, options.difficulty, options.resume);
     private graphics!: Phaser.GameObjects.Graphics;
     private keys!: Record<string, Phaser.Input.Keyboard.Key>;
     private accumulator = 0;
@@ -37,6 +42,8 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
     private previous: ScenarioSnapshot | null = null;
     private completionRecorded = false;
     private touchCount = 0;
+    private choicePress: CardPress | null = null;
+    private checkpointToken = '';
 
     constructor() { super(`${options.world}-garden`); }
 
@@ -48,12 +55,16 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       this.input.on('pointerdown', this.onPointerDown, this);
       this.input.on('pointermove', this.onPointerMove, this);
       this.input.on('pointerup', this.onPointerUp, this);
+      this.input.on('pointerupoutside', this.onPointerUp, this);
       this.scale.on('resize', this.resizeCamera, this);
       this.resizeCamera();
       this.hints = new SemanticHints(root, isTextOff());
+      this.showPortraitHintIfNeeded();
       this.audio = new RunningAudio(root, options.world);
       this.legend = new RunningLegend(root, { world: options.world, textOff: isTextOff(), getEntries: () => createScenarioLegendEntries(this.simulation.snapshot(), loadRunningSave().seenHints), onOpenChange: (open) => { this.legendOpen = open; if (open) this.joystick = null; } });
       this.promotion = new PromotionAction(root, isTextOff());
+      this.time.addEvent({ delay: 4000, loop: true, callback: () => this.saveNow() });
+      this.saveNow();
     }
 
     override update(_time: number, deltaMs: number): void {
@@ -66,7 +77,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       }
       if (state.choice) {
         const keys = [this.keys.ONE, this.keys.TWO, this.keys.THREE, this.keys.FOUR];
-        for (let index = 0; index < state.choice.options.length; index += 1) if (Phaser.Input.Keyboard.JustDown(keys[index])) this.simulation.choose(state.choice.options[index]);
+        for (let index = 0; index < state.choice.options.length; index += 1) if (Phaser.Input.Keyboard.JustDown(keys[index]) && this.simulation.choose(state.choice.options[index])) this.saveNow();
         this.render(this.simulation.snapshot());
         return;
       }
@@ -77,7 +88,15 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       this.render(state);
     }
 
-    private restart(): void { this.simulation = createSimulation(options.world); this.accumulator = 0; this.joystick = null; this.previous = null; this.completionRecorded = false; this.promotion.hide(); }
+    private restart(): void { clearCurrentRun(); this.simulation = createSimulation(options.world, options.difficulty); this.accumulator = 0; this.joystick = null; this.choicePress = null; this.checkpointToken = ''; this.previous = null; this.completionRecorded = false; this.promotion.hide(); this.saveNow(); }
+
+    saveNow(): void {
+      const state = this.simulation.snapshot();
+      if (state.completed || state.gameOver) { clearCurrentRun(); return; }
+      const simulation = this.simulation.exportState();
+      if (options.world === 'master') saveCurrentRun({ version: 1, status: 'active', savedAt: Date.now(), seed: runSeed, world: 'master', difficulty: state.difficulty, simulation });
+      else saveCurrentRun({ version: 1, status: 'active', savedAt: Date.now(), seed: runSeed, world: 'work', difficulty: state.difficulty, simulation });
+    }
 
     private readInput(): RunningInput {
       const keyboard = { x: Number(this.keys.D.isDown || this.keys.RIGHT.isDown) - Number(this.keys.A.isDown || this.keys.LEFT.isDown), y: Number(this.keys.S.isDown || this.keys.DOWN.isDown) - Number(this.keys.W.isDown || this.keys.UP.isDown) };
@@ -92,23 +111,49 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       const state = this.simulation.snapshot();
       if (state.completed || state.gameOver) { this.restart(); return; }
       if (state.choice) {
-        const view = this.cameras.main.worldView;
         const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-        const count = state.choice.options.length;
-        const index = this.isPortrait() ? Math.floor((point.y - view.top) / (view.height / count)) : Math.floor((point.x - view.left) / (view.width / count));
-        this.simulation.choose(state.choice.options[Math.max(0, Math.min(count - 1, index))]);
+        const index = cardAtPoint(scenarioChoiceCardRects(this.choiceViewport(), state.choice.options.length, this.isPortrait()), point);
+        this.choicePress = index === null ? null : beginCardPress(pointer.id, index, { x: pointer.x, y: pointer.y });
         return;
       }
       this.joystick = { id: pointer.id, x: pointer.x, y: pointer.y, currentX: pointer.x, currentY: pointer.y };
       this.touchCount += 1;
     }
 
-    private onPointerMove(pointer: Phaser.Input.Pointer): void { if (this.joystick?.id === pointer.id) { this.joystick.currentX = pointer.x; this.joystick.currentY = pointer.y; } }
-    private onPointerUp(pointer: Phaser.Input.Pointer): void { if (this.joystick?.id === pointer.id) this.joystick = null; }
+    private onPointerMove(pointer: Phaser.Input.Pointer): void {
+      if (this.choicePress?.pointerId === pointer.id) {
+        if (cardPressMovedTooFar(this.choicePress, { x: pointer.x, y: pointer.y })) this.choicePress = null;
+        return;
+      }
+      if (this.joystick?.id === pointer.id) { this.joystick.currentX = pointer.x; this.joystick.currentY = pointer.y; }
+    }
+
+    private onPointerUp(pointer: Phaser.Input.Pointer): void {
+      const press = this.choicePress;
+      this.choicePress = null;
+      const state = this.simulation.snapshot();
+      if (state.choice) {
+        const point = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+        const index = completesCardPress(press, pointer.id, scenarioChoiceCardRects(this.choiceViewport(), state.choice.options.length, this.isPortrait()), point, { x: pointer.x, y: pointer.y });
+        if (index !== null && this.simulation.choose(state.choice.options[index])) this.saveNow();
+        return;
+      }
+      if (this.joystick?.id === pointer.id) this.joystick = null;
+    }
 
     private resizeCamera(): void {
       const zoom = this.isPortrait() ? this.scale.height / RUNNING_WORLD.height : Math.min(this.scale.width / RUNNING_WORLD.width, this.scale.height / RUNNING_WORLD.height);
       this.cameras.main.setBounds(0, 0, RUNNING_WORLD.width, RUNNING_WORLD.height).setZoom(zoom);
+      this.showPortraitHintIfNeeded();
+    }
+
+    private choiceViewport(): ChoiceViewport {
+      const view = this.cameras.main.worldView;
+      return { left: view.left, top: view.top, width: view.width, height: view.height, centerX: view.centerX, centerY: view.centerY };
+    }
+
+    private showPortraitHintIfNeeded(): void {
+      if (this.isPortrait() && this.hints) this.hints.show('portrait', 'running.hint.portrait');
     }
 
     private render(state: ScenarioSnapshot): void {
@@ -137,8 +182,17 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       }
       this.updateOverlay(state);
       this.updateSemanticsAndAudio(state);
+      this.saveCheckpointIfChanged(state);
       if (state.choice) this.drawChoice(g, state);
       if (state.completed || state.gameOver) this.drawTerminal(g, state);
+    }
+
+    private saveCheckpointIfChanged(state: ScenarioSnapshot): void {
+      const token = state.masterPath
+        ? [state.masterPath.year, state.masterPath.supervisorPersonId, state.masterPath.proposal.phase, state.masterPath.proposal.progress, state.masterPath.careerPlan, state.climax.phase, state.climax.progress, state.completed].join('|')
+        : [state.workPath?.stage, state.workPath?.managerId, state.activePriority, state.priorityRemaining > 0, state.climax.phase, state.climax.progress, state.completed].join('|');
+      if (!this.checkpointToken) { this.checkpointToken = token; return; }
+      if (token !== this.checkpointToken) { this.checkpointToken = token; this.saveNow(); }
     }
 
     private drawWorld(g: Phaser.GameObjects.Graphics, state: ScenarioSnapshot): void {
@@ -247,12 +301,10 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
             : choice.kind === 'workOffer' ? ['▦', '⚡', '◇']
               : choice.kind === 'workConversion' ? ['✓', '↗'] : ['▣', '⚡'];
       const colors = [0x7cc9f4, 0xffc56f, 0x79d8b0, 0xd99af0];
+      const cards = scenarioChoiceCardRects(this.choiceViewport(), choice.options.length, this.isPortrait());
       for (let index = 0; index < choice.options.length; index += 1) {
         const portrait = this.isPortrait();
-        const width = portrait ? view.width - 48 : view.width / choice.options.length - 34;
-        const height = portrait ? view.height / choice.options.length - 28 : 270;
-        const x = portrait ? view.left + 24 : view.left + index * view.width / choice.options.length + 17;
-        const y = portrait ? view.top + index * view.height / choice.options.length + 14 : view.centerY - 135;
+        const { x, y, width, height } = cards[index];
         g.fillStyle(0x172832, 1).fillRoundedRect(x, y, width, height, 22);
         g.lineStyle(4, colors[index], 0.9).strokeRoundedRect(x, y, width, height, 22);
         this.label(x + width / 2, y + height * 0.38, icons[index], `#${colors[index].toString(16)}`, portrait ? 42 : 64);
@@ -298,6 +350,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       }
       if (state.event.phase !== 'idle') this.hints.show(state.event.kind === 'weekly' ? 'meeting' : state.world === 'master' ? 'milestone' : 'meeting', state.event.kind === 'weekly' ? 'running.hint.weeklyWork' : 'running.hint.milestone');
       if (state.completed && !this.completionRecorded) {
+        clearCurrentRun();
         this.completionRecorded = true;
         this.audio.cue('complete');
         markWorldCompleted(state.world, state.difficulty);
@@ -321,16 +374,18 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
   exit.style.cssText = 'position:fixed;z-index:50;left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));width:48px;height:48px;border-radius:50%;border:1px solid #789;background:#14232a;color:#fff;font-size:22px';
   exit.addEventListener('click', options.onExit);
   root.appendChild(exit);
-  return { destroy: () => { const scene = game.scene.getScene(`${options.world}-garden`) as ScenarioScene | undefined; scene?.destroyRuntime(); exit.remove(); overlay.remove(); game.destroy(true); } };
+  return { saveNow: () => { const scene = game.scene.getScene(`${options.world}-garden`) as ScenarioScene | undefined; scene?.saveNow(); }, destroy: () => { const scene = game.scene.getScene(`${options.world}-garden`) as ScenarioScene | undefined; scene?.saveNow(); scene?.destroyRuntime(); exit.remove(); overlay.remove(); game.destroy(true); } };
 }
 
-function createSimulation(world: ScenarioWorld): ScenarioSimulation {
+function createSimulation(world: ScenarioWorld, difficulty: RunningDifficulty, resume?: ScenarioCurrentRun): ScenarioSimulation {
   const params = new URLSearchParams(location.search);
-  let seed = 2166136261;
-  for (const character of params.get('seed') ?? world) seed = Math.imul(seed ^ character.charCodeAt(0), 16777619);
-  const simulation = new ScenarioSimulation(world, seed >>> 0, parseDifficulty(params.get('difficulty')));
+  const seed = resume?.seed ?? scenarioSeed(world);
+  const simulation = new ScenarioSimulation(world, seed, resume?.difficulty ?? difficulty, resume ? { restore: resume.simulation } : {});
+  if (resume) return simulation;
   const scene = params.get('reviewScene');
   if (import.meta.env.DEV && (scene === 'dense' || scene === 'event' || scene === 'choice' || scene === 'climax' || scene === 'complete')) simulation.startReview(scene);
+  const reviewChoice = params.get('reviewChoice');
+  if (import.meta.env.DEV && (reviewChoice === 'careerPlan' || reviewChoice === 'workOffer' || reviewChoice === 'workConversion' || reviewChoice === 'workPriority')) simulation.startChoiceReview(reviewChoice);
   if (import.meta.env.DEV && world === 'master') {
     const year = Number(params.get('reviewMasterYear'));
     const plan = params.get('reviewCareerPlan');
@@ -342,6 +397,13 @@ function createSimulation(world: ScenarioWorld): ScenarioSimulation {
     if (stage === 'offers' || stage === 'trial' || stage === 'conversion' || stage === 'employed' || stage === 'promotion') simulation.startWorkPathReview(stage, market);
   }
   return simulation;
+}
+
+function scenarioSeed(world: ScenarioWorld): number {
+  const params = new URLSearchParams(location.search);
+  let seed = 2166136261;
+  for (const character of params.get('seed') ?? world) seed = Math.imul(seed ^ character.charCodeAt(0), 16777619);
+  return seed >>> 0;
 }
 
 function isTextOff(): boolean { return new URLSearchParams(location.search).get('textOff') === '1'; }
