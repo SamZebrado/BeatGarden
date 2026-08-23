@@ -211,7 +211,6 @@ export class FireflyDockStage implements StageDefinition {
     this.consumed.add(target.id);
     if (!this.services) return;
     const t0 = this.services.transport.snapshot().audioTime;
-    this.feedback = { kind: result.kind, t0 };
     // Expiry without a player input may drop the seed and show disappointment,
     // but it must never make the lever look self-operated.
     if (!result.automatic) this.workerActionT0 = t0;

@@ -27,6 +27,7 @@ import { getLocale, languageTargetAction, languageTargetLabel, t, toggleLocale }
 import { loadSettings } from '../settings/settings';
 import { saveBestScore } from '../settings/scores';
 import { hasCompletedTutorial, markTutorialCompleted } from './tutorialProgress';
+import { FEEDBACK_DURATION_SEC, feedbackScale, GameFeel, rhythmSection } from './GameFeel';
 import { inputCandidateBeatRange, maxTargetJudgeWindowSeconds, targetJudgeWindowSeconds } from './targetWindows';
 
 export interface StageRunnerOptions {
@@ -49,6 +50,7 @@ export class StageRunner {
   public readonly judge: Judge;
   public readonly input: InputRouter;
   public readonly debug: DebugOverlay;
+  public readonly gameFeel = new GameFeel();
 
   private services!: StageRuntimeServices;
   private _raf: number | null = null;
@@ -64,6 +66,8 @@ export class StageRunner {
   private tutorialStepIndex = 0;
   private tutorialPassedTargets = new Set<string>();
   private tutorialTransitionToken = 0;
+  private readonly reducedMotion: boolean;
+  private pauseButton!: HTMLButtonElement;
   private readonly smokeControls: HTMLElement[] = [];
   private debugHandle!: Record<string, unknown>;
   private lifecycleTelemetry = {
@@ -92,6 +96,7 @@ export class StageRunner {
     this.canvasMgr = new CanvasManager({ parent: opts.root, config: this.config });
     const runtimeSmoke = new URLSearchParams(window.location.search).get('runtimeSmoke');
     const settings = loadSettings();
+    this.reducedMotion = settings.reducedMotion || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
     let resumeAttemptCount = 0;
     this.audio = new AudioEngine({
       musicVolume: settings.musicVolume,
@@ -118,6 +123,7 @@ export class StageRunner {
         this.debug.reportTarget(target.beat, targetAudioTime);
         this.debug.reportCounts(this.judge.statsCounts());
         this.stage.onJudge?.(res, target);
+        this.gameFeel.consume(res, this.transport.snapshot().audioTime);
         this.handleTutorialJudgement(res, target);
         // Audio SFX reaction.
         const tAfter = this.audio.now() + 0.002;
@@ -188,6 +194,7 @@ export class StageRunner {
     this.attachKeyShortcuts();
     this.buildUnlockOverlay();
     this.buildRuntimeStatus();
+    this.buildPauseControl();
 
     // Runtime smoke seam: deliberately attempt unlock outside a user gesture.
     // Real Chrome should reject or remain suspended, proving the locked UI path.
@@ -375,6 +382,37 @@ overflow: hidden; white-space: pre;
     this.updateRuntimeStatus();
   }
 
+  private buildPauseControl(): void {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.role = 'rhythm-pause';
+    button.style.cssText = `
+position: fixed; z-index: 35; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));
+width: 52px; height: 52px; border-radius: 16px; border: 2px solid rgba(255,255,255,.72);
+background: rgba(5,8,28,.82); color: #fff; font: 900 22px system-ui; cursor: pointer;
+display: none; place-items: center; touch-action: manipulation;
+`;
+    button.addEventListener('pointerdown', (event) => event.stopPropagation());
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (this.phase === 'playing') void this.pauseLocal();
+      else if (this.phase === 'paused') void this.resumeLocal();
+    });
+    document.body.appendChild(button);
+    this.pauseButton = button;
+    this.updatePauseControl();
+  }
+
+  private updatePauseControl(): void {
+    if (!this.pauseButton) return;
+    const visible = this.phase === 'playing' || this.phase === 'paused';
+    const paused = this.phase === 'paused';
+    this.pauseButton.style.display = visible ? 'grid' : 'none';
+    this.pauseButton.textContent = paused ? '▶' : 'Ⅱ';
+    this.pauseButton.setAttribute('aria-label', t(paused ? 'action.resume' : 'action.pause'));
+    this.pauseButton.title = t(paused ? 'action.resume' : 'action.pause');
+  }
+
   private updateRuntimeStatus(): void {
     if (!this.runtimeStatus) return;
     const snap = this.transport.snapshot();
@@ -395,6 +433,7 @@ overflow: hidden; white-space: pre;
         audioTime: Number(this.input.lastInputAudioTime.toFixed(4)),
       },
       counts,
+      gameFeel: this.gameFeel.snapshot(),
       tutorial: this.phase === 'tutorial' ? {
         step: this.tutorialStepIndex + 1,
         total: this.tutorialSteps.length,
@@ -630,6 +669,7 @@ cursor: pointer;
     this.scheduler.stop();
     this.transport.reset(this.audio.now());
     this.judge.resetRun();
+    this.gameFeel.reset();
     this.stage.onStart?.(this.services);
     this.tutorialPassedTargets.clear();
     const metronome = [0, 1, 2].map((beat) => ({
@@ -678,6 +718,7 @@ cursor: pointer;
     // setBpm call below.
     this.transport.reset(this.audio.now());
     this.judge.resetRun();
+    this.gameFeel.reset();
     this.stage.onStart?.(this.services);
     const now = this.audio.now();
     this.countdownStartAudioTime = now + 0.04;
@@ -818,6 +859,7 @@ cursor: pointer;
     this.removeResultOverlay();
     this.overlays.unlock?.remove();
     this.runtimeStatus?.remove();
+    this.pauseButton?.remove();
     for (const control of this.smokeControls) control.remove();
     this.smokeControls.length = 0;
     this.canvasMgr.destroy();
@@ -839,6 +881,7 @@ cursor: pointer;
       this.phasePlayingCheck();
     }
     this.updateRuntimeStatus();
+    this.updatePauseControl();
     // Render.
     const ctx = this.canvasMgr.ctx;
     this.canvasMgr.beginFrame();
@@ -853,6 +896,8 @@ cursor: pointer;
     ) {
       const snap = this.transport.snapshot();
       this.stage.render(ctx, snap);
+      this.drawGrooveAtmosphere(ctx, snap);
+      this.drawCommonHud(ctx, snap);
       this.drawTutorialOverlay(ctx);
       this.drawCountdownOverlay(ctx);
       this.drawPausedOverlay(ctx);
@@ -874,6 +919,109 @@ cursor: pointer;
         this.debug.reportCounts(this.judge.statsCounts());
       }
     }
+  }
+
+  private drawCommonHud(ctx: CanvasRenderingContext2D, snap: import('../timing/Transport').TransportSnapshot): void {
+    if (this.phase === 'countdown' || this.phase === 'ended') return;
+    const W = this.canvasMgr.logicalW;
+    const feel = this.gameFeel.snapshot();
+    const progress = Math.max(0, Math.min(1, snap.beat / Math.max(1, this.stage.totalBeats())));
+    ctx.save();
+    ctx.fillStyle = 'rgba(4,7,24,.64)';
+    ctx.fillRect(0, 0, W, 34);
+    ctx.fillStyle = '#8df2d7';
+    ctx.fillRect(0, 0, W * progress, 8);
+    if (this.phase !== 'tutorial') {
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 28px system-ui';
+      const section = rhythmSection(snap.beat, this.stage.totalBeats());
+      ctx.fillText(`${t(this.stage.titleKey)}  ·  ${t(`section.${section}` as 'section.INTRO')}`, 54, 72);
+      ctx.fillStyle = '#c8d5ff';
+      ctx.font = '700 22px system-ui';
+      if (feel.combo >= 2) ctx.fillText(`${t('hud.combo')}  ${feel.combo}`, 54, 108);
+      ctx.textAlign = 'right';
+      ctx.fillText(`${t('hud.groove')}  ${Math.round(feel.groove)}`, W - 128, 72);
+      ctx.fillStyle = 'rgba(255,255,255,.22)';
+      ctx.fillRect(W - 488, 96, 360, 16);
+      ctx.fillStyle = '#8df2d7';
+      ctx.fillRect(W - 488, 96, 360 * (feel.groove / 100), 16);
+    }
+    const age = feel.judgementAudioTime === null ? Infinity : snap.audioTime - feel.judgementAudioTime;
+    if (feel.judgement && age >= 0 && age < FEEDBACK_DURATION_SEC) {
+      const fade = 1 - age / FEEDBACK_DURATION_SEC;
+      const scale = feedbackScale(age, this.reducedMotion);
+      ctx.translate(W / 2, this.phase === 'tutorial' ? 282 : 178);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = Math.min(1, fade * 2.2);
+      ctx.fillStyle = 'rgba(5,8,28,.84)';
+      ctx.beginPath(); ctx.roundRect(-260, -52, 520, feel.timing ? 128 : 104, 30); ctx.fill();
+      this.drawJudgementShape(ctx, feel.judgement, age);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = feel.judgement === 'MISS' ? '#ff9f9f' : '#ffffff';
+      ctx.font = '900 54px system-ui';
+      ctx.fillText(t(`feedback.${feel.judgement}` as 'feedback.PERFECT'), 24, -4);
+      if (feel.timing) {
+        ctx.fillStyle = feel.timing === 'FAST' ? '#91d7ff' : '#ffd083';
+        ctx.font = '800 23px system-ui';
+        ctx.fillText(`${t(feel.timing === 'FAST' ? 'timing.fast' : 'timing.slow')}  ${Math.abs(feel.deltaMs ?? 0).toFixed(0)} ms`, 0, 48);
+      }
+    }
+    ctx.restore();
+  }
+
+  private drawJudgementShape(ctx: CanvasRenderingContext2D, kind: import('../timing/config').JudgementKind, age: number): void {
+    ctx.save();
+    ctx.translate(-190, 0);
+    ctx.strokeStyle = kind === 'MISS' ? '#ff9f9f' : '#8df2d7';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    const payoff = this.reducedMotion ? 1 : 1 + Math.min(1, age / .28) * .18;
+    ctx.scale(payoff, payoff);
+    if (kind === 'OK') {
+      ctx.beginPath(); ctx.arc(0, 0, 24, -.75 * Math.PI, .75 * Math.PI); ctx.stroke();
+    } else if (kind === 'MISS') {
+      ctx.beginPath(); ctx.arc(0, 0, 24, .15 * Math.PI, .85 * Math.PI); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, 24, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+    } else {
+      const petals = kind === 'PERFECT' ? 6 : 4;
+      for (let i = 0; i < petals; i++) {
+        const a = (Math.PI * 2 * i) / petals;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * 12, Math.sin(a) * 12);
+        ctx.lineTo(Math.cos(a) * 30, Math.sin(a) * 30);
+        ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  private drawGrooveAtmosphere(ctx: CanvasRenderingContext2D, snap: import('../timing/Transport').TransportSnapshot): void {
+    if (this.phase !== 'playing') return;
+    const groove = this.gameFeel.snapshot().groove / 100;
+    if (groove <= 0) return;
+    const W = this.canvasMgr.logicalW;
+    const H = this.canvasMgr.logicalH;
+    const section = rhythmSection(snap.beat, this.stage.totalBeats());
+    const sectionBoost = section === 'CLIMAX' ? 1.35 : section === 'OUTRO' ? .72 : 1;
+    const strength = Math.min(1, groove * sectionBoost);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const glow = ctx.createRadialGradient(W / 2, H, 20, W / 2, H, H * .78);
+    glow.addColorStop(0, `rgba(141,242,215,${(.2 * strength).toFixed(3)})`);
+    glow.addColorStop(1, 'rgba(141,242,215,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, H * .28, W, H * .72);
+    ctx.fillStyle = `rgba(255,255,255,${(.34 * strength).toFixed(3)})`;
+    for (let i = 0; i < 6; i++) {
+      const drift = this.reducedMotion ? 0 : Math.sin(snap.beat * .35 + i) * 12;
+      const x = i % 2 === 0 ? 34 + i * 18 : W - 34 - i * 18;
+      const y = H * (.28 + i * .1) + drift;
+      ctx.beginPath(); ctx.arc(x, y, 3 + strength * 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
   }
 
   private drawTutorialOverlay(ctx: CanvasRenderingContext2D): void {
