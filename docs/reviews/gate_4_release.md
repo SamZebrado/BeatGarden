@@ -1,7 +1,7 @@
 # GATE 4 — Release Candidate / Full Project Review Record
 
-Status: official 2026-08-10 re-verdict `GATE 4: PASS` preserved; refreshed V2 RC review
-must follow the refreshed GATE 2 verdict. Final independent acceptance remains separate.
+Status: official 2026-08-10 re-verdict `GATE 4: PASS` preserved; refreshed V2 GATE 2 is
+now PASS and the refreshed GATE 4 packet is ready. Final independent acceptance remains separate.
 
 ## 2026-08-24 refreshed V2 RC closure packet
 
@@ -28,8 +28,9 @@ must follow the refreshed GATE 2 verdict. Final independent acceptance remains s
   `docs/evidence/android_release_20260824.json`, `docs/rhythm/STATUS.md` and the R0–R5
   evidence trees.
 
-Only after refreshed `GATE 2: PASS`, request refreshed `GATE 4: PASS / PARTIAL / FAIL`.
-This packet does not pre-claim final acceptance.
+Refreshed `GATE 2: PASS` was returned for nonce
+`MSG_OPENAI_CODEX_GATE2_ANDROID_60A115F_20260824A`. Request refreshed
+`GATE 4: PASS / PARTIAL / FAIL`. This packet does not pre-claim final acceptance.
 
 ## Official re-verdict — PASS
 

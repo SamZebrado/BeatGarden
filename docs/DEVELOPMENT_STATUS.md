@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **Rhythm V2 R0–R5 PASS; refreshed external GATE 2 re-submission pending, then GATE 4 and FINAL INDEPENDENT ACCEPTANCE**
+Current phase: **Rhythm V2 R0–R5 PASS; refreshed GATE 2 PASS; refreshed GATE 4 pending, then FINAL INDEPENDENT ACCEPTANCE**
 
 Last updated: 2026-08-24
 
@@ -20,6 +20,18 @@ Last updated: 2026-08-24
 - User accepted Chrome's formal install confirmation, but no BeatGarden/WebAPK package, launcher item or Chrome shortcut is currently observable; standalone launch remains `UNVERIFIED` as an external delivery residual.
 - Refreshed evidence: `docs/evidence/public_pages_20260824.json`, `docs/evidence/android_release_20260824.json`, and `docs/evidence/android_20260824/`.
 - The official 2026-08-10 GATE 2/GATE 4 PASS records below remain immutable history for the older RC. The V2 RC is now submitted as a bounded refreshed external delta before final acceptance.
+
+## 2026-08-24 refreshed GATE 2 verdict — PASS
+
+- Request id `mt6bc7ju-2ptmw98o`, message id `tfdiz47v6npatmkn257ukt`.
+- Nonce `MSG_OPENAI_CODEX_GATE2_ANDROID_60A115F_20260824A`; message bubble confirmed exactly once.
+- Independent review accepted the production Android touch/swipe, 16-input muted
+  calibration persistence/Judge read, orientation, lifecycle/manual-pause, cold offline
+  boot, PWA app-owned surfaces, Pages deployment and clean runtime-to-doc boundary.
+- Standalone launch remains explicitly `UNVERIFIED`; the reviewer retained it as an
+  external Chrome/WebAPK delivery residual and found no app-owned blocker.
+- This PASS does not imply refreshed GATE 4 or final acceptance. Work proceeds directly
+  to refreshed GATE 4.
 
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.

@@ -1,6 +1,19 @@
 # GATE 2 — Android touch + Calibration + PWA Review Record
 
-Status: official 2026-08-10 re-verdict `GATE 2: PASS` preserved; refreshed V2 RC delta ready for re-submission.
+Status: refreshed V2 RC verdict `GATE 2: PASS` (2026-08-24); official 2026-08-10 PASS preserved below as history.
+
+## Official refreshed V2 verdict — PASS
+
+- Request id: `mt6bc7ju-2ptmw98o`.
+- Message id: `tfdiz47v6npatmkn257ukt`.
+- Nonce: `MSG_OPENAI_CODEX_GATE2_ANDROID_60A115F_20260824A`; owned message confirmed once.
+- Concrete blockers: none.
+- Reviewer accepted the complete refreshed Android production matrix, correct muted
+  calibration claim, PWA app-owned manifest/SW/offline behavior, Pages run
+  `32667218477`, and the docs/evidence-only `60a115f...0762c3f` boundary.
+- Standalone launch remains `UNVERIFIED`, not a fabricated PASS; it was classified as
+  an external Chrome/WebAPK delivery residual with no observed app-owned defect.
+- Refreshed GATE 4 and final acceptance remain separate and are not implied.
 
 ## 2026-08-24 refreshed V2 RC external delta
 

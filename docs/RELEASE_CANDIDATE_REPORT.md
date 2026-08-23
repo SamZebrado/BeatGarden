@@ -2,8 +2,8 @@
 
 ## OVERALL
 
-**REFRESHED RELEASE CANDIDATE `60a115f` — Rhythm V2 R0–R5 PASS; refreshed external
-GATE 2/GATE 4 re-verdicts pending.** Public GitHub Pages and the real Android production
+**REFRESHED RELEASE CANDIDATE `60a115f` — Rhythm V2 R0–R5 PASS and refreshed GATE 2
+PASS; refreshed GATE 4 pending.** Public GitHub Pages and the real Android production
 matrix are evidenced at the refreshed V2 RC. Chrome recognizes the manifest and the
 user accepted the formal install confirmation, but no standalone package/launcher
 entry is observable, so standalone launch remains `UNVERIFIED` as an external,
