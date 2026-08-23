@@ -23,5 +23,6 @@ Prepared locally during bounded R1 review waits, then held uncommitted until `RH
 - Device `bbda35e` / Xiaomi `24091RPADC`; viewport 1163×632 CSS px at DPR 2.75.
 - `android-cloud-pause-resume.png` records the resumed formal-play HUD.
 - CDP touch emulation acted on the visible 52×52 CSS px control. Runtime changed `playing / running / Transport playing` → `paused / suspended / false`; its localized aria label changed `暂停` → `继续`; the second touch restored `playing / running / true`.
+- Exact-candidate rerun at `a80130a` exercised the app's retryable unlock contract: the first emulated touch remained on the localized retry prompt, a second explicit touch unlocked AudioContext, then the same 52×52 pause/resume lifecycle passed. The smoke helper now retries explicit touch gestures rather than treating one browser autoplay rejection as a completed unlock.
 - `STREAM_MUSIC Muted: true` and `streamVolume:0` were verified before and after. No audible sound was produced.
 - `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.

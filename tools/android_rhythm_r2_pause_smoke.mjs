@@ -68,13 +68,15 @@ const unlock = await evaluate(`(() => {
   const rect = el.getBoundingClientRect();
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 })()`);
-await touch(unlock.x, unlock.y);
-
 let before;
-for (let attempt = 0; attempt < 120; attempt++) {
-  before = await status();
-  if (before.phase === 'playing') break;
-  await wait(50);
+for (let unlockAttempt = 0; unlockAttempt < 3; unlockAttempt++) {
+  await touch(unlock.x, unlock.y);
+  for (let attempt = 0; attempt < 120; attempt++) {
+    before = await status();
+    if (before.phase === 'playing') break;
+    await wait(50);
+  }
+  if (before?.phase === 'playing') break;
 }
 if (before?.phase !== 'playing') throw new Error(`playing phase not reached: ${JSON.stringify(before)}`);
 
