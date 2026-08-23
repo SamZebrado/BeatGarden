@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **Rhythm V2 R0–R5 PASS; refreshed GATE 2 PASS; refreshed GATE 4 pending, then FINAL INDEPENDENT ACCEPTANCE**
+Current phase: **Rhythm V2 R0–R5 PASS; refreshed GATE 2 PASS; refreshed GATE 4 documentation correction in review, then FINAL INDEPENDENT ACCEPTANCE**
 
 Last updated: 2026-08-24
 
@@ -9,9 +9,9 @@ Last updated: 2026-08-24
 ## Current repository state
 
 - Exact refreshed runtime/test RC: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
-- GitHub `main`: `60a115fafea5d7bd972eba44ea6054f3b364bb68` (ordinary fast-forward; no force push).
-- Public Pages deployed SHA: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
-- Pages workflow run `32666334718`: build job `97260161010` PASS; deploy job `97260221794` PASS.
+- GitHub `main` / documentation HEAD at refreshed GATE 4 submission: `7772b3b` (ordinary fast-forward; no force push).
+- Public Pages deployment/provenance HEAD: `7772b3b`; deployed runtime is equivalent to `60a115f` because the intervening commits are docs/evidence-only.
+- Pages workflow run `32667446698`: build job `97262997048` PASS; deploy job `97263064393` PASS.
 - Exact refreshed validation: TypeScript 0 errors; 47 files / 307 tests PASS; Pages-base build PASS; npm audit 0; focused 10-minute mixed-frame drift suite 4/4 PASS with zero drift.
 - Rhythm V2 independent Gates: R0, R1, R2, R3, R4 and R5 all PASS. R5 final runtime delta is `004146b`; later commits through `60a115f` are evidence/status-only.
 - Public production desktop: HTTPS/assets PASS, default Simplified Chinese PASS, English full replacement PASS, Firefly entry PASS, service-worker scope/controller/cache `beatgarden-shell-v5` PASS.
@@ -32,6 +32,17 @@ Last updated: 2026-08-24
   external Chrome/WebAPK delivery residual and found no app-owned blocker.
 - This PASS does not imply refreshed GATE 4 or final acceptance. Work proceeds directly
   to refreshed GATE 4.
+
+## 2026-08-24 refreshed GATE 4 first verdict — PARTIAL (documentation only)
+
+- Request id `mt6bhsdh-byc7lpvd`, message id `zg7pr7h02n9tl1e3dfhq6`.
+- Nonce `MSG_OPENAI_CODEX_GATE4_RELEASE_60A115F_20260824A`; message bubble confirmed exactly once.
+- No runtime blocker was found. The reviewer required only two release-record fixes:
+  current calibration/cache facts must be -10.6667/-10.7 ms and `beatgarden-shell-v5`,
+  with -50.0 ms / v3 retained only as 2026-08-10 history; and runtime/test RC
+  `60a115f` must be distinguished from deployment/provenance HEAD `7772b3b`.
+- The bounded documentation correction is resubmitted immediately. Final independent
+  acceptance remains separate and is not implied.
 
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.

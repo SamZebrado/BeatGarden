@@ -1,16 +1,20 @@
 # GATE 4 — Release Candidate / Full Project Review Record
 
 Status: official 2026-08-10 re-verdict `GATE 4: PASS` preserved; refreshed V2 GATE 2 is
-now PASS and the refreshed GATE 4 packet is ready. Final independent acceptance remains separate.
+PASS and the refreshed GATE 4 first verdict is documentation-only PARTIAL. The bounded
+correction is ready for re-review. Final independent acceptance remains separate.
 
 ## 2026-08-24 refreshed V2 RC closure packet
 
-- Exact runtime/test SHA, GitHub main and public Pages deployed SHA:
-  `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
+- Exact runtime/test RC: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
+- GitHub main and public Pages deployment/provenance HEAD at submission: `7772b3b`.
+  The deployed runtime is equivalent to `60a115f`; `60a115f...7772b3b` contains only
+  docs/ markdown, JSON evidence and PNG screenshots, with no runtime/test/dependency/
+  workflow/build-input change.
 - Rhythm V2 bounded independent review chain: R0 PASS, R1 PASS, R2 PASS, R3 PASS,
   R4 PASS, R5 PASS. The hard Running no-refactor/gameplay/persistence boundary was
   preserved throughout.
-- Pages run `32666334718` PASS (build `97260161010`, deploy `97260221794`); public
+- Pages run `32667446698` PASS (build `97262997048`, deploy `97263064393`); public
   root, manifest, SW, hashed main, Worker and icon all return HTTPS 200.
 - Desktop public production: Simplified Chinese default, English replacement,
   Firefly entry, controller/scope/cache and no PWA runtime error PASS.
@@ -31,6 +35,17 @@ now PASS and the refreshed GATE 4 packet is ready. Final independent acceptance 
 Refreshed `GATE 2: PASS` was returned for nonce
 `MSG_OPENAI_CODEX_GATE2_ANDROID_60A115F_20260824A`. Request refreshed
 `GATE 4: PASS / PARTIAL / FAIL`. This packet does not pre-claim final acceptance.
+
+## 2026-08-24 refreshed first verdict — PARTIAL (documentation only)
+
+- Request id: `mt6bhsdh-byc7lpvd`.
+- Message id: `zg7pr7h02n9tl1e3dfhq6`.
+- Nonce: `MSG_OPENAI_CODEX_GATE4_RELEASE_60A115F_20260824A`; bubble confirmed exactly once.
+- No runtime blocker was found. Required corrections were limited to current release
+  record facts: use -10.6667/-10.7 ms and `beatgarden-shell-v5` for 2026-08-24 while
+  retaining -50.0 ms / v3 only as 2026-08-10 history; distinguish runtime/test RC
+  `60a115f` from deployment/provenance HEAD `7772b3b`.
+- This bounded docs-only delta is the complete response to the PARTIAL verdict.
 
 ## Official re-verdict — PASS
 

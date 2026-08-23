@@ -2,8 +2,9 @@
 
 ## OVERALL
 
-**REFRESHED RELEASE CANDIDATE `60a115f` — Rhythm V2 R0–R5 PASS and refreshed GATE 2
-PASS; refreshed GATE 4 pending.** Public GitHub Pages and the real Android production
+**REFRESHED RELEASE CANDIDATE — runtime/test RC `60a115f`, deployment/provenance HEAD
+`7772b3b`; Rhythm V2 R0–R5 PASS and refreshed GATE 2 PASS; refreshed GATE 4
+documentation correction pending.** Public GitHub Pages and the real Android production
 matrix are evidenced at the refreshed V2 RC. Chrome recognizes the manifest and the
 user accepted the formal install confirmation, but no standalone package/launcher
 entry is observable, so standalone launch remains `UNVERIFIED` as an external,
@@ -21,9 +22,9 @@ manual pause freeze, visibility failure/recovery, restart, and teardown verified
 
 ## Calibration
 
-**PASS for software flow on desktop and Android.** Android received 16 physical muted
-inputs, saved -50.0 ms, persisted across refresh and Chrome restart, and the Judge read
-the value. **auditory calibration validity NOT ASSESSED because media volume was intentionally muted**;
+**PASS for software flow on desktop and Android.** On 2026-08-24 Android received 16
+physical muted inputs, saved -10.6667 ms, persisted across reload, and the actual
+Firefly Judge displayed -10.7 ms. **auditory calibration validity NOT ASSESSED because media volume was intentionally muted**;
 the muted value is not claimed as an auditory latency measurement.
 
 ## Firefly Dock
@@ -75,13 +76,14 @@ launcher entry or Chrome shortcut is observable.
 
 **PASS for installability UI, manifest/SW/offline behavior; standalone package
 UNVERIFIED.** Public desktop and Android origins are controlled at `/BeatGarden/` by
-`beatgarden-shell-v3`; Android cold Chrome restart with all networks disabled booted a
+`beatgarden-shell-v5`; Android cold Chrome restart with all networks disabled booted a
 never-used query URL and navigated to Firefly by physical touch.
 
 ## GitHub Pages
 
-**PASS.** GitHub Pages workflow run `32666334718` built and deployed refreshed SHA
-`60a115f` successfully.
+**PASS.** GitHub Pages workflow run `32667446698` built and deployed documentation/
+provenance HEAD `7772b3b` successfully. Its deployed runtime is equivalent to the
+validated runtime/test RC `60a115f`; the intervening compare is docs/evidence-only.
 `https://samzebrado.github.io/BeatGarden/` returned HTTPS 200, all production subpath
 assets returned 200 with correct types, and connected Chrome verified rendering,
 i18n replacement, Firefly entry, SW scope/controller/cache, and zero runtime errors.
@@ -129,8 +131,9 @@ muted calibration flow, orientation, lifecycle, and cold offline relaunch PASS.
 
 ## HEAD
 
-Runtime/test candidate and currently deployed GitHub main: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
-The next release-record commit modifies only `docs/` evidence, reviews, reports and
-screenshots; it does not modify runtime, tests, dependencies, workflow/build inputs or
-application assets. Its exact documentation SHA and resulting Pages run are recorded in
-the Gate submission because a commit cannot contain its own SHA.
+Runtime/test candidate: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
+GitHub main and Pages deployment/provenance HEAD at the refreshed GATE 4 submission:
+`7772b3b`. The `60a115f...7772b3b` compare modifies only `docs/` markdown, JSON evidence
+and PNG screenshots; it does not modify runtime, tests, dependencies, workflow/build
+inputs or application assets. Therefore the deployed artifact is runtime-equivalent to
+`60a115f`, while its deployment provenance HEAD is `7772b3b`.
