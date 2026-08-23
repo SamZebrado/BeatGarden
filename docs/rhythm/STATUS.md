@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop is PARTIAL with its sole reduced-motion/test blocker fixed and exact-verified at `e502df2`; R5 AutoChart is implemented and exact-verified locally without pre-claiming its Gate.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop PASS after the bounded reduced-motion delta at `e502df2`. R5 AutoChart is implemented and exact-verified locally without pre-claiming its Gate.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -32,8 +32,7 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 ### Current product blockers
 
-1. R4: submit the bounded reduced-motion/test delta at `e502df2` for independent closure review.
-2. R5: implementation and exact verification at `af97fae` are complete; independent bounded review must remain ordered after R4.
+1. R5: implementation and exact verification at `af97fae` are complete; submit for independent bounded review.
 
 ## LOG
 
@@ -160,6 +159,11 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Four deterministic tests cover saved BeatGarden reduced-motion suppression, OS reduced-motion suppression, exact 220 ms duration, first-pointer completion and an immediate result Retry click while the reveal is active.
 - Exact detached verification at `e502df2`: `npm ci` PASS (87 packages); TypeScript lint PASS; 47 files / 306 tests PASS; Pages-base production build PASS. Rhythm main 252.22 kB / gzip 69.34 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
 
+### R4 Product Loop Gate PASS
+
+- Independent bounded delta review returned `RHYTHM V2 R4 PRODUCT LOOP GATE: PASS` and confirmed the sole reduced-motion/transition-coverage blocker is closed.
+- R4 is closed. The verdict directs ordered continuation to R5 AutoChart and preserves the hard Running no-refactor/gameplay/persistence boundary.
+
 ### R5 — AutoChart phrase / playability implementation and smoke
 
 - Generated notes now carry an envelope-derived section, four-beat phrase index, accent flag and authored swipe direction. Phrase filtering adds deliberate 0.8 s rests and bounds uninterrupted action streaks by difficulty.
@@ -174,8 +178,7 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 Next highest-value Rhythm slice:
 
-1. Submit exact R4 bounded delta `e502df2` plus its evidence/status commit for independent closure review.
-2. On R4 PASS, submit exact R5 candidate `af97fae` plus evidence/status HEAD `6cb960c` for bounded independent review.
+1. Submit exact R5 candidate `af97fae` plus evidence/status HEAD `6cb960c` for bounded independent review.
 
 Timing invariant for all future slices:
 
