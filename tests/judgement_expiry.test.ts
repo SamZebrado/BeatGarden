@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Transport } from '../src/timing/Transport';
 import { expiredJudgeBeat, hasJudgeTargetExpired } from '../src/game/judgementExpiry';
 import type { ScheduledJudgeTarget } from '../src/timing/Scheduler';
+import { TIMING_CONFIG } from '../src/timing/config';
+import { targetJudgeWindowSeconds } from '../src/game/targetWindows';
 
 describe('judgement expiry', () => {
   it('does not expire a beat-2 target before its OK window closes', () => {
@@ -42,5 +44,19 @@ describe('semantic hold recognition expiry', () => {
     const tap = { type: 'judge-target', id: 'tap', beat: 4, inputKind: 'tap' } as ScheduledJudgeTarget;
     expect(hasJudgeTargetExpired(transport, tap, 2.13, 0.14, 0.22)).toBe(false);
     expect(hasJudgeTargetExpired(transport, tap, 2.14, 0.14, 0.22)).toBe(true);
+  });
+
+  it('does not auto-miss a hold release during its authoritative 160ms window', () => {
+    const transport = new Transport(() => 0, 120, [4, 4]);
+    transport.start(0, 0);
+    const release = { type: 'judge-target', id: 'release', beat: 4, inputKind: 'holdRelease' } as ScheduledJudgeTarget;
+    const expiryWindow = targetJudgeWindowSeconds(TIMING_CONFIG, release) + .01;
+
+    expect(expiryWindow).toBe(.17);
+    expect(hasJudgeTargetExpired(transport, release, 2.15, expiryWindow, .22)).toBe(false);
+    expect(hasJudgeTargetExpired(transport, release, 2.16, expiryWindow, .22)).toBe(false);
+    expect(hasJudgeTargetExpired(transport, release, 2.169, expiryWindow, .22)).toBe(false);
+    expect(hasJudgeTargetExpired(transport, release, 2.17, expiryWindow, .22)).toBe(true);
+    expect(hasJudgeTargetExpired(transport, release, 2.171, expiryWindow, .22)).toBe(true);
   });
 });

@@ -27,7 +27,7 @@ import { getLocale, languageTargetAction, languageTargetLabel, t, toggleLocale }
 import { loadSettings } from '../settings/settings';
 import { saveBestScore } from '../settings/scores';
 import { hasCompletedTutorial, markTutorialCompleted } from './tutorialProgress';
-import { inputCandidateBeatRange, targetJudgeWindowSeconds } from './targetWindows';
+import { inputCandidateBeatRange, maxTargetJudgeWindowSeconds, targetJudgeWindowSeconds } from './targetWindows';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
@@ -710,8 +710,12 @@ cursor: pointer;
       window.setTimeout(() => this.finishRun(), delayMs as unknown as number);
     }
     // Auto-miss expired targets (past OK window).
-    const okSec = this.config.okWindowMs / 1000 + 0.01;
-    const maxBeatToCheck = expiredJudgeBeat(this.transport, snap.audioTime, okSec);
+    const expiryGraceSec = 0.01;
+    const maxBeatToCheck = expiredJudgeBeat(
+      this.transport,
+      snap.audioTime,
+      maxTargetJudgeWindowSeconds(this.config) + expiryGraceSec,
+    );
     // Do not add scheduler look-ahead here: judgement expiry follows the
     // authoritative audio clock only. The previous +1 beat marked a target
     // MISS roughly half a second before the player was supposed to act.
@@ -725,7 +729,7 @@ cursor: pointer;
         this.transport,
         t,
         snap.audioTime,
-        okSec,
+        targetJudgeWindowSeconds(this.config, t) + expiryGraceSec,
         this.config.holdThresholdMs / 1000,
       )) continue;
       this.judge.autoMiss(t);
