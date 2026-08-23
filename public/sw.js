@@ -1,4 +1,4 @@
-const CACHE_NAME = 'beatgarden-shell-v4';
+const CACHE_NAME = 'beatgarden-shell-v5';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './icons/beatgarden.svg',
   './icons/beatgarden-192.png', './icons/beatgarden-512.png',
@@ -10,13 +10,25 @@ self.addEventListener('install', (event) => {
     await cache.addAll(SHELL);
     const index = await fetch('./index.html');
     const html = await index.text();
-    const moduleScripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)]
-      .map((match) => new URL(match[1], self.registration.scope).href)
+    const entryAssets = extractPrecacheAssets(html)
+      .map((value) => new URL(value, self.registration.scope).href)
       .filter((url) => new URL(url).origin === self.location.origin);
-    await cache.addAll(moduleScripts);
+    await cache.addAll(entryAssets);
   })());
   self.skipWaiting();
 });
+
+function extractPrecacheAssets(html) {
+  const assets = [];
+  for (const match of html.matchAll(/<(script|link)\b[^>]*>/gi)) {
+    const tag = match[0];
+    const attributes = Object.fromEntries([...tag.matchAll(/([^\s=]+)\s*=\s*["']([^"']*)["']/g)]
+      .map((attribute) => [attribute[1].toLowerCase(), attribute[2]]));
+    if (match[1].toLowerCase() === 'script' && attributes.src) assets.push(attributes.src);
+    if (match[1].toLowerCase() === 'link' && attributes.rel?.split(/\s+/).includes('modulepreload') && attributes.href) assets.push(attributes.href);
+  }
+  return [...new Set(assets)];
+}
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(

@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "size:check": "node tools/check_size_budget.mjs"
   },
   "devDependencies": {
     "jsdom": "^29.1.1",

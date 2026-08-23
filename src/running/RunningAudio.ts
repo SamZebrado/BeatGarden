@@ -18,7 +18,7 @@ export const RUNNING_MUSIC_IDENTITIES = {
 
 export const RUNNING_MUSIC_STYLES: Record<MusicStyle, { patch: SoundName; spacingScale: number; noteScale: number; baseVelocity: number }> = {
   classic: { patch: 'bell', spacingScale: 1, noteScale: 1, baseVelocity: .12 },
-  chiptune: { patch: 'lead', spacingScale: .72, noteScale: 1, baseVelocity: .09 },
+  chiptune: { patch: 'lead', spacingScale: .9, noteScale: 1, baseVelocity: .085 },
   organic: { patch: 'bell', spacingScale: 1.55, noteScale: .5, baseVelocity: .1 },
 };
 
@@ -133,11 +133,11 @@ export class RunningAudio {
       this.synth.play(patch, now, note, spacing * .55, style.baseVelocity);
       if (this.style === 'chiptune') {
         if (this.step % 2 === 0) this.synth.play('bass', now, note / 2, spacing * .72, .075);
-        if (this.step % 4 === 3) this.synth.play('lead', now + spacing * .33, note * 1.5, spacing * .22, .055);
+        if (this.step % 8 === 7) this.synth.play('lead', now + spacing * .33, note * 1.25, spacing * .22, .04);
       } else if (this.style === 'organic' && this.step % 3 === 2) this.synth.play('pluck', now + spacing * .55, note * 1.5, spacing * .4, .055);
       const layerScale = this.intensity === 'full' ? 1 : this.intensity === 'soft' ? .45 : 0;
       if (this.pressure && layerScale > 0) {
-        this.synth.play(this.style === 'chiptune' ? 'uiClick' : 'hatClosed', now + spacing * .5, undefined, undefined, .08 * layerScale);
+        if (this.style !== 'chiptune' || this.step % 2 === 0) this.synth.play(this.style === 'chiptune' ? 'uiClick' : 'hatClosed', now + spacing * .5, undefined, undefined, (this.style === 'chiptune' ? .05 : .08) * layerScale);
         if (this.step % 4 === 0) this.synth.play('bass', now, note / 2, spacing * .6, .07 * layerScale);
       }
       if (this.milestone && layerScale > 0 && this.step % 2 === 0) {

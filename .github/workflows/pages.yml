@@ -29,6 +29,7 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE: /BeatGarden/
+      - run: npm run size:check
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

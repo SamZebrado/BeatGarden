@@ -6,6 +6,39 @@ ChatGPT review conversation.
 
 ## STATUS
 
+### Release-readiness and presentation checkpoint — 2026-08-24
+
+- The production build is 12.53 MB on disk, of which 10.88 MB is source maps that are
+  not requested during ordinary play. Runtime assets are 473.9 KB gzip-equivalent;
+  the initial HTML plus initial JavaScript is 86.9 KB gzip-equivalent. Phaser remains
+  a 320.3 KB gzip lazy chunk and is not fetched by a cold Rhythm entry.
+- A repository-owned `npm run size:check` gate now measures the built output, initial
+  module graph, offline precache and largest lazy chunk. It warns at a small healthy
+  growth margin and fails only at a wider regression threshold; Pages runs the gate
+  after its production build.
+- The service worker precaches both initial module scripts, including Vite's
+  `modulepreload` save chunk. It does not precache source maps or Phaser. The Running
+  hub still warms its bounded Running-only world set for subsequent offline play.
+- Real browser QA covered desktop, 390×844 and 844×390: cold Mode Select, Rhythm menu
+  and an actually playing Firefly stage; Running hub, PhD canvas, anonymous supervisor
+  cards, Text Off, Journey result, Journal, settings, all three music styles, Rest
+  Corner and Recovery. The checked portrait and landscape pages had no horizontal
+  overflow and the Phaser canvas matched the viewport.
+- The Chiptune long-session audit identified excessive bright-event density rather
+  than a gameplay defect. Its tempo was relaxed, upper lead halved and pressure click
+  alternated. Classic and Organic remain unchanged. Deterministic tests cover the new
+  interval and pressure-layer density.
+- Representative seeded journeys covered three PhD supervisor profiles, all three
+  Master Career Plans, both Work priority branches, Storm, Recovery taken/declined and
+  all three music styles. The systems remain meaningfully different without balance
+  changes. Early achievement bursts are the main worthwhile V2 pacing follow-up, not
+  a release blocker; Story Marks, Journal and Rest/Recovery remain cosmetic/optional.
+- Android tablet `bbda35e` was connected and awake, but an unrelated full-screen game
+  was the active window. This optional device pass is **UNVERIFIED**; the audit did not
+  interrupt the user's foreground app or substitute earlier Android evidence.
+- Detailed measurements, budget rationale and bounded release findings are recorded
+  in `RELEASE_READINESS_20260824.md`.
+
 ### Product-depth checkpoint — 2026-08-23
 
 - Garden Journal is implemented at the Running hub with durable bounded history,

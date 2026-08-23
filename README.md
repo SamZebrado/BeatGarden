@@ -1,80 +1,115 @@
 # BeatGarden
 
-BeatGarden is an original touch-first browser/PWA game with two top-level modes.
-Rhythm Mode includes four procedural stages and a local AutoChart flow. Running
-Mode is a free-movement survivor game with PhD, Master and Work gardens; Cultivation
-is visible as a future locked world.
+[**Play BeatGarden**](https://samzebrado.github.io/BeatGarden/) · touch, mouse or keyboard · installable PWA
+
+BeatGarden started as four tiny rhythm games and grew a second mode: a real-time
+survivor game about Master's study, PhD life and work. It stays mechanically simple—
+move, choose, listen—but lets the systems underneath a run become surprisingly deep.
+
+Running Mode does not automatically turn supervisors, deadlines or jobs into enemy
+skins. It models some of the causal structure around them instead: workload, Signal
+and Noise, relationships, boundaries, uncertainty, assigned labor and career stages.
+
+## Two ways to play
+
+### Rhythm Mode
+
+- Four original procedural stages: Firefly Dock, Bubble Kitchen, Cloud Post and
+  Sleepy Greenhouse.
+- Local AutoChart turns a song on your device into a playable Pulse Garden. The audio
+  stays in your browser and is never uploaded.
+- Shared timing, calibration and touch/mouse input built around the Web Audio clock.
+
+### Running Mode
+
+- Three complete life paths: Master, PhD and Work, with Sprout, Garden and Storm
+  difficulties.
+- Anonymous, partially known supervisors and managers. A Person is interpreted
+  through their Role, your Relationship and the current Situation.
+- Signal and Noise can arrive together. Assigned labor is not the same thing as
+  independent research, and a high-resource opportunity can still carry pressure.
+- Finished lives remain in the Garden Journal with Medals and Story Marks. You can
+  optionally preserve the person you became as a reusable Boss.
+- Three procedural music styles—Garden Classic, Famicom / Chiptune and Quiet Organic—
+  plus an optional Rest Corner and one-shot in-run Recovery choices.
+- Portable local saves, custom People and strict data-only Boss JSON through the
+  [Boss Studio schema](docs/BOSS_SCHEMA_V1.md).
+
+## A few slightly strange rules
+
+- Your supervisor is not automatically a Boss.
+- Useful Signal and exhausting Noise can come from the same person.
+- Relationships change, but one bad choice does not permanently doom a run.
+- Rest is available without becoming mandatory pre-run optimization.
+- Finish a life path, keep it in the Journal, and eventually turn the person you
+  became into a Boss.
+
+Some Running systems use behavioral and psychological research as design input. The
+research sits underneath the mechanics; no theory is required to play, and the game
+does not claim to diagnose or realistically simulate real people. See
+[Research Foundations](docs/RESEARCH_FOUNDATIONS.md) for the evidence and limits.
+
+## Read further
+
+- [Person System](docs/PERSON_SYSTEM.md) — Person → Role → Relationship → Situation,
+  partial information and non-exploitation boundaries.
+- [Journal, Recovery and Audio](docs/JOURNAL_RECOVERY_AUDIO.md) — durable journeys,
+  cosmetic achievements, optional rest and procedural music.
+- [Running architecture](docs/RUNNING_MODE_ARCHITECTURE.md) — mode isolation,
+  deterministic simulation, saves, PWA behavior and lifecycle ownership.
+- [Running status](docs/RUNNING_MODE_STATUS.md) — maintained verification and release
+  boundaries.
+- [Boss Schema v1](docs/BOSS_SCHEMA_V1.md) — validated custom content and promoted
+  player Bosses.
+
+README is the product doorway. Design and research docs explain why the systems work;
+architecture, status and review records preserve engineering authority and evidence.
 
 ## Run locally
+
+Requires Node.js 22.
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Production verification:
+Release verification:
 
 ```sh
 npm run lint
 npm test -- --run
 VITE_BASE=/BeatGarden/ npm run build
+npm run size:check
+npm audit
 ```
 
-`VITE_BASE` is the deployment subpath. The default `./` remains portable for
-static hosts.
+`VITE_BASE` is the deployment subpath. The default `./` remains portable for other
+static hosts. Phaser and the Running worlds stay lazy until the player starts a
+Running world; the initial mode selector and Rhythm entry do not download Phaser.
 
-## Product flow
-
-- Mode Select preserves legacy Rhythm deep links and lazy-loads Phaser only after
-  entering Running.
-- Rhythm stages: Firefly Dock, Bubble Kitchen, Cloud Post, Sleepy Greenhouse.
-- Your Music: local file decode, Web Worker DSP analysis, chart preview, difficulty
-  and seed controls, then playable Pulse Garden.
-- Running: keyboard/touch movement, automatic offense, pickups and Portfolio Orbit
-  across three bounded life paths. PhD separates supervisors, assigned labor,
-  independent research and finite academic committees; Master follows a distinct
-  three-year Proposal/Defense path; Work follows offer, trial, conversion and
-  promotion with manager and Job Market effects.
-- Running difficulty: Sprout, Garden and Storm. Garden is the default.
-- Running keeps one local, versioned unfinished-run snapshot. Players choose whether
-  to Continue Run or Start New Run; checkpoints, a four-second autosave cadence and
-  browser lifecycle saves preserve deterministic mid-run state without replacing the
-  separate long-term Running meta save.
-- Timing calibration, persistent volume/motion settings, and local best scores.
-- Audio/streaming test plus an in-product asset and stream-safety explanation.
-- Offline shell, install manifest, responsive logical canvas, mouse and touch input.
-- Boss Studio imports strict data-only JSON through validation, preview and explicit
-  confirmation. Its provider-neutral AI handoff and maintained example are documented
-  in [the Boss Schema guide](docs/BOSS_SCHEMA_V1.md).
-
-## Timing architecture
+## Engineering notes
 
 `AudioContext.currentTime` is the authoritative rhythm clock. Transport position is
-derived algebraically from audio/transport anchors; render-frame deltas and wall-clock
-time are never used as the music clock. A look-ahead scheduler places audio events on
-the Web Audio timeline, while the shared Judge owns every input window and calibration
-offset.
+derived from audio/transport anchors; render-frame deltas and wall-clock time are not
+used as the music clock. A look-ahead scheduler places audio events on the Web Audio
+timeline, while the shared Judge owns input windows and calibration offset.
 
-## Privacy and rights
+The project includes deterministic simulation and persistence tests, a production
+size-budget check, an offline shell, responsive pointer/touch controls and GitHub Pages
+deployment. Exact current evidence and known external limits live in
+[Running Mode Status](docs/RUNNING_MODE_STATUS.md), rather than being flattened into a
+marketing claim here.
 
-Imported audio stays on the device. It is decoded and analyzed in the browser, is not
-uploaded, and is not cached by the service worker. Imported music is user-provided and
-its rights status is not verified; BeatGarden does not label it stream safe.
+## Privacy, assets and license
 
-Built-in music, sound effects, graphics, and animation are generated by project code.
-See [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md) for the exact boundary and dependency
-record.
+Imported audio stays on the device. It is decoded and analyzed locally, is not
+uploaded, and is not service-worker cached. User-provided music is not automatically
+labelled stream safe.
 
-## License
+Built-in music, sound effects, graphics and animation are original or generated by
+project code according to [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md). Third-party
+dependencies retain their own licenses.
 
-BeatGarden is licensed under the Apache License 2.0. See [LICENSE](LICENSE) and
-[NOTICE](NOTICE). Third-party dependencies retain their own licenses as recorded in
-[ASSET_PROVENANCE.md](ASSET_PROVENANCE.md).
-
-## Current verification boundary
-
-Desktop production runtime, static `/BeatGarden/` hosting, TypeScript, unit tests,
-production build, real server-stop PWA cold starts and Android tablet touch launches
-were exercised for the Running integration. The Android evidence is functional, not a
-long-duration thermal/battery benchmark. See
-[docs/RUNNING_MODE_STATUS.md](docs/RUNNING_MODE_STATUS.md) for exact gate boundaries.
+BeatGarden is open source under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE)
+for attribution details.

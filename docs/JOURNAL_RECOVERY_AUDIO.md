@@ -60,6 +60,13 @@ only adaptive layers. Mute remains authoritative. Style and presentation timers 
 consume gameplay RNG. Settings persist style, Running music volume, Running SFX
 volume and Dynamic Intensity in the existing Running v2 meta save.
 
+The release-readiness long-session pass treats Chiptune as the conservative fatigue
+case. Its base step now runs at 378 ms, the bright upper lead appears once per eight
+steps, and its pressure click appears on alternating steps. Garden Classic and Quiet
+Organic retain their slower, softer spacing. These are presentation-only density and
+level limits: simulation timing, combat events, seeded RNG and save authority do not
+change. A deterministic audio test locks the reduced Chiptune event density.
+
 ## Rest and in-run recovery
 
 Rest Corner contains exactly three functional no-failure activities: a 30-second
