@@ -2,6 +2,7 @@ export type FrequencyBand = 'low' | 'mid' | 'high';
 export type AutoChartTimingMode = 'beat-grid' | 'onset-timed';
 export type AutoChartDifficulty = 'easy' | 'normal' | 'hard';
 export type AutoChartSection = 'intro' | 'low' | 'build' | 'peak' | 'outro';
+export type AutoChartMotif = 'call' | 'response';
 
 export interface FeatureFrame {
   timeSec: number;
@@ -57,6 +58,9 @@ export interface AutoChartNote {
   durationSec?: number;
   section: AutoChartSection;
   phraseIndex: number;
+  /** Phrase-local grammar identity and four-slot position. */
+  motif: AutoChartMotif;
+  motifSlot: number;
   accent: boolean;
   swipeDirection?: 'left' | 'right';
 }

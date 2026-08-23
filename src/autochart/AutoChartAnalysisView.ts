@@ -177,6 +177,25 @@ export class AutoChartAnalysisView {
       }
     });
     results.appendChild(panel);
+    if (new URLSearchParams(window.location.search).get('runtimeSmoke') === 'autochart-fixture') {
+      const runtimeStatus = document.createElement('output');
+      runtimeStatus.id = 'autochart-fixture-status';
+      runtimeStatus.style.cssText = 'position:fixed;left:-10000px;width:1px;height:1px;overflow:hidden';
+      runtimeStatus.textContent = JSON.stringify({
+        difficulty: this.chart.difficulty,
+        seed: this.chart.seed,
+        notes: this.chart.notes.map((note) => ({
+          songTimeSec: note.songTimeSec,
+          type: note.type,
+          durationSec: note.durationSec ?? null,
+          swipeDirection: note.swipeDirection ?? null,
+          phraseIndex: note.phraseIndex,
+          motif: note.motif,
+          motifSlot: note.motifSlot,
+        })),
+      });
+      results.appendChild(runtimeStatus);
+    }
     this.drawAnalysis(panel.querySelector<HTMLCanvasElement>('[data-role="analysis-canvas"]')!);
   }
 

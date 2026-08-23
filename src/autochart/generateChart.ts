@@ -17,7 +17,7 @@ interface DifficultyProfile {
 }
 
 const PROFILES: Record<AutoChartDifficulty, DifficultyProfile> = {
-  easy: { targetNotesPerMinute: 52, minimumGapSec: 0.28, swipeChance: 0, holdChance: 0.04, allowSyncopation: false },
+  easy: { targetNotesPerMinute: 52, minimumGapSec: 0.28, swipeChance: 0, holdChance: 0, allowSyncopation: false },
   normal: { targetNotesPerMinute: 82, minimumGapSec: 0.17, swipeChance: 0.18, holdChance: 0.08, allowSyncopation: true },
   hard: { targetNotesPerMinute: 120, minimumGapSec: 0.105, swipeChance: 0.35, holdChance: 0.12, allowSyncopation: true },
 };
@@ -148,7 +148,13 @@ export function generateAutoChart(
     const roll = random();
     const section = sectionAt(candidate.onset.timeSec, analysis.durationSec, energies[index] ?? 0, medianEnergy);
     const phraseIndex = Math.max(0, Math.floor(candidate.onset.timeSec / Math.max(1, phraseDurationSec)));
-    const phraseSlot = index % (difficulty === 'hard' ? 6 : 4);
+    // Phrase-local slots make the grammar follow musical time instead of the
+    // global note index. Alternating call/response motifs recur every other
+    // phrase; later repetitions keep their action contour while swipe
+    // direction supplies controlled variation.
+    const phraseProgress = (candidate.onset.timeSec - phraseIndex * phraseDurationSec) / phraseDurationSec;
+    const motifSlot = Math.min(3, Math.max(0, Math.floor(phraseProgress * 4)));
+    const motif = phraseIndex % 2 === 0 ? 'call' : 'response';
     const nextTime = phraseFiltered[index + 1]?.onset.timeSec ?? analysis.durationSec;
     const gapToNext = nextTime - candidate.onset.timeSec;
     const bandTotal = candidate.onset.lowStrength + candidate.onset.midStrength + candidate.onset.highStrength + 1e-9;
@@ -157,15 +163,19 @@ export function generateAutoChart(
     const sustained = frameEnergyAt(analysis, candidate.onset.timeSec, .55) >= (energies[index] ?? 0) * .78;
     const accent = candidate.beatAlignment >= .82 && candidate.onset.normalizedStrength >= 2.4;
     let type: AutoChartNote['type'] = 'tap';
-    const sectionAccentSwipe = difficulty !== 'easy' && (section === 'build' || section === 'peak') && phraseSlot === 2;
+    const sectionAccentSwipe = difficulty !== 'easy' && (section === 'build' || section === 'peak') && motifSlot === 2;
     const musicalSwipe = difficulty !== 'easy' && (candidate.onset.band === 'high' || highShare >= .34)
       && roll < profile.swipeChance + .2;
     const playableHold = gapToNext >= .72 && sustained && section !== 'intro'
       && (candidate.onset.band === 'mid' || midShare >= .3 || energies[index]! >= medianEnergy * .7);
-    const sectionAccentHold = difficulty !== 'easy' && playableHold && index % 5 === 1;
-    if (sectionAccentHold) type = 'hold';
-    else if (sectionAccentSwipe || musicalSwipe) type = 'swipe';
-    else if (playableHold && roll > 1 - profile.holdChance - (difficulty === 'hard' ? .16 : .08)) type = 'hold';
+    const motifAction: AutoChartNote['type'] = motif === 'call'
+      ? (motifSlot === 1 ? 'hold' : motifSlot === 2 ? 'swipe' : 'tap')
+      : (motifSlot === 1 || motifSlot === 3 ? 'swipe' : 'tap');
+    if (difficulty !== 'easy' && motifAction === 'hold' && playableHold) type = 'hold';
+    else if (difficulty !== 'easy' && motifAction === 'swipe') type = 'swipe';
+    else if (difficulty !== 'easy' && sectionAccentSwipe) type = 'swipe';
+    else if (difficulty !== 'easy' && musicalSwipe) type = 'swipe';
+    else if (difficulty !== 'easy' && playableHold && roll > 1 - profile.holdChance - (difficulty === 'hard' ? .16 : .08)) type = 'hold';
     const note: AutoChartNote = {
       id: `auto-${index}-${Math.round(candidate.onset.timeSec * 1000)}`,
       songTimeSec: candidate.onset.timeSec,
@@ -175,9 +185,15 @@ export function generateAutoChart(
       score: Number(candidate.score.toFixed(6)),
       section,
       phraseIndex,
+      motif,
+      motifSlot,
       accent,
     };
-    if (type === 'swipe') note.swipeDirection = phraseIndex % 2 === phraseSlot % 2 ? 'right' : 'left';
+    if (type === 'swipe') {
+      const repeatedPhrase = Math.floor(phraseIndex / 2);
+      const baseRight = motifSlot % 2 === 0;
+      note.swipeDirection = baseRight !== (repeatedPhrase % 2 === 1) ? 'right' : 'left';
+    }
     if (type === 'hold') note.durationSec = Math.min(1.25, Math.max(.55, gapToNext - .18));
     return note;
   });

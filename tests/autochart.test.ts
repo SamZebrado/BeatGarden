@@ -87,18 +87,30 @@ describe('AutoChart deterministic DSP', () => {
     const easy = generateAutoChart(analysis, 'easy', 8);
     const hard = generateAutoChart(analysis, 'hard', 8);
     expect(easy.notes.length).toBeLessThan(hard.notes.length);
-    expect(easy.notes.every((note) => note.type !== 'swipe')).toBe(true);
+    expect(easy.notes.every((note) => note.type === 'tap')).toBe(true);
     expect(hard.notes.some((note) => note.type === 'swipe')).toBe(true);
     expect(hard.quality.densityPerMinute).toBeGreaterThan(easy.quality.densityPerMinute);
     expect(hard.quality.holdConflicts).toBe(0);
     expect(hard.quality.impossibleProximity).toBe(0);
   });
 
-  it('builds repeating phrases, section accents and deliberate rests', () => {
-    const analysis = analyzeMonoPcm(mix(
-      rhythmicBursts(18, .5, 100, .65),
-      rhythmicBursts(18, .5, 6_200, .28, .25),
-    ), SAMPLE_RATE);
+  it('builds repeating phrase-local motifs, section accents and deliberate rests', () => {
+    const times = Array.from({ length: 24 }, (_, index) => index * .75);
+    const analysis: AutoChartAnalysis = {
+      durationSec: 18,
+      sampleRate: SAMPLE_RATE,
+      peakRms: .6,
+      frames: Array.from({ length: 180 }, (_, index) => ({
+        timeSec: index / 10, rms: .5, spectralCentroidHz: 900, spectralRolloffHz: 1200,
+        lowEnergy: .1, lowMidEnergy: .2, midEnergy: .6, highEnergy: .1,
+        globalFlux: .1, lowFlux: .02, midFlux: .08, highFlux: .01, localDynamicRange: .4,
+      })),
+      onsets: times.map((timeSec) => ({
+        timeSec, strength: 4, normalizedStrength: 4, band: 'mid' as const,
+        lowStrength: .1, midStrength: .8, highStrength: .1,
+      })),
+      tempo: { bpm: 80, confidence: .9, phaseSec: 0, beatTimesSec: times, mode: 'beat-grid' },
+    };
     const normal = generateAutoChart(analysis, 'normal', 21);
     expect(new Set(normal.notes.map((note) => note.phraseIndex)).size).toBeGreaterThan(2);
     expect(normal.notes.some((note) => note.section === 'intro')).toBe(true);
@@ -106,6 +118,40 @@ describe('AutoChart deterministic DSP', () => {
     expect(normal.notes.some((note) => note.type === 'swipe')).toBe(true);
     expect(normal.quality.restRatio).toBeGreaterThan(0);
     expect(normal.quality.longestActionStreak).toBeLessThan(9);
+    const callPhrases = new Map<number, typeof normal.notes>();
+    for (const note of normal.notes.filter((candidate) => candidate.motif === 'call')) {
+      callPhrases.set(note.phraseIndex, [...(callPhrases.get(note.phraseIndex) ?? []), note]);
+    }
+    const completeCalls = [...callPhrases.values()]
+      .map((notes) => [...notes].sort((a, b) => a.motifSlot - b.motifSlot))
+      .filter((notes) => notes[0]?.section !== 'intro' && new Set(notes.map((note) => note.motifSlot)).size === 4);
+    expect(completeCalls.length).toBeGreaterThanOrEqual(2);
+    expect(completeCalls[0].map((note) => [note.motifSlot, note.type]))
+      .toEqual(completeCalls[1].map((note) => [note.motifSlot, note.type]));
+  });
+
+  it('keeps sustained mid-energy Easy fixtures tap-only across deterministic seeds', () => {
+    const times = Array.from({ length: 24 }, (_, index) => index * .75);
+    const analysis: AutoChartAnalysis = {
+      durationSec: 18,
+      sampleRate: SAMPLE_RATE,
+      peakRms: .6,
+      frames: Array.from({ length: 180 }, (_, index) => ({
+        timeSec: index / 10, rms: .5, spectralCentroidHz: 900, spectralRolloffHz: 1200,
+        lowEnergy: .1, lowMidEnergy: .2, midEnergy: .6, highEnergy: .1,
+        globalFlux: .1, lowFlux: .02, midFlux: .08, highFlux: .01, localDynamicRange: .4,
+      })),
+      onsets: times.map((timeSec) => ({
+        timeSec, strength: 4, normalizedStrength: 4, band: 'mid' as const,
+        lowStrength: .1, midStrength: .8, highStrength: .1,
+      })),
+      tempo: { bpm: 80, confidence: .9, phaseSec: 0, beatTimesSec: times, mode: 'beat-grid' },
+    };
+    for (const seed of [1, 2, 7, 21, 99, 65_535]) {
+      const easy = generateAutoChart(analysis, 'easy', seed);
+      expect(easy.notes.length).toBeGreaterThan(0);
+      expect(easy.notes.every((note) => note.type === 'tap')).toBe(true);
+    }
   });
 
   it('maps holds only to sustained, conflict-free phrases', () => {
