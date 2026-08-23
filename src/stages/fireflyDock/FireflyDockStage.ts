@@ -41,6 +41,7 @@ import type { PointerAction } from '../../game/InputRouter';
 import type { TransportSnapshot } from '../../timing/Transport';
 import { JudgementKind, TIMING_CONFIG } from '../../timing/config';
 import { t } from '../../i18n/strings';
+import { rhythmSection, type RhythmSection } from '../../game/GameFeel';
 import {
   FIREFLY_BPM,
   FIREFLY_METER,
@@ -86,6 +87,10 @@ type SplashFx = {
 };
 type ActiveFx = LaunchFx | SplashFx;
 
+function fireflySection(beat: number): RhythmSection {
+  return rhythmSection(beat, FIREFLY_TOTAL_BARS * FIREFLY_METER[0] + 2);
+}
+
 export class FireflyDockStage implements StageDefinition {
   public readonly id = 'firefly-dock';
   public readonly titleKey = 'stage.firefly.title' as const;
@@ -100,6 +105,7 @@ export class FireflyDockStage implements StageDefinition {
   private lastMissBubbleText: { x: number; y: number; t0: number; text: string } | null = null;
   private feedback: { kind: JudgementKind | 'WAIT'; t0: number } | null = null;
   private workerActionT0: number | null = null;
+  private constellation: Array<{ x: number; y: number }> = [];
 
   public buildEvents(): readonly ScheduledEvent[] {
     const musicEvents = buildFireflyDockMusicEvents();
@@ -129,6 +135,7 @@ export class FireflyDockStage implements StageDefinition {
         id: 'target-' + c.id,
         beat: targetBeat,
         inputKind: 'tap',
+        meta: { section: fireflySection(targetBeat), phrase: Math.floor(c.bar / 3) },
       };
       cuesAndTargets.push(target);
     }
@@ -169,6 +176,7 @@ export class FireflyDockStage implements StageDefinition {
     this.lastMissBubbleText = null;
     this.feedback = null;
     this.workerActionT0 = null;
+    this.constellation = [];
   }
 
   public onEnd(_score: StageScore): void {
@@ -225,6 +233,13 @@ export class FireflyDockStage implements StageDefinition {
         text: Math.random() < 0.5 ? '!' : '?!',
       };
     } else {
+      if (!result.automatic) {
+        const index = this.constellation.length;
+        this.constellation.push({
+          x: 1320 + (index % 5) * 88 + Math.sin(index * 1.7) * 24,
+          y: 130 + Math.floor(index / 5) * 72 + Math.cos(index * 1.3) * 18,
+        });
+      }
       // Launch arc from centre post.
       this.fx.push({
         kind: 'launch',
@@ -301,6 +316,18 @@ export class FireflyDockStage implements StageDefinition {
       ctx.fillStyle = `rgba(220,230,255,${0.15 + 0.6 * tw})`;
       const size = (i % 3 === 0) ? 2 : 1;
       ctx.fillRect(x, y, size, size);
+    }
+    if (this.constellation.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(168,255,232,.48)'; ctx.lineWidth = 4;
+      ctx.beginPath();
+      this.constellation.forEach((point, index) => index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y));
+      ctx.stroke();
+      for (const point of this.constellation) {
+        ctx.fillStyle = '#dffff5'; ctx.shadowColor = '#8df2d7'; ctx.shadowBlur = 22;
+        ctx.beginPath(); ctx.arc(point.x, point.y, 6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
     }
   }
 

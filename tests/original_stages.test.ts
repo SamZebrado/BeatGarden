@@ -65,6 +65,33 @@ describe('additional original stage content', () => {
     }
   });
 
+  it('authors distinct multi-section phrases instead of one shared interval loop', () => {
+    const [bubble, cloud, greenhouse] = stages.map((stage) => stage.buildEvents().filter((event) => event.type === 'judge-target'));
+    for (const targets of [bubble, cloud, greenhouse]) {
+      const sections = new Set(targets.map((target) => (target.meta as { section?: string }).section));
+      expect(sections).toEqual(new Set(['INTRO', 'MAIN_A', 'VARIATION_B', 'CLIMAX', 'OUTRO']));
+    }
+
+    expect(bubble.map((target) => (target.meta as { lane: number }).lane).slice(8, 13)).toEqual([0, 0, 2, 2, 1]);
+    expect(cloud.map((target) => target.beat)).toContain(28);
+    expect(cloud.map((target) => target.beat)).not.toContain(24); // authored breathing rest before Variation B
+    expect(cloud.map((target) => target.inputKind).slice(4, 8)).toEqual(['swipeLeft', 'swipeLeft', 'swipeRight', 'swipeRight']);
+
+    const greenhouseStarts = greenhouse.filter((target) => target.inputKind === 'holdStart');
+    expect(greenhouseStarts.map((target) => (target.meta as { durationBeats: number }).durationBeats))
+      .toEqual([2, 3, 2, 4, 3, 2, 4, 1]);
+
+    const firefly = new FireflyDockStage().buildEvents().filter((event) => event.type === 'judge-target');
+    expect(new Set(firefly.map((target) => (target.meta as { section?: string }).section)))
+      .toEqual(new Set(['INTRO', 'MAIN_A', 'VARIATION_B', 'CLIMAX', 'OUTRO']));
+    const fireflyBeats = firefly.map((target) => target.beat);
+    expect(fireflyBeats.slice(3, 8)).toEqual([8, 12, 14, 18, 20]); // call and response
+    expect(fireflyBeats).not.toContain(36); // authored breathing rest after the question phrase
+    expect(fireflyBeats).not.toContain(38);
+    expect(fireflyBeats.filter((beat) => beat >= 45 && beat <= 58)).toHaveLength(9); // climax stream
+    expect(fireflyBeats.slice(-2)).toEqual([60, 62]);
+  });
+
   it('maps all three visual lane centers and boundaries in canvas-local CSS coordinates', () => {
     for (const width of [1200, 960]) {
       const visualCenters = [420, 960, 1500].map((logicalX) => logicalX / 1920 * width);

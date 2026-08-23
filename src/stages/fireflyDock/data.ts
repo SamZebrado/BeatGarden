@@ -44,37 +44,45 @@ export const FIREFLY_CHORDS: Array<{
 ];
 
 /**
- * Cue timing pattern (placeholder beats only; judge targets attached later).
- * Original rhythm, not copied from any commercial level.
- * Pattern across one 8-bar cycle → repeated in cycle 2 (bars 8–15) with
- * slightly harder subdivision added on bar 14.
+ * Authored cue progression (judge targets are attached later).
+ * Original rhythm, not copied from any commercial level. The first half uses
+ * short call-and-response phrases, Variation B leaves a deliberate breathing
+ * rest, and the climax becomes a readable rising stream before an outro pair.
  *
  * beat fractional positions: 0 = downbeat, 1 = beat 2, etc.
  */
 export const FIREFLY_CUE_BEATS_IN_CYCLE: Array<{ bar: number; beatInBar: number; id: string }> = [
-  // Interactive onboarding: four guided cues on beats 2, 4, 6, 8.
-  { bar: 0, beatInBar: 2, id: 'tutorial-1' },
-  { bar: 1, beatInBar: 0, id: 'a-1-1' },
-  { bar: 1, beatInBar: 2, id: 'tutorial-3' },
-  { bar: 2, beatInBar: 0, id: 'a-2-1' },
-  // Cycle A (bars 2–7): simple on-beat → syncopation ramp
-  { bar: 3, beatInBar: 2, id: 'a-3-3' },                 // off-beat 3
-  { bar: 4, beatInBar: 0, id: 'a-4-1' },
-  { bar: 5, beatInBar: 1.5, id: 'a-5-2&' },              // & of 2
-  { bar: 6, beatInBar: 0, id: 'a-6-1' },
-  { bar: 6, beatInBar: 3, id: 'a-6-4' },                 // backbeat 4
-  { bar: 7, beatInBar: 0, id: 'a-7-1' },                  // resolution into V
-  // Cycle B (bars 8–15 = cycle index 1): increase density slightly
-  { bar: 8 + 1, beatInBar: 0, id: 'b-1-1' },
-  { bar: 8 + 2, beatInBar: 0, id: 'b-2-1' },
-  { bar: 8 + 2, beatInBar: 2, id: 'b-2-3' },
-  { bar: 8 + 3, beatInBar: 1, id: 'b-3-2' },
-  { bar: 8 + 3, beatInBar: 2.5, id: 'b-3-3&' },
-  { bar: 8 + 4, beatInBar: 0, id: 'b-4-1' },
-  { bar: 8 + 5, beatInBar: 1.5, id: 'b-5-2&' },
-  { bar: 8 + 6, beatInBar: 0, id: 'b-6-1' },
-  { bar: 8 + 6, beatInBar: 3, id: 'b-6-4' },
-  { bar: 8 + 7, beatInBar: 0, id: 'b-7-1' },
+  // Intro: spacious lantern calls.
+  { bar: 0, beatInBar: 2, id: 'intro-call-1' },
+  { bar: 1, beatInBar: 0, id: 'intro-call-2' },
+  { bar: 1, beatInBar: 2, id: 'intro-response' },
+  // Main A: two clearly related call-and-response phrases.
+  { bar: 2, beatInBar: 0, id: 'main-call-1' },
+  { bar: 3, beatInBar: 0, id: 'main-call-2' },
+  { bar: 3, beatInBar: 2, id: 'main-response-1' },
+  { bar: 4, beatInBar: 2, id: 'main-response-2' },
+  { bar: 5, beatInBar: 0, id: 'main-response-3' },
+  { bar: 6, beatInBar: 0, id: 'main-resolution-1' },
+  { bar: 6, beatInBar: 2, id: 'main-resolution-2' },
+  // Variation B: a three-light question, then a six-beat rest and response.
+  { bar: 7, beatInBar: 2, id: 'variation-question-1' },
+  { bar: 8, beatInBar: 0, id: 'variation-question-2' },
+  { bar: 8, beatInBar: 2, id: 'variation-question-3' },
+  { bar: 10, beatInBar: 0, id: 'variation-response-1' },
+  { bar: 10, beatInBar: 2, id: 'variation-response-2' },
+  // Climax: fast but predictable continuous launches.
+  { bar: 11, beatInBar: 1, id: 'climax-1' },
+  { bar: 11, beatInBar: 2.5, id: 'climax-2' },
+  { bar: 12, beatInBar: 0, id: 'climax-3' },
+  { bar: 12, beatInBar: 2, id: 'climax-4' },
+  { bar: 12, beatInBar: 3.5, id: 'climax-5' },
+  { bar: 13, beatInBar: 1, id: 'climax-6' },
+  { bar: 13, beatInBar: 2.5, id: 'climax-7' },
+  { bar: 14, beatInBar: 0, id: 'climax-8' },
+  { bar: 14, beatInBar: 2, id: 'climax-9' },
+  // Outro: two final stars complete the constellation.
+  { bar: 15, beatInBar: 0, id: 'outro-1' },
+  { bar: 15, beatInBar: 2, id: 'outro-2' },
 ];
 
 /** Simple pre-computed drum loop for one bar (4 beats) — original pattern. */
