@@ -1,5 +1,5 @@
 import { createRng, type SeededRng } from './rng';
-import { RUNNING_WORLD, placeSpawnAtDistance, type RunningInput, type Vec2 } from './simulation';
+import { MAX_RUNNING_ENEMIES, RUNNING_WORLD, placeSpawnAtDistance, type RunningInput, type Vec2 } from './simulation';
 import { adjustEnemyDamage, adjustEnemySpeed, adjustSpawnInterval, adjustTelegraphDuration, type RunningDifficulty } from './difficulty';
 import { MANAGERS, WORK_OFFERS, conversionScore, effectiveWorkOffer, masterRoleOutcome, offerViability, seededMarketStrength, type CareerPlan, type ManagerId, type WorkStage } from './lifePaths';
 import type { PersonId } from './people';
@@ -540,6 +540,12 @@ export class ScenarioSimulation {
   }
 
   private spawn(kind: ScenarioEnemyKind, angle = this.rng.next() * Math.PI * 2, source: ScenarioEnemy['source']): void {
+    if (this.enemies.length >= MAX_RUNNING_ENEMIES) {
+      if (source === 'ambient') return;
+      const ambient = this.enemies.findIndex((enemy) => enemy.source === 'ambient');
+      if (ambient < 0) return;
+      this.enemies.splice(ambient, 1);
+    }
     const point = placeSpawnAtDistance(this.player, angle, source === 'climax' ? 390 : 360 + this.rng.next() * 70);
     const boss = kind === 'exam' || kind === 'delivery';
     this.enemies.push({ id: this.nextId++, kind, x: point.x, y: point.y, hp: boss ? 170 : kind === 'courseBlock' || kind === 'request' ? 34 : 22, radius: boss ? 42 : kind === 'courseBlock' || kind === 'request' ? 24 : 18, source, flash: 0 });

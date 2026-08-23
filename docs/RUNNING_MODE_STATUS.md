@@ -22,6 +22,51 @@ ChatGPT review conversation.
   migrated. V2 owns completions, milestone records, difficulty records, persistent
   semantic hints, local Boss metadata and Running mute state.
 
+### Production freeze incident closure — 2026-08-23
+
+- Before changing the Android tab or production storage, the frozen production scene
+  was captured locally. Its live HUD was still present at simulation time 95.617 in
+  Year 3, Garden difficulty, with no choice or milestone open and Mindfulness showing
+  one second. The last valid current-run checkpoint was time 91.633 with 60 enemies.
+  The page then logged `Refusing to persist an invalid Running snapshot` from the
+  periodic save path.
+- Deterministic replay of that exact checkpoint reproduced the first invalid export
+  when the unbounded simulation reached 65 enemies while the current-run validator
+  correctly allowed at most 64. The thrown checkpoint error escaped the Phaser update
+  callback and stopped subsequent update/render work. Mindfulness reaching zero was
+  coincident timing, not a choice or Lab Meeting transition failure.
+- The simulation and current-run validator now share `MAX_RUNNING_ENEMIES = 64`.
+  Ambient spawns stop at the bound; higher-priority meeting and milestone spawns may
+  replace one ambient enemy but can never exceed it. Master and Work use the same
+  invariant. The scene also contains checkpoint rejection so a future validation bug
+  is surfaced in diagnostics and the console without stopping gameplay.
+- The black frame after rotation was a secondary symptom of the already-stopped render
+  loop: the captured landscape viewport still had portrait canvas backing dimensions
+  and a negative vertical offset. WebGL remained available with
+  `isContextLost() === false`. Fixed-build Android rotation checks produced matching
+  portrait and landscape canvases and continued rendering after each transition.
+- Projectile authority remains unchanged: projectiles are removed on impact and the
+  graphics layer is cleared every frame. The yellow expanding impact ring was replaced
+  by a short four-ray impact spark so it cannot read as a lingering projectile. Orbit
+  damage is also unchanged, but active nodes now brighten and contact/defeat events
+  receive short green line, ring and spark feedback.
+- Added an opt-in, default-off, session-only Emoji Beta control. It maps deterministic
+  state transitions to a small set of reactions above the player, has a 12-second
+  cooldown, persists no data and affects no gameplay or RNG. Text Off exposes only the
+  icon with an accessible label.
+- Copy audit classification: keep the already actionable phone, request, resource,
+  meeting and portrait hints; shorten supervisor and reviewer explanations; keep Orbit,
+  Thesis and milestone text mechanic-first; remove designer-rationale claims from the
+  Career Plan, conversion and promotion Legend entries rather than moving them into
+  moment-to-moment UI. English recurring PhD meetings remain **Lab Meeting**.
+- Exact saved-state replay on Android advanced through the former failure window,
+  reached and held the 64-enemy bound, cleared Mindfulness, continued to time 98.883,
+  wrote a valid checkpoint and restored it after reload with the same supervisor and
+  state. Real touches also verified choice-card gaps are no-op, actual cards commit,
+  Emoji Beta is opt-in, Text Off stays icon-only and the Rhythm Firefly route still
+  unlocks a running AudioContext and transport. This is functional incident QA, not a
+  long-duration thermal or battery claim.
+
 ### Durable checkpoint / arbitrary resume checkpoint — 2026-08-23
 
 - The existing `beatgarden.running.v2` key remains the meta authority. One additive

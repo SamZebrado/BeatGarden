@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RUNNING_WORLD, RunningSimulation, placeSpawnAtDistance } from '../src/running/core/simulation';
+import { isCurrentRunV1 } from '../src/running/core/currentRun';
+import { MAX_RUNNING_ENEMIES, RUNNING_WORLD, RunningSimulation, placeSpawnAtDistance } from '../src/running/core/simulation';
 
 function run(simulation: RunningSimulation, seconds: number, x = 0, y = 0): void {
   for (let time = 0; time < seconds; time += 1 / 60) {
@@ -42,6 +43,69 @@ describe('Running fixed-step authority', () => {
       expect(simulation.chooseUpgrade('orbit')).toBe(true);
       expect(simulation.snapshot().orbitCount).toBe(2);
     }
+  });
+
+  it('keeps dense gameplay inside the persisted enemy bound', () => {
+    const simulation = new RunningSimulation(70, { automaticOffense: false });
+    for (let index = 0; index < 4; index += 1) simulation.startSceneReview('dense');
+    const exported = simulation.exportState();
+    expect(exported.enemies).toHaveLength(MAX_RUNNING_ENEMIES);
+    expect(isCurrentRunV1({ version: 1, status: 'active', savedAt: 1, seed: 70, world: 'phd', difficulty: 'garden', simulation: exported })).toBe(true);
+  });
+
+  it('continues after the lifestyle countdown reaches zero', () => {
+    const original = new RunningSimulation(71, { automaticOffense: false });
+    original.startChoiceReview('lifestyle');
+    expect(original.choosePhdOption('mindfulness')).toBe(true);
+    const state = original.exportState();
+    state.phd.state.lifestyle!.remaining = 1 / 60;
+    state.spawnTimer = 999;
+    const simulation = new RunningSimulation(71, { automaticOffense: false, restore: state });
+    const before = simulation.snapshot().time;
+    simulation.step(1 / 60, { x: 0, y: 0 });
+    expect(simulation.snapshot().phd.lifestyle).toBeNull();
+    simulation.step(1 / 60, { x: 1, y: 0 });
+    expect(simulation.snapshot().time).toBeGreaterThan(before + 1 / 60);
+  });
+
+  it('exposes the second-meeting supervisor request and resumes after a response', () => {
+    const original = new RunningSimulation(72, { automaticOffense: false });
+    original.startChoiceReview('supervisor');
+    expect(original.choosePhdOption('controlling')).toBe(true);
+    const state = original.exportState();
+    state.meetingPhase = 'telegraph';
+    state.meetingRemaining = 1 / 60;
+    state.meetingCount = 1;
+    state.spawnTimer = 999;
+    state.phd.state.supervisorRequests = 1;
+    const simulation = new RunningSimulation(72, { automaticOffense: false, restore: state });
+    simulation.step(1 / 60, { x: 0, y: 0 });
+    expect(simulation.snapshot().phd.choice?.kind).toBe('supervisorRequest');
+    const pausedAt = simulation.snapshot().time;
+    simulation.step(1 / 60, { x: 1, y: 0 });
+    expect(simulation.snapshot().time).toBe(pausedAt);
+    expect(simulation.choosePhdOption('setBoundary')).toBe(true);
+    simulation.step(1 / 60, { x: 1, y: 0 });
+    expect(simulation.snapshot().time).toBeGreaterThan(pausedAt);
+  });
+
+  it('reports deterministic Orbit contact and Orbit-caused defeat feedback', () => {
+    const original = new RunningSimulation(73, { automaticOffense: false, firstMeetingAt: 999 });
+    original.step(1 / 60, { x: 0, y: 0 });
+    const state = original.exportState();
+    const enemy = state.enemies[0]!;
+    enemy.x = state.player.x + 64;
+    enemy.y = state.player.y;
+    enemy.hp = 0.01;
+    state.spawnTimer = 999;
+    state.shotTimer = 999;
+    const simulation = new RunningSimulation(73, { restore: state });
+    simulation.step(1 / 60, { x: 0, y: 0 });
+    expect(simulation.snapshot().orbitContacts).toEqual([
+      expect.objectContaining({ nodeIndex: 0, defeated: true }),
+    ]);
+    expect(simulation.snapshot().enemies.some((item) => item.id === enemy.id)).toBe(false);
+    expect(simulation.snapshot().hitPulses.some((pulse) => pulse.color === 0x73f2aa)).toBe(true);
   });
 
   it('telegraphs and starts the first periodic Lab Meeting deterministically', () => {

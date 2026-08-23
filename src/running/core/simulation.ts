@@ -3,6 +3,7 @@ import { PhdSystems, resourceModifiers, type PhdSnapshot, type PhdSystemsStateV1
 import { adjustEnemyDamage, adjustEnemySpeed, adjustSpawnInterval, adjustTelegraphDuration, type RunningDifficulty } from './difficulty';
 
 export const RUNNING_WORLD = { width: 1280, height: 720 } as const;
+export const MAX_RUNNING_ENEMIES = 64;
 
 export interface Vec2 { x: number; y: number }
 export interface RunningInput { x: number; y: number }
@@ -29,6 +30,7 @@ export interface Projectile extends Vec2 {
 
 export interface Pickup extends Vec2 { id: number; value: number; radius: number }
 export interface HitPulse extends Vec2 { id: number; ttl: number; color: number }
+export interface OrbitContact extends Vec2 { nodeIndex: number; enemyX: number; enemyY: number; defeated: boolean }
 export interface RunningSimulationOptions {
   initialPlayer?: Vec2;
   firstMeetingAt?: number;
@@ -70,6 +72,7 @@ export interface RunningSnapshot {
   projectiles: readonly Projectile[];
   pickups: readonly Pickup[];
   hitPulses: readonly HitPulse[];
+  orbitContacts: readonly OrbitContact[];
   level: number;
   xp: number;
   xpNeeded: number;
@@ -98,6 +101,7 @@ export class RunningSimulation {
   private projectiles: Projectile[] = [];
   private pickups: Pickup[] = [];
   private hitPulses: HitPulse[] = [];
+  private orbitContacts: OrbitContact[] = [];
   private upgrades: Record<UpgradeId, number> = { orbit: 0, cadence: 0, vitality: 0 };
   private player = {
     x: RUNNING_WORLD.width / 2,
@@ -134,6 +138,7 @@ export class RunningSimulation {
   }
 
   step(dt: number, input: RunningInput): void {
+    this.orbitContacts = [];
     const phdState = this.phd.snapshot();
     if (dt <= 0 || dt > 0.1 || this.gameOver || phdState.terminal === 'ended' || phdState.terminal === 'graduated' || (this.upgradePending && !phdState.milestone) || phdState.choice) return;
     this.time += dt;
@@ -235,6 +240,7 @@ export class RunningSimulation {
       projectiles: this.projectiles.map((item) => ({ ...item })),
       pickups: this.pickups.map((item) => ({ ...item })),
       hitPulses: this.hitPulses.map((item) => ({ ...item })),
+      orbitContacts: this.orbitContacts.map((item) => ({ ...item })),
       level: this.level,
       xp: this.xp,
       xpNeeded: this.xpNeeded(),
@@ -313,6 +319,12 @@ export class RunningSimulation {
   }
 
   private spawnEnemy(kind?: EnemyKind, angle?: number, source: Enemy['source'] = 'ambient'): void {
+    if (this.enemies.length >= MAX_RUNNING_ENEMIES) {
+      if (source === 'ambient') return;
+      const ambient = this.enemies.findIndex((enemy) => enemy.source === 'ambient');
+      if (ambient < 0) return;
+      this.enemies.splice(ambient, 1);
+    }
     const sideAngle = angle ?? this.rng.next() * Math.PI * 2;
     const distance = 360 + this.rng.next() * 90;
     const roll = this.rng.next();
@@ -432,7 +444,12 @@ export class RunningSimulation {
       const angle = this.time * 2.2 + (index / count) * Math.PI * 2;
       const node = { x: this.player.x + Math.cos(angle) * 64, y: this.player.y + Math.sin(angle) * 64, radius: 9 };
       for (const enemy of this.enemies) {
-        if (circlesTouch(node, enemy)) enemy.hp -= 16 * resourceModifiers(this.phd.snapshot()).orbitDamage * dt;
+        if (circlesTouch(node, enemy)) {
+          enemy.hp -= 16 * resourceModifiers(this.phd.snapshot()).orbitDamage * dt;
+          if (enemy.hp <= 0 || !this.orbitContacts.some((contact) => contact.nodeIndex === index)) {
+            this.orbitContacts.push({ nodeIndex: index, x: node.x, y: node.y, enemyX: enemy.x, enemyY: enemy.y, defeated: enemy.hp <= 0 });
+          }
+        }
       }
     }
     this.removeDefeated();

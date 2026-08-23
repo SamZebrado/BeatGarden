@@ -5,6 +5,7 @@ import { t, type StringKey } from '../../i18n/strings';
 import type { RunningDifficulty } from '../core/difficulty';
 import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
+import { EmojiBeta } from '../EmojiBeta';
 import { RunningLegend, createPhdLegendEntries } from '../RunningLegend';
 import { loadRunningSave, markWorldCompleted, updateRunningSave } from '../core/save';
 import type { AnnualMilestoneKind } from '../core/phdSystems';
@@ -40,6 +41,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     private joystick: { pointerId: number; x: number; y: number; currentX: number; currentY: number } | null = null;
     private hints!: SemanticHints;
     private audio!: RunningAudio;
+    private emoji!: EmojiBeta;
     private legend!: RunningLegend;
     private legendOpen = false;
     private promotion!: PromotionAction;
@@ -75,6 +77,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.hints = new SemanticHints(root, isTextOff());
       this.showPortraitHintIfNeeded();
       this.audio = new RunningAudio(root, 'phd');
+      this.emoji = new EmojiBeta(root, isTextOff());
       this.legend = new RunningLegend(root, { world: 'phd', textOff: isTextOff(), getEntries: () => createPhdLegendEntries(this.simulation.snapshot(), loadRunningSave().seenHints), onOpenChange: (open) => { this.legendOpen = open; if (open) this.joystick = null; } });
       this.promotion = new PromotionAction(root, isTextOff());
       this.render(this.simulation.snapshot());
@@ -209,7 +212,13 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     saveNow(): void {
       const state = this.simulation.snapshot();
       if (state.gameOver || state.phd.terminal === 'ended' || state.phd.terminal === 'graduated') { clearCurrentRun(); return; }
-      saveCurrentRun({ version: 1, status: 'active', savedAt: Date.now(), seed: runSeed, world: 'phd', difficulty: state.difficulty, simulation: this.simulation.exportState() });
+      try {
+        saveCurrentRun({ version: 1, status: 'active', savedAt: Date.now(), seed: runSeed, world: 'phd', difficulty: state.difficulty, simulation: this.simulation.exportState() });
+        delete hudOverlay.dataset.checkpointError;
+      } catch (error) {
+        hudOverlay.dataset.checkpointError = error instanceof Error ? error.message : String(error);
+        console.error('[BeatGarden] Running checkpoint rejected; gameplay continues.', error);
+      }
     }
 
     private resizeCamera(): void {
@@ -244,9 +253,13 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.drawMilestoneArena(g, state);
 
       g.lineStyle(2, 0x7ae2b1, 0.22).strokeCircle(state.player.x, state.player.y, 64);
+      const activeOrbitNodes = new Set(state.orbitContacts.map((contact) => contact.nodeIndex));
       for (let index = 0; index < state.orbitCount; index += 1) {
         const angle = state.time * 2.2 + (index / state.orbitCount) * Math.PI * 2;
-        g.fillStyle(0x8df5c2, 1).fillCircle(state.player.x + Math.cos(angle) * 64, state.player.y + Math.sin(angle) * 64, 9);
+        const x = state.player.x + Math.cos(angle) * 64;
+        const y = state.player.y + Math.sin(angle) * 64;
+        if (activeOrbitNodes.has(index)) g.fillStyle(0xbaffdc, .34).fillCircle(x, y, 16);
+        g.fillStyle(activeOrbitNodes.has(index) ? 0xd8ffe9 : 0x8df5c2, 1).fillCircle(x, y, activeOrbitNodes.has(index) ? 12 : 9);
       }
       this.drawPhdSystems(g, state);
       for (const pickup of state.pickups) {
@@ -259,8 +272,20 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       }
       for (const enemy of state.enemies) this.drawEnemy(g, enemy, state);
       for (const pulse of state.hitPulses) {
-        g.lineStyle(4, pulse.color, Math.min(1, pulse.ttl * 5));
-        g.strokeCircle(pulse.x, pulse.y, 12 + (0.35 - pulse.ttl) * 45);
+        const alpha = Math.min(1, pulse.ttl * 5);
+        g.lineStyle(4, pulse.color, alpha);
+        if (pulse.color === 0xf9f29f) {
+          const radius = 8 + (0.18 - pulse.ttl) * 34;
+          g.lineBetween(pulse.x - radius, pulse.y, pulse.x - 3, pulse.y);
+          g.lineBetween(pulse.x + 3, pulse.y, pulse.x + radius, pulse.y);
+          g.lineBetween(pulse.x, pulse.y - radius, pulse.x, pulse.y - 3);
+          g.lineBetween(pulse.x, pulse.y + 3, pulse.x, pulse.y + radius);
+        } else g.strokeCircle(pulse.x, pulse.y, 12 + (0.35 - pulse.ttl) * 45);
+      }
+      for (const contact of state.orbitContacts) {
+        g.lineStyle(contact.defeated ? 5 : 3, 0x73f2aa, contact.defeated ? .95 : .68);
+        g.lineBetween(contact.x, contact.y, contact.enemyX, contact.enemyY);
+        g.strokeCircle(contact.enemyX, contact.enemyY, contact.defeated ? 18 : 11);
       }
       if (state.player.invulnerable <= 0 || Math.floor(state.time * 12) % 2 === 0) {
         g.fillStyle(0x68d494, 0.25).fillCircle(state.player.x, state.player.y, 29);
@@ -306,6 +331,10 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       hudOverlay.dataset.milestoneProgress = state.phd.milestone ? `${state.phd.milestone.progress}/${state.phd.milestone.target}` : '';
       hudOverlay.dataset.supervisor = state.phd.supervisorId ?? 'unselected';
       hudOverlay.dataset.lifestyle = state.phd.lifestyle?.id ?? '';
+      hudOverlay.dataset.enemyCount = String(state.enemies.length);
+      hudOverlay.dataset.projectileCount = String(state.projectiles.length);
+      hudOverlay.dataset.hitPulseCount = String(state.hitPulses.length);
+      hudOverlay.dataset.orbitContactCount = String(state.orbitContacts.length);
       hudOverlay.querySelector<HTMLElement>('[data-role="help"]')!.style.display = textOff || this.isPortrait() || state.upgradePending || state.phd.choice || state.gameOver || state.phd.terminal === 'ended' || state.phd.terminal === 'graduated' ? 'none' : 'inline';
       if (state.phd.choice) this.drawPhdChoice(g, state);
       if (state.upgradePending && !state.phd.milestone) this.drawUpgradeOverlay(g);
@@ -659,6 +688,11 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         else if (enemy.kind === 'committee') this.hints.show('committee', 'running.hint.committee');
       }
       const prior = this.previous;
+      const view = this.cameras.main.worldView;
+      this.emoji.update(state, prior, {
+        x: (state.player.x - view.left) * this.cameras.main.zoom + this.cameras.main.x,
+        y: (state.player.y - view.top) * this.cameras.main.zoom + this.cameras.main.y,
+      });
       this.audio.setPressure(state.meeting.phase === 'active' || !!state.phd.milestone);
       if (prior) {
         if (state.hitPulses.some((pulse) => pulse.color === 0xf9f29f && !prior.hitPulses.some((old) => old.id === pulse.id))) this.audio.cue('hit');
@@ -701,7 +735,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       }
       this.previous = state;
     }
-    destroyRuntime(): void { this.legend?.destroy(); this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
+    destroyRuntime(): void { this.legend?.destroy(); this.audio?.destroy(); this.emoji?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
 
     private ephemeralText(x: number, y: number, value: string, color: string, size: number, bold = false, wrapWidth?: number): void {
       const label = this.add.text(x, y, value, { color, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal', fontFamily: 'system-ui', align: 'center', ...(wrapWidth ? { wordWrap: { width: wrapWidth, useAdvancedWrap: false } } : {}) }).setOrigin(0.5).setDepth(30);

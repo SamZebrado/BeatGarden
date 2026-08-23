@@ -1,5 +1,5 @@
 import type { RunningDifficulty } from './difficulty';
-import type { RunningSimulationStateV1 } from './simulation';
+import { MAX_RUNNING_ENEMIES, type RunningSimulationStateV1 } from './simulation';
 import type { ScenarioSimulationStateV1, ScenarioWorld } from './scenarioSimulation';
 
 export const CURRENT_RUN_STORAGE_KEY = 'beatgarden.running.current.v1';
@@ -133,13 +133,13 @@ function validScenarioChoice(value: unknown, world: 'master' | 'work'): boolean 
 }
 
 function phdEnemyArray(value: unknown): boolean {
-  return Array.isArray(value) && value.length <= 64 && value.every((item) => entityBase(item)
+  return Array.isArray(value) && value.length <= MAX_RUNNING_ENEMIES && value.every((item) => entityBase(item)
     && enumValue(item.kind, ['mite', 'reviewer', 'chair', 'phone', 'committee'])
     && enumValue(item.source, ['ambient', 'meeting', 'milestone']) && positiveKeys(item, ['hp', 'radius']) && finiteKeys(item, ['flash']));
 }
 
 function scenarioEnemyArray(value: unknown): boolean {
-  return Array.isArray(value) && value.length <= 64 && value.every((item) => entityBase(item)
+  return Array.isArray(value) && value.length <= MAX_RUNNING_ENEMIES && value.every((item) => entityBase(item)
     && enumValue(item.kind, ['courseBlock', 'deadline', 'exam', 'request', 'notification', 'delivery'])
     && enumValue(item.source, ['ambient', 'periodic', 'milestone', 'climax']) && positiveKeys(item, ['hp', 'radius']) && finiteKeys(item, ['flash']));
 }
