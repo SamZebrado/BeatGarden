@@ -1,6 +1,6 @@
 # BeatGarden Development Status
 
-Current phase: **Rhythm V2 R0–R5 PASS; refreshed GATE 2 PASS; refreshed GATE 4 PASS; FINAL INDEPENDENT ACCEPTANCE pending**
+Current phase: **RELEASE CANDIDATE COMPLETE — FINAL_ACCEPTANCE: PASS**
 
 Last updated: 2026-08-24
 
@@ -20,6 +20,21 @@ Last updated: 2026-08-24
 - User accepted Chrome's formal install confirmation, but no BeatGarden/WebAPK package, launcher item or Chrome shortcut is currently observable; standalone launch remains `UNVERIFIED` as an external delivery residual.
 - Refreshed evidence: `docs/evidence/public_pages_20260824.json`, `docs/evidence/android_release_20260824.json`, and `docs/evidence/android_20260824/`.
 - The official 2026-08-10 GATE 2/GATE 4 PASS records below remain immutable history for the older RC. The V2 RC is now submitted as a bounded refreshed external delta before final acceptance.
+
+## 2026-08-24 FINAL INDEPENDENT ACCEPTANCE — PASS
+
+- Request id `mt6btwgt-zc9ycxzc`, message id `pu2hfa2zdf9z6jj7p7pp`.
+- Nonce `MSG_OPENAI_CODEX_FINAL_ACCEPTANCE_60A115F_3A6C4DD_20260824A`; message bubble confirmed exactly once.
+- Independent reviewer accepted the complete BeatGarden Release Candidate at runtime/test
+  RC `60a115f` and GitHub main / release-record / Pages provenance HEAD `3a6c4dd`.
+- Pages run `32667924331` matched exact head `3a6c4dd`; build job `97264168537` and
+  deploy job `97264231827` both PASS.
+- Complete accepted chain: GATE 0–4 PASS and Rhythm V2 R0–R5 PASS. No remaining product
+  or release blocker was identified at the submitted scope.
+- Two limitations remain deliberately `UNVERIFIED`, not converted into false PASS:
+  external Chrome/WebAPK standalone PWA delivery/launch and native OS file-picker
+  automation. App-owned PWA behavior and the underlying `analyzeFile(File)` path passed.
+- Canonical record: `docs/reviews/final_acceptance_20260824.md`.
 
 ## 2026-08-24 refreshed GATE 2 verdict — PASS
 

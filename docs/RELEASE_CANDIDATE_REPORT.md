@@ -3,12 +3,18 @@
 ## OVERALL
 
 **REFRESHED RELEASE CANDIDATE — runtime/test RC `60a115f`, deployment/provenance HEAD
-`a410560`; Rhythm V2 R0–R5 PASS, refreshed GATE 2 PASS and refreshed GATE 4
-PASS; final independent acceptance pending.** Public GitHub Pages and the real Android production
+`3a6c4dd`; Rhythm V2 R0–R5 PASS, refreshed GATE 2 PASS, refreshed GATE 4 PASS,
+and `FINAL_ACCEPTANCE: PASS`.** Public GitHub Pages and the real Android production
 matrix are evidenced at the refreshed V2 RC. Chrome recognizes the manifest and the
 user accepted the formal install confirmation, but no standalone package/launcher
 entry is observable, so standalone launch remains `UNVERIFIED` as an external,
 non-app-owned residual.
+
+Final independent acceptance request `mt6btwgt-zc9ycxzc`, message
+`pu2hfa2zdf9z6jj7p7pp`, nonce
+`MSG_OPENAI_CODEX_FINAL_ACCEPTANCE_60A115F_3A6C4DD_20260824A` accepted the complete
+Release Candidate with no remaining product or release blocker at the submitted scope.
+Native OS file-picker automation remains the second deliberately `UNVERIFIED` limitation.
 
 ## GATE 0 Timing
 
