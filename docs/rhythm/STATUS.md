@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PARTIAL; the second bounded target-selection/window delta is implemented and awaiting exact-commit review.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel implementation and exact evidence closure are in progress.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -97,13 +97,19 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - One expiry-policy regression now exercises the same function StageRunner calls and proves: hold release at +160 ms is not expired and central Judge returns `OK`; +161 ms is not prematurely auto-consumed and central Judge returns `MISS`; no-input release becomes eligible for auto-MISS only at +170 ms; ordinary tap remains eligible at +140 ms and is not broadened.
 - Exact detached-worktree verification at `14abebe`: TypeScript lint PASS; 44 files / 289 tests PASS; Pages-base production build PASS. Rhythm main 230.52 kB / gzip 62.92 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB.
 
+### R1 Control Gate PASS
+
+- ChatGPT returned `RHYTHM V2 CONTROL GATE: PASS` and confirmed the final per-target auto-expiry policy closes the sole remaining R1 blocker without changing timing authority or broadening ordinary tap expiry.
+- Attachment transport incident: Bridge request `mt657noy-tlnkinh0` claimed all five attachments confirmed, while real Chrome inspection of the latest `[data-message-author-role="user"]` node found zero attachment cards. ChatGPT explicitly reviewed the pushed repository sources despite the missing attachment and issued the bounded verdict. The false-positive therefore remains a Bridge delivery-status defect, not evidence that the cards existed.
+- Per the approved R1→R5 order, work proceeds immediately to R2 Shared Game Feel. R2 was prepared locally during Gate waits but was neither attached nor claimed as part of R1.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Submit the second bounded R1 target-selection/window delta from an isolated commit worktree and verify its real Chrome attachment cards.
-2. Obtain `RHYTHM V2 CONTROL GATE: PASS` before committing/submitting R2.
-3. Continue automatically through R2 Shared Game Feel after R1 PASS.
+1. Commit and independently verify R2 Shared Game Feel without mixing later R3/R4 work.
+2. Re-run real desktop mouse and muted Android touch/pause smoke against the exact R2 candidate.
+3. Submit R2 with real Chrome attachment-card verification; if Bridge again reports cards that DOM inspection cannot find, classify the transport result as false-positive and use pushed exact source as the independent review fallback.
 
 Timing invariant for all future slices:
 
