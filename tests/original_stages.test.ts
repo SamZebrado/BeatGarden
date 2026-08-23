@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage, laneFromSurfaceX, localizedGardenFeedback } from '../src/stages/original/GardenStages';
 import { setLocale } from '../src/i18n/strings';
+import { FireflyDockStage } from '../src/stages/fireflyDock/FireflyDockStage';
 
 const stages = [new BubbleKitchenStage(), new CloudPostStage(), new SleepyGreenhouseStage()];
 
@@ -30,6 +31,29 @@ describe('additional original stage content', () => {
     expect([...kinds[0]]).toEqual(['tap']);
     expect([...kinds[1]].sort()).toEqual(['swipeLeft', 'swipeRight']);
     expect([...kinds[2]].sort()).toEqual(['holdRelease', 'holdStart']);
+  });
+
+  it('requires four successful tutorial steps before formal play for every built-in stage', () => {
+    const allStages = [new FireflyDockStage(), ...stages];
+    for (const stage of allStages) {
+      const steps = stage.buildTutorialSteps?.() ?? [];
+      expect(steps).toHaveLength(4);
+      expect(new Set(steps.map((step) => step.id)).size).toBe(4);
+      expect(steps.every((step) => step.targets.length > 0)).toBe(true);
+      expect(steps.flatMap((step) => step.targets).every((target) => target.id.startsWith('tutorial-'))).toBe(true);
+    }
+  });
+
+  it('teaches lane taps, directional swipes, and paired hold release explicitly', () => {
+    const bubble = new BubbleKitchenStage().buildTutorialSteps!();
+    expect(bubble.map((step) => (step.targets[0]!.meta as { lane: number }).lane)).toEqual([0, 1, 2, 1]);
+    const cloud = new CloudPostStage().buildTutorialSteps!();
+    expect(cloud.map((step) => step.targets[0]!.inputKind)).toEqual(['swipeLeft', 'swipeRight', 'swipeLeft', 'swipeRight']);
+    const greenhouse = new SleepyGreenhouseStage().buildTutorialSteps!();
+    for (const step of greenhouse) {
+      expect(step.targets.map((target) => target.inputKind)).toEqual(['holdStart', 'holdRelease']);
+      expect(step.targets[0]!.pairedId).toBe(step.targets[1]!.id);
+    }
   });
 
   it('pairs each greenhouse hold start with an authored release target', () => {

@@ -11,7 +11,7 @@
  *   - Pause (ESC key) / resume support (minimal).
  */
 
-import type { StageDefinition, StageRuntimeServices, StageScore } from './Stage';
+import type { PointerPreview, StageDefinition, StageRuntimeServices, StageScore, StageTutorialStep } from './Stage';
 import { Transport } from '../timing/Transport';
 import { Scheduler } from '../timing/Scheduler';
 import { Judge } from '../timing/Judge';
@@ -26,6 +26,7 @@ import { expiredJudgeBeat, hasJudgeTargetExpired } from './judgementExpiry';
 import { getLocale, languageTargetAction, languageTargetLabel, t, toggleLocale } from '../i18n/strings';
 import { loadSettings } from '../settings/settings';
 import { saveBestScore } from '../settings/scores';
+import { hasCompletedTutorial, markTutorialCompleted } from './tutorialProgress';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
@@ -34,7 +35,7 @@ export interface StageRunnerOptions {
   onExit?: () => void;
 }
 
-type Phase = 'locked' | 'countdown' | 'playing' | 'paused' | 'ended';
+type Phase = 'locked' | 'tutorial' | 'countdown' | 'playing' | 'paused' | 'ended';
 
 export class StageRunner {
   public readonly stage: StageDefinition;
@@ -58,6 +59,10 @@ export class StageRunner {
   private runtimeStatus!: HTMLOutputElement;
   private readonly onExit: (() => void) | undefined;
   private destroyed = false;
+  private readonly tutorialSteps: readonly StageTutorialStep[];
+  private tutorialStepIndex = 0;
+  private tutorialPassedTargets = new Set<string>();
+  private tutorialTransitionToken = 0;
   private readonly smokeControls: HTMLElement[] = [];
   private debugHandle!: Record<string, unknown>;
   private lifecycleTelemetry = {
@@ -80,6 +85,7 @@ export class StageRunner {
     this.stage = opts.stage;
     this.onExit = opts.onExit;
     this.config = opts.config ?? TIMING_CONFIG;
+    this.tutorialSteps = this.stage.buildTutorialSteps?.() ?? [];
 
     // Build engine / services.
     this.canvasMgr = new CanvasManager({ parent: opts.root, config: this.config });
@@ -111,6 +117,7 @@ export class StageRunner {
         this.debug.reportTarget(target.beat, targetAudioTime);
         this.debug.reportCounts(this.judge.statsCounts());
         this.stage.onJudge?.(res, target);
+        this.handleTutorialJudgement(res, target);
         // Audio SFX reaction.
         const tAfter = this.audio.now() + 0.002;
         if (res.kind === 'PERFECT' || res.kind === 'GREAT') this.synth.play('success', tAfter);
@@ -141,7 +148,7 @@ export class StageRunner {
       onSuspend: () => {
         // Called when document becomes hidden.
         this.scheduler.stop();
-        if (this.phase === 'playing' || this.phase === 'countdown') {
+        if (this.phase === 'playing' || this.phase === 'countdown' || this.phase === 'tutorial') {
           this.transport.pause(this.audio.now());
         }
         const snap = this.transport.snapshot();
@@ -161,7 +168,7 @@ export class StageRunner {
         // ended) stay put. The Transport anchor was updated in onSuspend
         // via pause(), so re-anchoring here just picks up from the same
         // beat position — no phase drift even if audio time advanced.
-        if (this.phase === 'playing' || this.phase === 'countdown') {
+        if (this.phase === 'playing' || this.phase === 'countdown' || this.phase === 'tutorial') {
           // Scheduler.start() ticks synchronously, so Transport MUST be
           // re-anchored first. Otherwise the first tick observes playing=false.
           resumeAfterAudioConfirmed(this.transport, this.scheduler, this.audio.now());
@@ -176,6 +183,7 @@ export class StageRunner {
     });
 
     this.attachInput();
+    this.attachPointerPreview();
     this.attachKeyShortcuts();
     this.buildUnlockOverlay();
     this.buildRuntimeStatus();
@@ -223,7 +231,7 @@ export class StageRunner {
         void this.audio.unlockFromUserGesture();
         return;
       }
-      if (this.phase !== 'playing') return;
+      if (this.phase !== 'playing' && this.phase !== 'tutorial') return;
       const snap = this.transport.snapshot();
       // Collect pending judge targets (within ± ok+window).
       const audioNow = action.audioTime;
@@ -240,6 +248,29 @@ export class StageRunner {
       }
     });
   }
+
+  private attachPointerPreview(): void {
+    const canvas = this.canvasMgr.canvas;
+    canvas.addEventListener('pointerdown', this.onPointerPreview);
+    canvas.addEventListener('pointermove', this.onPointerPreview);
+    canvas.addEventListener('pointerup', this.onPointerPreview);
+    canvas.addEventListener('pointercancel', this.onPointerPreview);
+  }
+
+  private onPointerPreview = (event: PointerEvent): void => {
+    if (!this.stage.onPointerPreview) return;
+    const rect = this.canvasMgr.canvas.getBoundingClientRect();
+    const type: PointerPreview['type'] = event.type === 'pointerdown' ? 'down'
+      : event.type === 'pointermove' ? 'move'
+        : event.type === 'pointerup' ? 'up' : 'cancel';
+    this.stage.onPointerPreview({
+      type,
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      surfaceWidth: rect.width,
+      surfaceHeight: rect.height,
+    });
+  };
 
   private attachKeyShortcuts(): void {
     window.addEventListener('keydown', this.onKeyDown);
@@ -360,6 +391,11 @@ overflow: hidden; white-space: pre;
         audioTime: Number(this.input.lastInputAudioTime.toFixed(4)),
       },
       counts,
+      tutorial: this.phase === 'tutorial' ? {
+        step: this.tutorialStepIndex + 1,
+        total: this.tutorialSteps.length,
+        passedTargets: this.tutorialPassedTargets.size,
+      } : null,
     };
     this.runtimeStatus.dataset.phase = this.phase;
     this.runtimeStatus.dataset.audioContextState = contextState;
@@ -571,10 +607,65 @@ cursor: pointer;
       this.overlays.unlock.remove();
       this.overlays.unlock = null;
     }
-    this.startCountdown();
+    if (this.tutorialSteps.length > 0 && !hasCompletedTutorial(this.stage.id)) {
+      this.tutorialStepIndex = 0;
+      this.startTutorialStep();
+    } else {
+      this.startCountdown();
+    }
+  }
+
+  private startTutorialStep(): void {
+    const step = this.tutorialSteps[this.tutorialStepIndex];
+    if (!step) {
+      markTutorialCompleted(this.stage.id);
+      this.startCountdown();
+      return;
+    }
+    this.tutorialTransitionToken++;
+    this.scheduler.stop();
+    this.transport.reset(this.audio.now());
+    this.judge.resetRun();
+    this.stage.onStart?.(this.services);
+    this.tutorialPassedTargets.clear();
+    const metronome = [0, 1, 2].map((beat) => ({
+      type: 'audio' as const,
+      beat,
+      sound: beat === 2 ? 'snare' as const : 'hatClosed' as const,
+      velocity: beat === 2 ? 0.42 : 0.24,
+    }));
+    this.scheduler.setEvents([...metronome, ...step.targets]);
+    this.phase = 'tutorial';
+    this.ended = false;
+    this.transport.start(0, this.audio.now() + 0.08);
+    this.scheduler.start();
+  }
+
+  private handleTutorialJudgement(
+    result: import('./Stage').JudgeResult,
+    target: import('../timing/Scheduler').ScheduledJudgeTarget,
+  ): void {
+    if (this.phase !== 'tutorial') return;
+    const step = this.tutorialSteps[this.tutorialStepIndex];
+    if (!step || !step.targets.some((item) => item.id === target.id)) return;
+    const token = ++this.tutorialTransitionToken;
+    if (result.kind === 'MISS') {
+      window.setTimeout(() => {
+        if (this.phase === 'tutorial' && token === this.tutorialTransitionToken) this.startTutorialStep();
+      }, 650);
+      return;
+    }
+    this.tutorialPassedTargets.add(target.id);
+    if (!step.targets.every((item) => this.tutorialPassedTargets.has(item.id))) return;
+    window.setTimeout(() => {
+      if (this.phase !== 'tutorial' || token !== this.tutorialTransitionToken) return;
+      this.tutorialStepIndex++;
+      this.startTutorialStep();
+    }, 650);
   }
 
   private startCountdown(): void {
+    this.tutorialTransitionToken++;
     // Stage onStart: sets BPM to stage's BPM, calls reset(), builds events & passes to scheduler.
     // ---- Restart clean-up: beat MUST return to 0 so restart() starts from the
     // beginning (GATE 0 PARTIAL Issue 5 — restart cursor reset consistency).
@@ -604,11 +695,11 @@ cursor: pointer;
   }
 
   private phasePlayingCheck(): void {
-    if (this.phase !== 'playing') return;
+    if (this.phase !== 'playing' && this.phase !== 'tutorial') return;
     const snap = this.transport.snapshot();
     const total = this.stage.totalBeats();
     // When beat passes totalBeats, end the stage after fade buffer.
-    if (!this.ended && snap.beat >= total) {
+    if (this.phase === 'playing' && !this.ended && snap.beat >= total) {
       this.ended = true;
       const endAt = snap.audioTime + 1.5;
       const delayMs = Math.max(0, (endAt - this.audio.now()) * 1000);
@@ -718,6 +809,10 @@ cursor: pointer;
     if (this._raf !== null) cancelAnimationFrame(this._raf);
     this.scheduler.stop();
     this.input.detach();
+    this.canvasMgr.canvas.removeEventListener('pointerdown', this.onPointerPreview);
+    this.canvasMgr.canvas.removeEventListener('pointermove', this.onPointerPreview);
+    this.canvasMgr.canvas.removeEventListener('pointerup', this.onPointerPreview);
+    this.canvasMgr.canvas.removeEventListener('pointercancel', this.onPointerPreview);
     window.removeEventListener('keydown', this.onKeyDown);
     this.removeResultOverlay();
     this.overlays.unlock?.remove();
@@ -738,7 +833,7 @@ cursor: pointer;
         this.phase = 'playing';
       }
     }
-    if (this.phase === 'playing') {
+    if (this.phase === 'playing' || this.phase === 'tutorial') {
       this.scheduler.advanceIfNeeded();
       this.phasePlayingCheck();
     }
@@ -750,12 +845,14 @@ cursor: pointer;
     ctx.fillRect(0, 0, this.canvasMgr.logicalW, this.canvasMgr.logicalH);
     if (
       this.phase === 'playing' ||
+      this.phase === 'tutorial' ||
       this.phase === 'countdown' ||
       this.phase === 'paused' ||
       this.phase === 'ended'
     ) {
       const snap = this.transport.snapshot();
       this.stage.render(ctx, snap);
+      this.drawTutorialOverlay(ctx);
       this.drawCountdownOverlay(ctx);
       this.drawPausedOverlay(ctx);
       this.debug.render(ctx);
@@ -776,6 +873,33 @@ cursor: pointer;
         this.debug.reportCounts(this.judge.statsCounts());
       }
     }
+  }
+
+  private drawTutorialOverlay(ctx: CanvasRenderingContext2D): void {
+    if (this.phase !== 'tutorial') return;
+    const step = this.tutorialSteps[this.tutorialStepIndex];
+    if (!step) return;
+    const W = this.canvasMgr.logicalW;
+    ctx.save();
+    ctx.fillStyle = 'rgba(5, 8, 28, 0.82)';
+    ctx.strokeStyle = 'rgba(196, 230, 255, 0.72)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(W / 2 - 520, 42, 1040, 172, 30);
+    ctx.fill();
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#91f5dc';
+    ctx.font = '800 27px system-ui, sans-serif';
+    ctx.fillText(`${t('tutorial.interactive')}  ${this.tutorialStepIndex + 1} / ${this.tutorialSteps.length}`, W / 2, 78);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 45px system-ui, sans-serif';
+    ctx.fillText(t(step.instructionKey), W / 2, 132);
+    ctx.fillStyle = '#cbd8ff';
+    ctx.font = '600 25px system-ui, sans-serif';
+    ctx.fillText(t(step.detailKey), W / 2, 181);
+    ctx.restore();
   }
 
   private drawCountdownOverlay(ctx: CanvasRenderingContext2D): void {

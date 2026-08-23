@@ -30,6 +30,7 @@ import type {
   StageDefinition,
   StageRuntimeServices,
   StageScore,
+  StageTutorialStep,
   JudgeResult,
 } from '../../game/Stage';
 import type {
@@ -137,6 +138,17 @@ export class FireflyDockStage implements StageDefinition {
   public totalBeats(): number {
     // Final bar end + 2 bars buffer for last launch animations before score.
     return FIREFLY_TOTAL_BARS * FIREFLY_METER[0] + 2;
+  }
+
+  public buildTutorialSteps(): readonly StageTutorialStep[] {
+    return [0, 1, 2, 3].map((index) => ({
+      id: `tap-${index}`,
+      instructionKey: 'tutorial.firefly.action',
+      detailKey: 'tutorial.firefly.detail',
+      targets: [{
+        type: 'judge-target', id: `tutorial-firefly-${index}`, beat: 3, inputKind: 'tap',
+      }],
+    }));
   }
 
   public onStart(services: StageRuntimeServices): void {
@@ -248,7 +260,6 @@ export class FireflyDockStage implements StageDefinition {
     this.drawSeedsAndTargets(ctx, snap);
     this.drawFx(ctx, snap);
     this.drawImmediateFeedback(ctx, snap);
-    this.drawTutorialOverlay(ctx, snap);
   }
 
   private drawSky(ctx: CanvasRenderingContext2D, W: number, _H: number, snap: TransportSnapshot) {
@@ -504,14 +515,12 @@ export class FireflyDockStage implements StageDefinition {
 
   private drawSeedsAndTargets(ctx: CanvasRenderingContext2D, snap: TransportSnapshot) {
     if (!this.services) return;
-    // Find upcoming approach events within ±8 bars from current beat.
-    // For simplicity: use the static cue list, compute position for each seed based on
-    // how close we are to target beat.
     const currentBeat = snap.beat;
-    for (const c of FIREFLY_CUE_BEATS_IN_CYCLE) {
-      const targetBeat = c.bar * 4 + c.beatInBar;
+    for (const target of this.services.scheduler.getJudgeTargets()) {
+      if (target.inputKind !== 'tap') continue;
+      const targetBeat = target.beat;
       if (targetBeat < currentBeat - 1 || targetBeat > currentBeat + 12) continue;
-      const targetId = 'target-' + c.id;
+      const targetId = target.id;
       if (this.consumed.has(targetId)) continue;
       // progress: 0 two beats early, 1 exactly at the hit zone.
       const progFromApproach = (currentBeat - (targetBeat - 2)) / 2;
@@ -681,34 +690,6 @@ export class FireflyDockStage implements StageDefinition {
     ctx.restore();
   }
 
-  private drawTutorialOverlay(ctx: CanvasRenderingContext2D, snap: TransportSnapshot) {
-    if (!this.services) return;
-    // The first four targets (beats 2,4,6,8) form an interactive tutorial.
-    const tutorialTargetBeats = FIREFLY_CUE_BEATS_IN_CYCLE.slice(0, 4).map(
-      (c) => c.bar * 4 + c.beatInBar,
-    );
-    const lastBeat = tutorialTargetBeats[3]! + 1;
-    if (snap.beat > lastBeat) return;
-    const cx = LAYOUT.postX;
-    const cy = 320;
-    const pulse = 0.7 + 0.3 * Math.sin(snap.transportTime * Math.PI * 2);
-    ctx.save();
-    ctx.globalAlpha = pulse;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-    ctx.strokeStyle = 'rgba(200, 230, 255, 0.6)';
-    ctx.lineWidth = 2;
-    ctx.font = 'bold 44px system-ui, -apple-system, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(t('tutorial.action'), cx, cy - 20);
-    ctx.font = '32px system-ui, sans-serif';
-    ctx.fillText(t('tutorial.watch'), cx, cy + 38);
-    ctx.font = '28px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(210, 230, 255, 0.9)';
-    ctx.fillText(t('tutorial.stage'), cx, cy + 96);
-    ctx.restore();
-  }
-
   private drawImmediateFeedback(ctx: CanvasRenderingContext2D, snap: TransportSnapshot): void {
     if (!this.feedback) return;
     const age = snap.audioTime - this.feedback.t0;
@@ -734,9 +715,9 @@ export class FireflyDockStage implements StageDefinition {
 
   private nearestTargetDistanceBeats(currentBeat: number): number {
     let nearest = 2;
-    for (const cue of FIREFLY_CUE_BEATS_IN_CYCLE) {
-      if (this.consumed.has('target-' + cue.id)) continue;
-      nearest = Math.min(nearest, Math.abs(cue.bar * 4 + cue.beatInBar - currentBeat));
+    for (const target of this.services?.scheduler.getJudgeTargets() ?? []) {
+      if (this.consumed.has(target.id)) continue;
+      nearest = Math.min(nearest, Math.abs(target.beat - currentBeat));
     }
     return nearest;
   }

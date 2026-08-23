@@ -1,5 +1,5 @@
 import type { PointerAction } from '../../game/InputRouter';
-import type { StageDefinition, StageRuntimeServices, JudgeResult } from '../../game/Stage';
+import type { PointerPreview, StageDefinition, StageRuntimeServices, StageTutorialStep, JudgeResult } from '../../game/Stage';
 import type { ScheduledEvent, ScheduledJudgeTarget } from '../../timing/Scheduler';
 import type { TransportSnapshot } from '../../timing/Transport';
 import { TIMING_CONFIG, type InputKind, type JudgementKind } from '../../timing/config';
@@ -8,6 +8,7 @@ import { t } from '../../i18n/strings';
 type StageId = 'bubble-kitchen' | 'cloud-post' | 'sleepy-greenhouse';
 type Palette = readonly [string, string, string, string];
 type TargetMeta = { lane: number; direction?: 'left' | 'right'; role?: 'start' | 'release' };
+type FeedbackKind = JudgementKind | 'WAIT' | 'WRONG_LANE' | 'WRONG_DIRECTION' | 'HOLD_EARLY';
 
 type Profile = {
   id: StageId;
@@ -87,8 +88,9 @@ abstract class GardenStage implements StageDefinition {
   public readonly taglineKey: Profile['taglineKey'];
   private services: StageRuntimeServices | null = null;
   private readonly consumed = new Set<string>();
-  private feedback: { kind: JudgementKind | 'WAIT'; at: number; lane: number } | null = null;
+  private feedback: { kind: FeedbackKind; at: number; lane: number } | null = null;
   private successes: Array<{ at: number; lane: number; kind: JudgementKind }> = [];
+  private pointerPreview: { down: boolean; lane: number; startX: number; x: number; y: number } | null = null;
 
   protected constructor(private readonly profile: Profile) {
     this.id = profile.id;
@@ -99,6 +101,44 @@ abstract class GardenStage implements StageDefinition {
   public buildEvents(): readonly ScheduledEvent[] { return [...music(this.profile), ...targets(this.profile)]; }
   public totalBeats(): number { return this.profile.totalBeats; }
 
+  public buildTutorialSteps(): readonly StageTutorialStep[] {
+    if (this.profile.mechanic === 'hold') {
+      return [0, 1, 2, 1].map((lane, index) => {
+        const releaseId = `tutorial-${this.id}-${index}-release`;
+        return {
+          id: `hold-${index}`,
+          instructionKey: 'tutorial.greenhouse.action',
+          detailKey: 'tutorial.greenhouse.detail',
+          targets: [
+            { type: 'judge-target', id: `tutorial-${this.id}-${index}-start`, beat: 3, inputKind: 'holdStart', pairedId: releaseId, meta: { lane, role: 'start' } satisfies TargetMeta },
+            { type: 'judge-target', id: releaseId, beat: 5, inputKind: 'holdRelease', meta: { lane, role: 'release' } satisfies TargetMeta },
+          ],
+        } satisfies StageTutorialStep;
+      });
+    }
+    if (this.profile.mechanic === 'swipe') {
+      return (['left', 'right', 'left', 'right'] as const).map((direction, index) => ({
+        id: `swipe-${index}`,
+        instructionKey: direction === 'left' ? 'tutorial.cloud.left' : 'tutorial.cloud.right',
+        detailKey: 'tutorial.cloud.detail',
+        targets: [{
+          type: 'judge-target', id: `tutorial-${this.id}-${index}`, beat: 3,
+          inputKind: direction === 'left' ? 'swipeLeft' : 'swipeRight',
+          meta: { lane: 1, direction } satisfies TargetMeta,
+        }],
+      }));
+    }
+    return [0, 1, 2, 1].map((lane, index) => ({
+      id: `lane-${index}`,
+      instructionKey: 'tutorial.bubble.action',
+      detailKey: 'tutorial.bubble.detail',
+      targets: [{
+        type: 'judge-target', id: `tutorial-${this.id}-${index}`, beat: 3, inputKind: 'tap',
+        meta: { lane } satisfies TargetMeta,
+      }],
+    }));
+  }
+
   public onStart(services: StageRuntimeServices): void {
     this.services = services;
     const now = services.transport.snapshot().audioTime;
@@ -107,6 +147,7 @@ abstract class GardenStage implements StageDefinition {
     this.consumed.clear();
     this.feedback = null;
     this.successes = [];
+    this.pointerPreview = null;
   }
 
   public onRestart(): void { if (this.services) this.onStart(this.services); }
@@ -140,8 +181,25 @@ abstract class GardenStage implements StageDefinition {
     if (!result.automatic && result.kind !== 'MISS') this.successes.push({ at: now, lane, kind: result.kind });
   }
 
-  public onUnmatchedInput(): void {
-    this.feedback = { kind: 'WAIT', at: this.services?.transport.snapshot().audioTime ?? 0, lane: 1 };
+  public onUnmatchedInput(action: PointerAction): void {
+    const kind: FeedbackKind = this.profile.mechanic === 'laneTap' && action.type === 'tap'
+      ? 'WRONG_LANE'
+      : this.profile.mechanic === 'swipe' && action.type === 'swipe'
+        ? 'WRONG_DIRECTION'
+        : this.profile.mechanic === 'hold' && action.type === 'holdEnd'
+          ? 'HOLD_EARLY' : 'WAIT';
+    this.feedback = { kind, at: this.services?.transport.snapshot().audioTime ?? 0, lane: 1 };
+  }
+
+  public onPointerPreview(preview: PointerPreview): void {
+    const scaleX = TIMING_CONFIG.logicalWidth / Math.max(1, preview.surfaceWidth);
+    const scaleY = TIMING_CONFIG.logicalHeight / Math.max(1, preview.surfaceHeight);
+    const x = preview.x * scaleX;
+    const y = preview.y * scaleY;
+    const lane = laneFromSurfaceX(preview.x, preview.surfaceWidth);
+    if (preview.type === 'down') this.pointerPreview = { down: true, lane, startX: x, x, y };
+    else if (preview.type === 'move' && this.pointerPreview) this.pointerPreview = { ...this.pointerPreview, lane, x, y };
+    else if (this.pointerPreview) this.pointerPreview = { ...this.pointerPreview, down: false, lane, x, y };
   }
 
   public render(ctx: CanvasRenderingContext2D, snap: TransportSnapshot): void {
@@ -159,8 +217,14 @@ abstract class GardenStage implements StageDefinition {
     const pulse = 0.5 + 0.5 * Math.sin(snap.beat * Math.PI);
     if (this.profile.id === 'bubble-kitchen') {
       ctx.fillStyle = '#351d36'; ctx.fillRect(0, 760, 1920, 320);
+      const activeLane = this.nearestPendingTarget(snap)?.meta as TargetMeta | undefined;
       for (let lane = 0; lane < 3; lane++) {
         const x = 420 + lane * 540;
+        ctx.fillStyle = activeLane?.lane === lane ? 'rgba(255,207,98,.22)' : 'rgba(255,255,255,.035)';
+        ctx.fillRect(150 + lane * 540, 230, 540, 730);
+        ctx.fillStyle = activeLane?.lane === lane ? '#fff4bd' : 'rgba(255,255,255,.58)';
+        ctx.font = '800 30px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText(t((['lane.left', 'lane.center', 'lane.right'] as const)[lane]!), x, 300);
         ctx.fillStyle = '#4a2b39'; ctx.beginPath(); ctx.ellipse(x, 790, 205, 62, 0, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = accent; ctx.lineWidth = 12; ctx.stroke();
         ctx.fillStyle = secondary;
@@ -172,16 +236,37 @@ abstract class GardenStage implements StageDefinition {
       for (let i = 0; i < 9; i++) { const x = ((i * 265 - snap.beat * 22) % 2300) - 160; const y = 130 + (i % 4) * 150; ctx.beginPath(); ctx.ellipse(x, y, 150, 60, 0, 0, Math.PI * 2); ctx.fill(); }
       ctx.fillStyle = '#5b3a35'; ctx.fillRect(890, 470, 140, 430); ctx.fillStyle = accent; ctx.fillRect(850, 440, 220, 70);
       ctx.strokeStyle = secondary; ctx.lineWidth = 16; ctx.beginPath(); ctx.moveTo(960, 470); ctx.lineTo(960 + Math.sin(snap.beat * .5) * 210, 260); ctx.stroke();
+      if (this.pointerPreview) {
+        const p = this.pointerPreview;
+        const dx = p.x - p.startX;
+        const progress = Math.min(1, Math.abs(dx) / 180);
+        ctx.save();
+        ctx.strokeStyle = p.down ? '#ffffff' : 'rgba(255,255,255,.38)';
+        ctx.lineWidth = 18; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(p.startX, p.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+        ctx.fillStyle = progress >= 1 ? '#9ff5d8' : '#ffd48a';
+        ctx.font = '800 30px system-ui'; ctx.textAlign = 'center';
+        ctx.fillText(progress >= 1 ? t('tutorial.cloud.ready') : t('tutorial.cloud.more'), 960, 820);
+        ctx.restore();
+      }
     } else {
       ctx.strokeStyle = 'rgba(182,245,143,.32)'; ctx.lineWidth = 18;
       for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.moveTo(i * 240, 1080); ctx.quadraticCurveTo(i * 240 + 90, 590 - (i % 3) * 90, i * 240 + 180, 500); ctx.stroke(); }
       ctx.fillStyle = 'rgba(113,213,255,.16)'; ctx.fillRect(0, 160, 1920, 16 + pulse * 8);
       ctx.strokeStyle = secondary; ctx.lineWidth = 10; ctx.strokeRect(170, 120, 1580, 840);
+      const held = this.pointerPreview?.down === true;
+      const released = this.pointerPreview?.down === false;
+      ctx.fillStyle = held ? '#dfffc8' : '#ffffff';
+      ctx.font = '900 38px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(t(held ? 'tutorial.greenhouse.holding' : released ? 'tutorial.greenhouse.released' : 'tutorial.greenhouse.press'), 960, 300);
+      ctx.strokeStyle = held ? accent : 'rgba(255,255,255,.42)'; ctx.lineWidth = 16;
+      ctx.strokeRect(560, 340, 800, 40);
+      if (held) { ctx.fillStyle = accent; ctx.fillRect(568, 348, 784, 24); }
     }
   }
 
   private drawTargets(ctx: CanvasRenderingContext2D, snap: TransportSnapshot, accent: string, secondary: string): void {
-    const future = targets(this.profile).filter(t => !this.consumed.has(t.id) && t.beat >= snap.beat - .3 && t.beat <= snap.beat + 4);
+    const future = (this.services?.scheduler.getJudgeTargets() ?? []).filter(t => !this.consumed.has(t.id) && t.beat >= snap.beat - .3 && t.beat <= snap.beat + 4);
     for (const target of future) {
       const meta = target.meta as TargetMeta;
       const laneX = 420 + meta.lane * 540;
@@ -195,6 +280,12 @@ abstract class GardenStage implements StageDefinition {
       ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.font = '700 46px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const symbol = target.inputKind === 'tap' ? '●' : target.inputKind === 'swipeLeft' ? '←' : target.inputKind === 'swipeRight' ? '→' : target.inputKind === 'holdStart' ? '↧' : '↥';
       ctx.fillText(symbol, laneX, y);
+      if (this.profile.id === 'cloud-post') {
+        const dir = target.inputKind === 'swipeLeft' ? -1 : 1;
+        ctx.strokeStyle = 'rgba(255,255,255,.72)'; ctx.lineWidth = 12; ctx.setLineDash([20, 14]);
+        ctx.beginPath(); ctx.moveTo(laneX - dir * 240, y + 150); ctx.lineTo(laneX + dir * 240, y + 150); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(laneX + dir * 270, y + 150); ctx.lineTo(laneX + dir * 220, y + 120); ctx.lineTo(laneX + dir * 220, y + 180); ctx.closePath(); ctx.fill();
+      }
       ctx.restore();
     }
     ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 6; ctx.setLineDash([18, 14]);
@@ -213,10 +304,24 @@ abstract class GardenStage implements StageDefinition {
     }
     ctx.globalAlpha = 1;
     if (this.feedback && now - this.feedback.at < .85) {
-      ctx.fillStyle = this.feedback.kind === 'MISS' || this.feedback.kind === 'WAIT' ? '#ff8c9e' : '#fff';
-      ctx.font = '900 68px system-ui'; ctx.textAlign = 'center';
-      ctx.fillText(this.feedback.kind === 'WAIT' ? '…' : localizedGardenFeedback(this.feedback.kind), 960, 170);
+      const guidance = this.feedback.kind === 'WAIT' || this.feedback.kind === 'WRONG_LANE' || this.feedback.kind === 'WRONG_DIRECTION' || this.feedback.kind === 'HOLD_EARLY';
+      const label = this.feedback.kind === 'WAIT' ? t('tutorial.waitForTarget')
+        : this.feedback.kind === 'WRONG_LANE' ? t('tutorial.wrongLane')
+          : this.feedback.kind === 'WRONG_DIRECTION' ? t('tutorial.wrongDirection')
+            : this.feedback.kind === 'HOLD_EARLY' ? t('tutorial.holdEarly')
+              : localizedGardenFeedback(this.feedback.kind);
+      ctx.fillStyle = 'rgba(5,8,28,.76)';
+      ctx.beginPath(); ctx.roundRect(500, 875, 920, 112, 28); ctx.fill();
+      ctx.fillStyle = this.feedback.kind === 'MISS' || guidance ? '#ffb3a9' : '#fff';
+      ctx.font = '900 56px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, 960, 932);
     }
+  }
+
+  private nearestPendingTarget(snap: TransportSnapshot): ScheduledJudgeTarget | undefined {
+    return (this.services?.scheduler.getJudgeTargets() ?? [])
+      .filter((target) => !this.consumed.has(target.id) && target.beat >= snap.beat - 0.3)
+      .sort((a, b) => Math.abs(a.beat - snap.beat) - Math.abs(b.beat - snap.beat))[0];
   }
 }
 

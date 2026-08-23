@@ -25,7 +25,7 @@ export class AppController {
   }
 
   showMenu = (): void => {
-    this.prepareRoot();
+    this.prepareRoot(true);
     const page = document.createElement('main');
     page.style.cssText = 'width:min(980px,calc(100% - 40px));padding:34px;color:#fff;font-family:system-ui;text-align:center;';
     page.innerHTML = `
@@ -55,7 +55,7 @@ export class AppController {
   };
 
   showStageSelect = (): void => {
-    this.prepareRoot();
+    this.prepareRoot(true);
     const page = document.createElement('main');
     page.style.cssText = 'width:min(900px,calc(100% - 40px));padding:34px;color:#fff;font-family:system-ui;';
     page.innerHTML = `<button data-role="back" style="color:#b9c9ff;border:0;background:transparent;font-size:17px">← ${t('menu.back')}</button><h1 style="font-size:44px;margin-top:24px">${t('menu.stageSelect')}</h1><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;margin-top:24px">${this.stageCard('firefly', t('stage.firefly.title'), t('menu.fireflyDetail'), '#1c2a63,#281d4e')}${this.stageCard('bubble', t('stage.bubble.title'), t('menu.bubbleDetail'), '#592149,#311449')}${this.stageCard('cloud', t('stage.cloud.title'), t('menu.cloudDetail'), '#24558a,#283d73')}${this.stageCard('greenhouse', t('stage.greenhouse.title'), t('menu.greenhouseDetail'), '#164d47,#102e3b')}</div>`;
@@ -113,8 +113,10 @@ export class AppController {
     return `<button data-role="${role}" style="min-height:150px;padding:24px;border-radius:22px;border:1px solid #586ecc;background:linear-gradient(145deg,${colors});color:#fff;text-align:left;cursor:pointer"><strong style="font-size:28px">${title}</strong><span style="display:block;margin-top:10px;color:#e0e5ff;font-size:17px;line-height:1.45">${detail}</span></button>`;
   }
 
-  private prepareRoot(): void {
+  private prepareRoot(scrollable = false): void {
     this.root.replaceChildren();
-    this.root.style.cssText = 'width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 20%,#18244d,#080b1c 70%);';
+    this.root.style.cssText = scrollable
+      ? 'width:100%;min-height:100dvh;display:flex;align-items:flex-start;justify-content:center;overflow-x:hidden;overflow-y:auto;background:radial-gradient(circle at 50% 20%,#18244d,#080b1c 70%);'
+      : 'width:100vw;height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 20%,#18244d,#080b1c 70%);';
   }
 }

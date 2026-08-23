@@ -35,6 +35,23 @@ export interface StageRuntimeServices {
   judge: Judge;
 }
 
+export interface StageTutorialStep {
+  /** Stable within the stage; used only for presentation and smoke evidence. */
+  id: string;
+  instructionKey: StringKey;
+  detailKey: StringKey;
+  /** Relative tutorial targets. StageRunner supplies the authoritative clock. */
+  targets: readonly ScheduledJudgeTarget[];
+}
+
+export interface PointerPreview {
+  type: 'down' | 'move' | 'up' | 'cancel';
+  x: number;
+  y: number;
+  surfaceWidth: number;
+  surfaceHeight: number;
+}
+
 export interface StageDefinition {
   /** Stable id, used in stage select + localStorage best scores. */
   id: string;
@@ -53,6 +70,9 @@ export interface StageDefinition {
    * (Events beyond this beat still play; this is the "stop and score" point.)
    */
   totalBeats(): number;
+
+  /** Optional first-play tutorial. Its judgements are reset before formal play. */
+  buildTutorialSteps?(): readonly StageTutorialStep[];
 
   /**
    * Convert a raw pointer action from InputRouter to a specific input kind
@@ -76,6 +96,8 @@ export interface StageDefinition {
   onJudge?(result: JudgeResult, target: ScheduledJudgeTarget): void;
   /** Immediate causal feedback when a pointer action has no live target. */
   onUnmatchedInput?(action: PointerAction): void;
+  /** Display-only pointer state. It must never be used as a judgement clock. */
+  onPointerPreview?(preview: PointerPreview): void;
 
   /** Lifecycle hooks. */
   onStart?(services: StageRuntimeServices): void;
