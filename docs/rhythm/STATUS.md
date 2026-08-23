@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop PASS after the bounded reduced-motion delta at `e502df2`. R5 AutoChart is PARTIAL with all three bounded blockers fixed and exact-verified at `004146b`.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop PASS after the bounded reduced-motion delta at `e502df2`. R5 AutoChart PASS after the bounded Easy/motif/end-to-end playability delta at `004146b`. Rhythm V2 R0–R5 is closed; later release, deployment, production and final-acceptance Gates remain separate.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -32,7 +32,7 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 ### Current product blockers
 
-1. R5: submit the bounded Easy/motif/end-to-end playability delta at `004146b` for independent closure review.
+1. Continue to the separately governed release-candidate, deployment, production and final-acceptance Gates.
 
 ## LOG
 
@@ -183,11 +183,16 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Android reused the single existing Chrome tab id `234`, then returned that same tab to `CheapLive Black Screen`. `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0`; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
 - Exact detached verification at `004146b`: `npm ci` PASS (87 packages); TypeScript lint PASS; 47 files / 307 tests PASS; Pages-base production build PASS. Rhythm main 253.05 kB / gzip 69.60 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
 
+### R5 AutoChart Gate PASS
+
+- Independent bounded delta review returned `RHYTHM V2 R5 AUTOCHART GATE: PASS` and confirmed all three Easy/motif/real-playability blockers are closed.
+- R5 AutoChart is closed. The verdict preserves the hard Running ownership boundary and explicitly does not pre-accept any later release, deployment, production or final-acceptance Gate.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Submit exact R5 bounded delta `004146b` plus its evidence/status commit for independent closure review.
+1. Continue release-candidate convergence, production deployment verification, Gate 2/Gate 4 closure and final independent acceptance under the project-wide status documents.
 
 Timing invariant for all future slices:
 
