@@ -1,6 +1,36 @@
 # GATE 2 — Android touch + Calibration + PWA Review Record
 
-Status: official re-verdict `GATE 2: PASS`.
+Status: official 2026-08-10 re-verdict `GATE 2: PASS` preserved; refreshed V2 RC delta ready for re-submission.
+
+## 2026-08-24 refreshed V2 RC external delta
+
+- Exact runtime/test SHA, GitHub main and deployed Pages SHA:
+  `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
+- Pages workflow run `32666334718`: build and deploy PASS; public origin HTTPS/assets,
+  `/BeatGarden/` scope/controller and `beatgarden-shell-v5` cache PASS.
+- Xiaomi 24091RPADC / Android 16 / Chrome 145.0.7632.159, USB ADB, single page tab `234`.
+- Real production touch: Firefly `OK`, Cloud left-swipe `GREAT`, both
+  `pointerType:touch`, `droppedLate=0`.
+- Calibration: 16 real muted inputs, saved/persisted `-10.6667 ms`; after reload the
+  Firefly Judge debug overlay displayed `校准偏移: -10.7 ms`.
+- Portrait 776×1019 and landscape 1163×632 layout/resize PASS; no clipping or double offset.
+- Home background/foreground froze suspend/resume beat at `6.624`, resumed with
+  `droppedLate=0` and no recovery input. Manual pause stayed paused at beat `4.4693`
+  across Home/Chrome round-trip with unchanged counts.
+- Wi-Fi disabled and active default network `none`; Chrome cold restart plus never-used
+  fresh query URL booted the cached main menu, then physical touch entered Firefly.
+- Media remained `Muted:true`, `streamVolume:0`; no audible sound occurred.
+  **auditory calibration validity NOT ASSESSED because media volume was intentionally muted**.
+- The user accepted formal install confirmation, but package table, launcher UI and
+  Chrome shortcut manager expose no BeatGarden standalone entry. Standalone launch is
+  `UNVERIFIED`; no app-owned manifest/HTTPS/icon/scope/SW/offline defect was observed.
+- Evidence: `docs/evidence/android_release_20260824.json`,
+  `docs/evidence/public_pages_20260824.json`, screenshots under
+  `docs/evidence/android_20260824/`.
+- Exact refreshed validation: 47 files / 307 tests, TypeScript 0 errors, Pages build,
+  npm audit 0, focused ten-minute mixed-frame drift 4/4 PASS.
+
+Requested refreshed verdict: `GATE 2: PASS / PARTIAL / FAIL`, concrete blockers only.
 
 ## Official re-verdict — PASS
 

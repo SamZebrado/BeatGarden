@@ -1,0 +1,45 @@
+{
+  "verifiedAt": "2026-08-24T05:05:00+08:00",
+  "exactRuntimeTestHead": "60a115fafea5d7bd972eba44ea6054f3b364bb68",
+  "githubMainHead": "60a115fafea5d7bd972eba44ea6054f3b364bb68",
+  "publicUrl": "https://samzebrado.github.io/BeatGarden/",
+  "pages": {
+    "buildType": "workflow",
+    "httpsEnforced": true,
+    "workflowRunId": 32666334718,
+    "workflowConclusion": "success",
+    "buildJobId": 97260161010,
+    "buildJobConclusion": "success",
+    "deployJobId": 97260221794,
+    "deployJobConclusion": "success",
+    "deployedHeadSha": "60a115fafea5d7bd972eba44ea6054f3b364bb68"
+  },
+  "http": {
+    "root": { "url": "https://samzebrado.github.io/BeatGarden/", "status": 200 },
+    "manifest": { "url": "https://samzebrado.github.io/BeatGarden/manifest.webmanifest", "status": 200 },
+    "serviceWorker": { "url": "https://samzebrado.github.io/BeatGarden/sw.js", "status": 200, "contentType": "application/javascript" },
+    "mainBundle": { "url": "https://samzebrado.github.io/BeatGarden/assets/index-CsZwzdHX.js", "status": 200, "contentType": "application/javascript" },
+    "analysisWorker": { "url": "https://samzebrado.github.io/BeatGarden/assets/analysis.worker-DvmQPAok.js", "status": 200, "contentType": "application/javascript" },
+    "icon192": { "url": "https://samzebrado.github.io/BeatGarden/icons/beatgarden-192.png", "status": 200, "contentType": "image/png" }
+  },
+  "manifest": {
+    "startUrl": "./",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "landscape",
+    "lang": "zh-CN",
+    "maskable192And512": true
+  },
+  "desktopBrowser": {
+    "serviceWorkerRegistered": true,
+    "serviceWorkerScope": "https://samzebrado.github.io/BeatGarden/",
+    "controller": true,
+    "cacheNames": ["beatgarden-shell-v5"],
+    "pwaRuntimeError": null,
+    "simplifiedChineseDefault": true,
+    "englishFullReplacement": true,
+    "fireflyEntry": true,
+    "observedAsset404": false
+  },
+  "offlineProductionProof": "See android_release_20260824.json: Wi-Fi disabled, active default network none, Chrome cold restart, fresh query URL cache boot, and physical-touch Firefly entry."
+}

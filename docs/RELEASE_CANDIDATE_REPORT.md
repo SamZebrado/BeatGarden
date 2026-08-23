@@ -2,11 +2,12 @@
 
 ## OVERALL
 
-**RELEASE CANDIDATE — GATE 0–4 PASS.** Public GitHub Pages and the real Android
-production matrix are evidenced. Chrome recognized the app and
-accepted the formal install confirmation, but its external WebAPK delivery returned
-response code `-1`; no standalone package appeared, so standalone launch remains
-`UNVERIFIED` as an accepted external, non-app-owned residual.
+**REFRESHED RELEASE CANDIDATE `60a115f` — Rhythm V2 R0–R5 PASS; refreshed external
+GATE 2/GATE 4 re-verdicts pending.** Public GitHub Pages and the real Android production
+matrix are evidenced at the refreshed V2 RC. Chrome recognizes the manifest and the
+user accepted the formal install confirmation, but no standalone package/launcher
+entry is observable, so standalone launch remains `UNVERIFIED` as an external,
+non-app-owned residual.
 
 ## GATE 0 Timing
 
@@ -45,8 +46,10 @@ with an original in-memory WAV.
 
 ## AutoChart playback
 
-**PASS (desktop Chrome fixture).** `songTimeSec` is authoritative. Tap judgement,
+**PASS (desktop and Android).** `songTimeSec` is authoritative. Tap judgement,
 pause/resume, restart, full result/source stop, and regenerate/change-song are verified.
+The R5 Hard/seed-1 product flow recorded a `PERFECT` generated Swipe plus `PERFECT`
+Hold start/release through real Android touch.
 
 ## AutoChart deterministic tests
 
@@ -62,11 +65,11 @@ never labelled stream safe.
 
 ## Android
 
-**PASS for production boot, touch gameplay, calibration software flow, orientation,
-lifecycle, and cold offline relaunch** on Xiaomi 24091RPADC / Android 16 / Chrome
-145.0.7632.159. The standalone-installed-WebAPK sub-item remains `UNVERIFIED` because
-the external Chrome WebAPK service returned response code `-1` after the formal install
-confirmation; no package was observed.
+**PASS for production boot, Firefly tap, Cloud swipe, calibration software flow,
+orientation, lifecycle/manual-pause intent, and cold offline relaunch** on Xiaomi
+24091RPADC / Android 16 / Chrome 145.0.7632.159. The standalone-installed-WebAPK
+sub-item remains `UNVERIFIED`: formal installation was accepted, but no package,
+launcher entry or Chrome shortcut is observable.
 
 ## PWA
 
@@ -77,7 +80,8 @@ never-used query URL and navigated to Firefly by physical touch.
 
 ## GitHub Pages
 
-**PASS.** GitHub Pages workflow run `31355206962` built and deployed successfully.
+**PASS.** GitHub Pages workflow run `32666334718` built and deployed refreshed SHA
+`60a115f` successfully.
 `https://samzebrado.github.io/BeatGarden/` returned HTTPS 200, all production subpath
 assets returned 200 with correct types, and connected Chrome verified rendering,
 i18n replacement, Firefly entry, SW scope/controller/cache, and zero runtime errors.
@@ -89,22 +93,24 @@ are code-generated and recorded separately from user-imported rights-unverified 
 
 ## Third-party provenance
 
-**PASS.** Zero runtime dependencies/CDNs. Exact direct development versions/licenses
-are recorded; `npm audit` reports zero vulnerabilities.
+**PASS.** No runtime CDN is used. Phaser `3.90.0` is the single pinned direct runtime
+dependency for the separately owned Running Mode; exact direct development versions and
+licenses are recorded. `npm audit` reports zero vulnerabilities.
 
 ## Tests
 
-**PASS at runtime/test SHA `cec5d2f529a55720cd58943f10c0e1810d95c118`.** `npm ci` succeeded; TypeScript emitted zero
-errors; Vitest passed 121/121 tests in 18 files. Coverage includes a deterministic
+**PASS at runtime/test SHA `60a115fafea5d7bd972eba44ea6054f3b364bb68`.** `npm ci` succeeded; TypeScript emitted zero
+errors; Vitest passed 307/307 tests in 47 files. Coverage includes a deterministic
 ten-minute mixed-frame simulation locked to the AudioContext clock with zero phase
 drift, plus pause/resume, scheduler jitter, inputs, stages, AutoChart, PWA lifecycle,
 layout, settings, calibration, and teardown contracts.
 
 ## Build
 
-**PASS at `cec5d2f529a55720cd58943f10c0e1810d95c118`.** `VITE_BASE=/BeatGarden/ npm run build` produced `dist/index.html`
-(1.58 kB, gzip 0.70 kB), Worker `analysis.worker-DvmQPAok.js` (4.61 kB), and main
-`index-BFOtP3PE.js` (121.93 kB, gzip 35.88 kB). Online `npm audit` reports zero
+**PASS at `60a115fafea5d7bd972eba44ea6054f3b364bb68`.** `VITE_BASE=/BeatGarden/ npm run build` produced `dist/index.html`
+(1.67 kB, gzip 0.73 kB), Worker `analysis.worker-DvmQPAok.js` (4.61 kB), and Rhythm/main
+`index-CsZwzdHX.js` (253.05 kB, gzip 69.60 kB). The unchanged separately owned Running
+chunk is 1,216.79 kB / gzip 324.98 kB with the existing size warning. Online `npm audit` reports zero
 vulnerabilities.
 
 ## Browser smoke
@@ -123,8 +129,8 @@ muted calibration flow, orientation, lifecycle, and cold offline relaunch PASS.
 
 ## HEAD
 
-Runtime/test candidate: `cec5d2f529a55720cd58943f10c0e1810d95c118`.
-All later release-record commits modify only `docs/` evidence, reviews, reports, and
-screenshots; they do not modify runtime, tests, dependencies, workflow/build inputs, or
-application assets. The canonical final documentation SHA and successful Pages run are
-recorded in the final independent submission because a commit cannot contain its own SHA.
+Runtime/test candidate and currently deployed GitHub main: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
+The next release-record commit modifies only `docs/` evidence, reviews, reports and
+screenshots; it does not modify runtime, tests, dependencies, workflow/build inputs or
+application assets. Its exact documentation SHA and resulting Pages run are recorded in
+the Gate submission because a commit cannot contain its own SHA.

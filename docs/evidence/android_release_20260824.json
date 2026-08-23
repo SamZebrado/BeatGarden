@@ -1,0 +1,139 @@
+{
+  "verifiedAt": "2026-08-24T05:17:00+08:00",
+  "exactRuntimeTestHead": "60a115fafea5d7bd972eba44ea6054f3b364bb68",
+  "githubMainHead": "60a115fafea5d7bd972eba44ea6054f3b364bb68",
+  "publicPagesDeployedHead": "60a115fafea5d7bd972eba44ea6054f3b364bb68",
+  "publicUrl": "https://samzebrado.github.io/BeatGarden/",
+  "device": {
+    "model": "Xiaomi 24091RPADC",
+    "serialRedacted": "bbda...35e",
+    "android": "16",
+    "chrome": "145.0.7632.159",
+    "connection": "USB ADB",
+    "pageTabId": "234",
+    "cssViewportLandscape": "1163x632",
+    "devicePixelRatio": 2.75
+  },
+  "audioSafety": {
+    "mediaMutedBefore": true,
+    "mediaMutedAfter": true,
+    "streamVolumeBefore": 0,
+    "streamVolumeAfter": 0,
+    "audibleSoundPlayed": false,
+    "qualification": "auditory calibration validity NOT ASSESSED because media volume was intentionally muted"
+  },
+  "productionBoot": {
+    "status": "PASS",
+    "simplifiedChinese": true,
+    "serviceWorkerController": true,
+    "serviceWorkerScope": "https://samzebrado.github.io/BeatGarden/",
+    "cacheName": "beatgarden-shell-v5",
+    "pwaRuntimeError": null,
+    "whiteScreen": false
+  },
+  "gameplay": {
+    "firefly": {
+      "input": "real CDP touchStart/touchEnd",
+      "judgement": "OK",
+      "pointerType": "touch",
+      "droppedLate": 0,
+      "instructionIncludesMouseAndAndroid": true,
+      "playerCausalityVisible": true
+    },
+    "cloudPost": {
+      "input": "real CDP touch swipeLeft",
+      "judgement": "GREAT",
+      "pointerType": "touch",
+      "droppedLate": 0
+    }
+  },
+  "calibration": {
+    "validInputs": 16,
+    "savedOffsetMs": -10.66666666666638,
+    "persistedAfterReloadMs": -10.66666666666638,
+    "judgeDebugOverlayReadMs": -10.7,
+    "softwareFlowPersistenceAndJudgeRead": "PASS",
+    "auditoryValidity": "NOT ASSESSED because media volume was intentionally muted"
+  },
+  "orientation": {
+    "originalSettings": { "accelerometerRotation": 1, "userRotation": 0 },
+    "portrait": {
+      "orientation": "portrait-primary",
+      "cssViewport": "776x1019",
+      "canvasRect": { "x": -0.1364, "y": 290.9205, "width": 777, "height": 437.0625 },
+      "droppedLate": 0,
+      "clipped": false,
+      "doubleOffset": false
+    },
+    "landscape": {
+      "orientation": "landscape-primary",
+      "cssViewport": "1163x632",
+      "canvasRect": { "x": 20.0398, "y": 0, "width": 1123.5511, "height": 632 },
+      "droppedLate": 0,
+      "clipped": false,
+      "doubleOffset": false
+    },
+    "originalSettingsRestored": true
+  },
+  "lifecycle": {
+    "backgroundSeconds": 4,
+    "automaticResume": {
+      "suspendBeat": 6.624,
+      "resumeBeat": 6.624,
+      "suspendAudioTime": 4.3627,
+      "resumeAudioTime": 4.368,
+      "droppedLate": 0,
+      "recoveryGestureJudged": false,
+      "newInputDuringRecovery": false
+    },
+    "manualPauseIntent": {
+      "before": { "phase": "paused", "audioContextState": "suspended", "transportPlaying": false, "beat": 4.4693 },
+      "after": { "phase": "paused", "audioContextState": "suspended", "transportPlaying": false, "beat": 4.4693 },
+      "countsChanged": false,
+      "droppedLate": 0
+    }
+  },
+  "offline": {
+    "method": "USB ADB retained; Wi-Fi disabled; mobile data was already disabled",
+    "activeDefaultNetwork": "none",
+    "chromeColdRestart": true,
+    "freshQueryUrl": "https://samzebrado.github.io/BeatGarden/?androidOfflineFresh=60a115f-20260824a",
+    "freshQueryPreviouslyUsed": false,
+    "mainMenuBootedFromCache": true,
+    "serviceWorkerController": true,
+    "cacheName": "beatgarden-shell-v5",
+    "physicalTouchEnteredFirefly": true,
+    "networkRestored": true
+  },
+  "pwaInstall": {
+    "manifestRecognized": true,
+    "formalInstallConfirmationPreviouslyAcceptedByUser": true,
+    "packageTableEntryObserved": false,
+    "launcherShortcutObserved": false,
+    "standaloneLaunch": "UNVERIFIED",
+    "classification": "External Chrome/WebAPK delivery residual; no app-owned HTTPS, manifest, icon, scope, service-worker, cache, or offline defect observed"
+  },
+  "cleanup": {
+    "singleChromePageTabReused": true,
+    "finalTabId": "234",
+    "finalUrl": "https://samzebrado.github.io/CheapLive/src/black-screen/index.html",
+    "screenProtectorTitle": "CheapLive Black Screen",
+    "wifiRestored": true,
+    "rotationSettingsRestored": true,
+    "mediaMuted": true,
+    "streamVolume": 0
+  },
+  "screenshots": [
+    "android_20260824/01_public_boot.png",
+    "android_20260824/02_firefly_touch_ok.png",
+    "android_20260824/03_cloud_swipe_great.png",
+    "android_20260824/04_calibration_16_muted.png",
+    "android_20260824/05_judge_reads_offset.png",
+    "android_20260824/06_portrait.png",
+    "android_20260824/07_landscape.png",
+    "android_20260824/08_lifecycle_resumed.png",
+    "android_20260824/09_manual_pause_preserved.png",
+    "android_20260824/10_offline_cold_main.png",
+    "android_20260824/11_offline_firefly.png"
+  ]
+}

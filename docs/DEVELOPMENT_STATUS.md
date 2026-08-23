@@ -1,12 +1,25 @@
 # BeatGarden Development Status
 
-Current phase: **GATE 0–4 PASS; FINAL INDEPENDENT ACCEPTANCE PENDING**
+Current phase: **Rhythm V2 R0–R5 PASS; refreshed external GATE 2 re-submission pending, then GATE 4 and FINAL INDEPENDENT ACCEPTANCE**
 
-Last updated: 2026-08-10
+Last updated: 2026-08-24
 
 ---
 
 ## Current repository state
+
+- Exact refreshed runtime/test RC: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
+- GitHub `main`: `60a115fafea5d7bd972eba44ea6054f3b364bb68` (ordinary fast-forward; no force push).
+- Public Pages deployed SHA: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
+- Pages workflow run `32666334718`: build job `97260161010` PASS; deploy job `97260221794` PASS.
+- Exact refreshed validation: TypeScript 0 errors; 47 files / 307 tests PASS; Pages-base build PASS; npm audit 0; focused 10-minute mixed-frame drift suite 4/4 PASS with zero drift.
+- Rhythm V2 independent Gates: R0, R1, R2, R3, R4 and R5 all PASS. R5 final runtime delta is `004146b`; later commits through `60a115f` are evidence/status-only.
+- Public production desktop: HTTPS/assets PASS, default Simplified Chinese PASS, English full replacement PASS, Firefly entry PASS, service-worker scope/controller/cache `beatgarden-shell-v5` PASS.
+- Refreshed Android production matrix on Xiaomi 24091RPADC / Android 16 / Chrome 145.0.7632.159: boot, Firefly tap, Cloud swipe, 16-input calibration persistence/Judge read, orientation, lifecycle, manual-pause intent, and cold offline fresh-query Firefly entry PASS.
+- Android media remained `Muted:true`, `streamVolume:0`. **auditory calibration validity NOT ASSESSED because media volume was intentionally muted**.
+- User accepted Chrome's formal install confirmation, but no BeatGarden/WebAPK package, launcher item or Chrome shortcut is currently observable; standalone launch remains `UNVERIFIED` as an external delivery residual.
+- Refreshed evidence: `docs/evidence/public_pages_20260824.json`, `docs/evidence/android_release_20260824.json`, and `docs/evidence/android_20260824/`.
+- The official 2026-08-10 GATE 2/GATE 4 PASS records below remain immutable history for the older RC. The V2 RC is now submitted as a bounded refreshed external delta before final acceptance.
 
 - Branch: `main`
 - Codex takeover commit: `1310965` — Gate 0 lifecycle delta.

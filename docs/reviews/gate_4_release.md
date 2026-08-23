@@ -1,7 +1,35 @@
 # GATE 4 — Release Candidate / Full Project Review Record
 
-Status: official re-verdict `GATE 4: PASS`; final independent acceptance remains a
-separate step.
+Status: official 2026-08-10 re-verdict `GATE 4: PASS` preserved; refreshed V2 RC review
+must follow the refreshed GATE 2 verdict. Final independent acceptance remains separate.
+
+## 2026-08-24 refreshed V2 RC closure packet
+
+- Exact runtime/test SHA, GitHub main and public Pages deployed SHA:
+  `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
+- Rhythm V2 bounded independent review chain: R0 PASS, R1 PASS, R2 PASS, R3 PASS,
+  R4 PASS, R5 PASS. The hard Running no-refactor/gameplay/persistence boundary was
+  preserved throughout.
+- Pages run `32666334718` PASS (build `97260161010`, deploy `97260221794`); public
+  root, manifest, SW, hashed main, Worker and icon all return HTTPS 200.
+- Desktop public production: Simplified Chinese default, English replacement,
+  Firefly entry, controller/scope/cache and no PWA runtime error PASS.
+- Refreshed Android production matrix: boot, Firefly tap, Cloud swipe, 16-input muted
+  calibration persistence/Judge read, orientation, lifecycle/manual pause and cold
+  offline fresh-query Firefly entry PASS.
+- **auditory calibration validity NOT ASSESSED because media volume was intentionally muted**.
+- PWA standalone launch remains honestly `UNVERIFIED` after accepted install UI but no
+  observable package/launcher/shortcut; this is external delivery, with no app-owned
+  installability or offline defect observed.
+- Exact validation: npm ci, TypeScript lint, 47 files / 307 tests, Pages build,
+  npm audit 0 and focused ten-minute zero-drift test PASS. No CDN; Phaser 3.90.0 is the
+  one pinned direct runtime dependency for separately owned Running Mode.
+- Evidence: `docs/evidence/public_pages_20260824.json`,
+  `docs/evidence/android_release_20260824.json`, `docs/rhythm/STATUS.md` and the R0–R5
+  evidence trees.
+
+Only after refreshed `GATE 2: PASS`, request refreshed `GATE 4: PASS / PARTIAL / FAIL`.
+This packet does not pre-claim final acceptance.
 
 ## Official re-verdict — PASS
 
