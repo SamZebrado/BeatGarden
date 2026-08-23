@@ -7,6 +7,28 @@ import { CalibrationView } from '../settings/CalibrationView';
 import { SettingsView } from '../settings/SettingsView';
 import { AudioTestView } from '../settings/AudioTestView';
 import { StreamSafeView } from '../settings/StreamSafeView';
+import { loadBestScore } from '../settings/scores';
+import type { StringKey } from '../i18n/strings';
+import { resultGrade } from '../game/resultPresentation';
+
+type RhythmStage = FireflyDockStage | BubbleKitchenStage | CloudPostStage | SleepyGreenhouseStage;
+type StageCardSpec = {
+  role: string;
+  id: string;
+  create: () => RhythmStage;
+  detailKey: StringKey;
+  inputKey: StringKey;
+  difficultyKey: StringKey;
+  colors: string;
+  preview: string;
+};
+
+const STAGES: readonly StageCardSpec[] = [
+  { role: 'firefly', id: 'firefly-dock', create: () => new FireflyDockStage(), detailKey: 'menu.fireflyDetail', inputKey: 'menu.input.tap', difficultyKey: 'menu.difficulty.warmup', colors: '#1c2a63,#281d4e', preview: '✦ · ◉ · ✦' },
+  { role: 'bubble', id: 'bubble-kitchen', create: () => new BubbleKitchenStage(), detailKey: 'menu.bubbleDetail', inputKey: 'menu.input.tap', difficultyKey: 'menu.difficulty.medium', colors: '#592149,#311449', preview: '◯　◉　◯' },
+  { role: 'cloud', id: 'cloud-post', create: () => new CloudPostStage(), detailKey: 'menu.cloudDetail', inputKey: 'menu.input.swipe', difficultyKey: 'menu.difficulty.medium', colors: '#24558a,#283d73', preview: '←　▱　→' },
+  { role: 'greenhouse', id: 'sleepy-greenhouse', create: () => new SleepyGreenhouseStage(), detailKey: 'menu.greenhouseDetail', inputKey: 'menu.input.hold', difficultyKey: 'menu.difficulty.focus', colors: '#164d47,#102e3b', preview: '⌄　│　⌃' },
+];
 
 export class AppController {
   constructor(
@@ -57,13 +79,11 @@ export class AppController {
   showStageSelect = (): void => {
     this.prepareRoot(true);
     const page = document.createElement('main');
-    page.style.cssText = 'width:min(900px,calc(100% - 40px));padding:34px;color:#fff;font-family:system-ui;';
-    page.innerHTML = `<button data-role="back" style="color:#b9c9ff;border:0;background:transparent;font-size:17px">← ${t('menu.back')}</button><h1 style="font-size:44px;margin-top:24px">${t('menu.stageSelect')}</h1><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;margin-top:24px">${this.stageCard('firefly', t('stage.firefly.title'), t('menu.fireflyDetail'), '#1c2a63,#281d4e')}${this.stageCard('bubble', t('stage.bubble.title'), t('menu.bubbleDetail'), '#592149,#311449')}${this.stageCard('cloud', t('stage.cloud.title'), t('menu.cloudDetail'), '#24558a,#283d73')}${this.stageCard('greenhouse', t('stage.greenhouse.title'), t('menu.greenhouseDetail'), '#164d47,#102e3b')}</div>`;
+    page.style.cssText = 'width:min(980px,calc(100% - 32px));padding:28px 0 42px;color:#fff;font-family:system-ui;';
+    page.innerHTML = `<button data-role="back" style="color:#b9c9ff;border:0;background:transparent;font-size:17px;padding:10px 0;cursor:pointer">← ${t('menu.back')}</button><h1 style="font-size:clamp(36px,7vw,52px);margin:18px 0 5px;letter-spacing:-.04em">${t('menu.stageSelect')}</h1><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,390px),1fr));gap:18px;margin-top:24px">${STAGES.map((spec) => this.stageCard(spec)).join('')}</div>`;
     page.querySelector<HTMLButtonElement>('[data-role="back"]')!.addEventListener('click', this.showMenu);
-    page.querySelector<HTMLButtonElement>('[data-role="firefly"]')!.addEventListener('click', this.playFirefly);
-    page.querySelector<HTMLButtonElement>('[data-role="bubble"]')!.addEventListener('click', () => this.playStage(new BubbleKitchenStage()));
-    page.querySelector<HTMLButtonElement>('[data-role="cloud"]')!.addEventListener('click', () => this.playStage(new CloudPostStage()));
-    page.querySelector<HTMLButtonElement>('[data-role="greenhouse"]')!.addEventListener('click', () => this.playStage(new SleepyGreenhouseStage()));
+    STAGES.forEach((spec) => page.querySelector<HTMLButtonElement>(`[data-role="${spec.role}"]`)!
+      .addEventListener('click', () => this.playStage(spec.create())));
     this.root.appendChild(page);
     const status = document.createElement('output');
     status.id = 'app-runtime-status';
@@ -104,13 +124,25 @@ export class AppController {
     this.playStage(new FireflyDockStage());
   };
 
-  private playStage(stage: FireflyDockStage | BubbleKitchenStage | CloudPostStage | SleepyGreenhouseStage): void {
+  private playStage(stage: RhythmStage): void {
     this.prepareRoot();
-    new StageRunner({ root: this.root, stage, onExit: this.showStageSelect });
+    const index = STAGES.findIndex((spec) => spec.id === stage.id);
+    const next = index >= 0 && index < STAGES.length - 1 ? STAGES[index + 1] : undefined;
+    new StageRunner({
+      root: this.root,
+      stage,
+      onExit: this.showStageSelect,
+      ...(next ? { onNext: () => this.playStage(next.create()) } : {}),
+    });
   }
 
-  private stageCard(role: string, title: string, detail: string, colors: string): string {
-    return `<button data-role="${role}" style="min-height:150px;padding:24px;border-radius:22px;border:1px solid #586ecc;background:linear-gradient(145deg,${colors});color:#fff;text-align:left;cursor:pointer"><strong style="font-size:28px">${title}</strong><span style="display:block;margin-top:10px;color:#e0e5ff;font-size:17px;line-height:1.45">${detail}</span></button>`;
+  private stageCard(spec: StageCardSpec): string {
+    const stage = spec.create();
+    const best = loadBestScore(stage.id);
+    const record = best
+      ? `${t('menu.bestGrade')} ${resultGrade(best.accuracy)} · ${t('menu.bestAccuracy')} ${(best.accuracy * 100).toFixed(1)}%`
+      : t('menu.noRecord');
+    return `<button data-role="${spec.role}" style="min-height:240px;padding:0;border-radius:24px;overflow:hidden;border:1px solid #586ecc;background:linear-gradient(145deg,${spec.colors});color:#fff;text-align:left;cursor:pointer;box-shadow:0 18px 46px rgba(0,0,0,.22)"><span aria-hidden="true" style="display:flex;align-items:center;justify-content:center;height:82px;background:rgba(255,255,255,.07);font:700 25px ui-monospace;letter-spacing:.15em;color:#e5ebff">${spec.preview}</span><span style="display:block;padding:20px 22px 22px"><strong style="font-size:27px">${t(stage.titleKey)}</strong><span style="display:block;margin-top:8px;color:#e0e5ff;font-size:16px;line-height:1.4">${t(spec.detailKey)}</span><span style="display:flex;gap:7px;flex-wrap:wrap;margin-top:16px"><span style="padding:6px 9px;border-radius:999px;background:rgba(4,8,25,.28);font-size:12px">${t('menu.mechanic')} · ${t(spec.inputKey)}</span><span style="padding:6px 9px;border-radius:999px;background:rgba(4,8,25,.28);font-size:12px">${t('menu.difficulty')} · ${t(spec.difficultyKey)}</span></span><span style="display:block;margin-top:13px;color:#9fe9d4;font-size:13px">${record}</span></span></button>`;
   }
 
   private prepareRoot(scrollable = false): void {

@@ -25,16 +25,18 @@ import { resumeAfterAudioConfirmed } from './playbackLifecycle';
 import { expiredJudgeBeat, hasTargetExpiredForAutoMiss, TARGET_EXPIRY_GRACE_SEC } from './judgementExpiry';
 import { getLocale, languageTargetAction, languageTargetLabel, t, toggleLocale } from '../i18n/strings';
 import { loadSettings } from '../settings/settings';
-import { saveBestScore } from '../settings/scores';
+import { loadBestScore, saveBestScore } from '../settings/scores';
 import { hasCompletedTutorial, markTutorialCompleted } from './tutorialProgress';
 import { FEEDBACK_DURATION_SEC, feedbackScale, GameFeel, rhythmSection } from './GameFeel';
 import { inputCandidateBeatRange, maxTargetJudgeWindowSeconds, targetJudgeWindowSeconds } from './targetWindows';
+import { isNewBest, resultGrade, resultTimingTendency } from './resultPresentation';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
   stage: StageDefinition;
   config?: TimingConfig;
   onExit?: () => void;
+  onNext?: () => void;
 }
 
 type Phase = 'locked' | 'tutorial' | 'countdown' | 'playing' | 'paused' | 'ended';
@@ -61,6 +63,7 @@ export class StageRunner {
   private pauseInFlight: Promise<boolean> | null = null;
   private runtimeStatus!: HTMLOutputElement;
   private readonly onExit: (() => void) | undefined;
+  private readonly onNext: (() => void) | undefined;
   private destroyed = false;
   private readonly tutorialSteps: readonly StageTutorialStep[];
   private tutorialStepIndex = 0;
@@ -89,6 +92,7 @@ export class StageRunner {
   constructor(opts: StageRunnerOptions) {
     this.stage = opts.stage;
     this.onExit = opts.onExit;
+    this.onNext = opts.onNext;
     this.config = opts.config ?? TIMING_CONFIG;
     this.tutorialSteps = this.stage.buildTutorialSteps?.() ?? [];
 
@@ -220,8 +224,28 @@ export class StageRunner {
       getPhase: () => this.phase,
       getLocale: () => getLocale(),
       restart: () => this.restart(),
+      ...(runtimeSmoke === 'result'
+        ? { showResult: () => this.buildResultOverlay({
+            score: 3180,
+            accuracy: .925,
+            counts: { PERFECT: 8, GREAT: 3, OK: 1, MISS: 0 },
+            total: 12,
+            meanSignedErrorMs: -6.2,
+            medianSignedErrorMs: -3.5,
+            deltasMs: [-18, -12, -6, -3, 0, 4, 8],
+            histogramBucketsMs: new Map([[-20, 2], [0, 4], [20, 1]]),
+          }) }
+        : {}),
     };
     (window as unknown as { __BEATGARDEN__?: unknown }).__BEATGARDEN__ = this.debugHandle;
+
+    if (runtimeSmoke === 'result') {
+      queueMicrotask(() => {
+        this.overlays.unlock?.remove();
+        this.overlays.unlock = null;
+        (this.debugHandle.showResult as () => void)();
+      });
+    }
 
     this.startRaf();
   }
@@ -557,26 +581,50 @@ background: #4a172f; color: #fff; font: 600 14px system-ui; cursor: pointer;
     d.style.cssText = `
 position: fixed; inset: 0; background: rgba(4, 6, 18, 0.88);
 display: flex; align-items: center; justify-content: center;
-flex-direction: column; z-index: 40; color: #fff;
-font-family: system-ui, -apple-system, sans-serif; padding: 32px;
+z-index: 40; color: #fff; overflow:auto;
+font-family: system-ui, -apple-system, sans-serif; padding: 24px;
 backdrop-filter: blur(4px);
 `;
+    const panel = document.createElement('section');
+    panel.style.cssText = 'width:min(680px,100%);margin:auto;text-align:center;padding:30px;border:1px solid rgba(255,255,255,.14);border-radius:28px;background:rgba(12,17,42,.92);box-shadow:0 28px 80px rgba(0,0,0,.38)';
+    d.appendChild(panel);
     const title = document.createElement('div');
     title.textContent = t('result.title');
-    title.style.cssText = 'font-size: 40px; font-weight: 700; margin-bottom: 18px;';
-    d.appendChild(title);
+    title.style.cssText = 'font-size:18px;font-weight:700;letter-spacing:.12em;color:#aebce6;text-transform:uppercase';
+    panel.appendChild(title);
+    const grade = document.createElement('div');
+    grade.dataset.role = 'result-grade';
+    grade.textContent = resultGrade(score.accuracy);
+    grade.style.cssText = 'font-size:92px;line-height:1;font-weight:900;margin:10px 0 6px;color:#fff;text-shadow:0 0 34px rgba(110,151,255,.55)';
+    panel.appendChild(grade);
     const s = document.createElement('div');
     const max = score.total * 300;
-    s.textContent = `${t('result.score')}: ${score.score} / ${max}   ·   ${t('result.accuracy')}: ${(score.accuracy * 100).toFixed(2)}%`;
-    s.style.cssText = 'font-size: 28px; margin-bottom: 24px; color: #d0e0ff;';
-    d.appendChild(s);
+    s.innerHTML = `<strong style="color:#fff">${score.score.toLocaleString()} / ${max.toLocaleString()}</strong><span style="display:block;font-size:20px;margin-top:8px">${t('result.accuracy')} ${(score.accuracy * 100).toFixed(2)}%</span>`;
+    s.style.cssText = 'font-size:30px;margin-bottom:12px;color:#d0e0ff';
+    panel.appendChild(s);
+    const previous = loadBestScore(this.stage.id);
+    const nextScore = { score: score.score, accuracy: score.accuracy, total: score.total };
+    const newBest = isNewBest(previous, nextScore);
     const best = saveBestScore(this.stage.id, { score: score.score, accuracy: score.accuracy, total: score.total });
     const bestLine = document.createElement('div');
-    bestLine.textContent = `${t('result.best')}: ${best.score} · ${(best.accuracy * 100).toFixed(2)}%`;
-    bestLine.style.cssText = 'font-size:18px;margin:-12px 0 20px;color:#92efd0';
-    d.appendChild(bestLine);
+    bestLine.textContent = newBest
+      ? `✦ ${t('result.newBest')}`
+      : `${t('result.best')}: ${best.score.toLocaleString()} · ${(best.accuracy * 100).toFixed(2)}%`;
+    bestLine.style.cssText = 'font-size:18px;margin-bottom:22px;color:#92efd0;font-weight:700';
+    panel.appendChild(bestLine);
+    const highlights = document.createElement('div');
+    const tendency = resultTimingTendency(score.meanSignedErrorMs);
+    highlights.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:20px';
+    highlights.innerHTML = `<div style="padding:14px;border-radius:16px;background:rgba(255,255,255,.06)"><span style="display:block;color:#96a7d9;font-size:13px">${t('result.combo')}</span><strong style="font-size:23px">${this.gameFeel.snapshot().bestCombo}</strong></div><div style="padding:14px;border-radius:16px;background:rgba(255,255,255,.06)"><span style="display:block;color:#96a7d9;font-size:13px">${t('result.timing')}</span><strong style="font-size:20px">${t(`result.timing.${tendency}`)}</strong></div>`;
+    panel.appendChild(highlights);
+    const details = document.createElement('details');
+    details.style.cssText = 'text-align:left;margin:0 0 24px;padding:14px 18px;border-radius:16px;background:rgba(255,255,255,.045);color:#b9c7ee';
+    const summary = document.createElement('summary');
+    summary.textContent = t('result.details');
+    summary.style.cssText = 'cursor:pointer;color:#d7e0ff;font-weight:700';
+    details.appendChild(summary);
     const counts = document.createElement('div');
-    counts.style.cssText = 'font-size: 22px; margin-bottom: 40px; color: #b9c7ee; line-height: 1.8;';
+    counts.style.cssText = 'font-size:16px;padding-top:12px;line-height:1.65';
     const countLines = [
       `${t('result.perfect')}: ${score.counts.PERFECT}`,
       `${t('result.great')}: ${score.counts.GREAT}`,
@@ -584,13 +632,15 @@ backdrop-filter: blur(4px);
       `${t('result.miss')}: ${score.counts.MISS}`,
       `${t('result.meanError')}: ${score.meanSignedErrorMs.toFixed(1)} ms`,
       `${t('result.medianError')}: ${score.medianSignedErrorMs.toFixed(1)} ms`,
+      `${t('result.histogram')}: ${[...score.histogramBucketsMs.entries()].map(([bucket, count]) => `${bucket >= 0 ? '+' : ''}${bucket}ms×${count}`).join(' · ') || '—'}`,
     ];
     counts.replaceChildren(...countLines.flatMap((line, index) => {
       const nodes: Node[] = [document.createTextNode(line)];
       if (index < countLines.length - 1) nodes.push(document.createElement('br'));
       return nodes;
     }));
-    d.appendChild(counts);
+    details.appendChild(counts);
+    panel.appendChild(details);
     const row = document.createElement('div');
     row.style.cssText = 'display: flex; gap: 18px; flex-wrap: wrap; justify-content: center;';
     const bRestart = document.createElement('button');
@@ -605,6 +655,13 @@ cursor: pointer; box-shadow: 0 8px 24px rgba(80,60,200,0.35);
       this.restart();
     });
     row.appendChild(bRestart);
+    if (this.onNext) {
+      const bNext = document.createElement('button');
+      bNext.textContent = t('action.nextStage');
+      bNext.style.cssText = 'font-size:18px;padding:14px 24px;border-radius:999px;background:#273b75;color:#fff;border:1px solid #5575d6;cursor:pointer';
+      bNext.addEventListener('click', () => void this.destroy().then(this.onNext));
+      row.appendChild(bNext);
+    }
     const bBack = document.createElement('button');
     bBack.textContent = t('action.back');
     bBack.style.cssText = `
@@ -622,7 +679,7 @@ cursor: pointer;
       }
     });
     row.appendChild(bBack);
-    d.appendChild(row);
+    panel.appendChild(row);
     document.body.appendChild(d);
     this.overlays.result = d;
   }
