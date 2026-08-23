@@ -1,15 +1,15 @@
 # Rhythm V2 R4 — Menu / Stage Select / Result evidence
 
-Runtime commit under test: `acc1da0`
+Runtime commit under test: `2459de0`
 
 ## Exact detached verification
 
-- Worktree: `/private/tmp/beatgarden-r4-acc1da0`
+- Worktree: `/private/tmp/beatgarden-r4-acc1da0` (detached at `2459de0`)
 - `npm ci`: PASS, 87 packages, 0 vulnerabilities
 - `npm run lint`: PASS
 - `npm test -- --run`: PASS, 46 files / 297 tests
 - `VITE_BASE=/BeatGarden/ npm run build`: PASS
-- Rhythm main: 247.61 kB / gzip 67.77 kB
+- Rhythm main: 248.36 kB / gzip 68.07 kB
 - AutoChart worker: 4.61 kB
 - Existing out-of-scope Running chunk warning: 1,216.79 kB / gzip 324.98 kB
 
@@ -23,6 +23,8 @@ Runtime commit under test: `acc1da0`
   Tendency PASS.
 - Secondary `<details>` contains P/G/O/M, mean, median and timing histogram.
 - Result actions: Retry, Next Stage, Stage Select.
+- Menu, stage instruction and result reveal use a non-blocking 220 ms animation;
+  the first pointer finishes it immediately and reduced-motion disables it.
 - Simplified Chinese and complete English replacement UI checked separately.
 - Browser console: no warning/error observed during the R4 flows.
 
