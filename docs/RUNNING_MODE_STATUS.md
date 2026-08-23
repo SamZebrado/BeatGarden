@@ -34,6 +34,10 @@ ChatGPT review conversation.
   legacy `mei` / `rowan` / `lin` IDs anonymous public aliases without changing their
   internal Person authority. Storage-failure, retry-idempotence, DOM-injection and
   legacy-migration regressions are included in the final test count.
+- The bounded re-review of exact remote commit `30b3e97` returned **PASS**: all three
+  P1s are closed, no P0/P1 remains, and the reviewer explicitly cleared release. The
+  re-review used repository source because the post-refresh attachment ACK reported
+  missing; this evidence boundary is recorded in the review response.
 - Real browser QA covered desktop, 390×844 and 844×390. It exercised a persisted
   completed Journey and result overlay, Journal/Medals/Story Marks, anonymous seeded
   academic/manager cards, all three Rest activities, recovery choice plus reload and

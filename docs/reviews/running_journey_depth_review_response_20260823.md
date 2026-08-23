@@ -21,3 +21,18 @@ Medal/Story Mark separation, additive migration and rollback, recovery one-shot 
 music RNG isolation, seeded cast, Back lifecycle, or Rest Corner cleanup.
 
 `BEATGARDEN_DEPTH_REVIEW_COMPLETE`
+
+## Bounded re-review
+
+The designated reviewer subsequently inspected exact remote commit
+`30b3e9723d28c8a3512d3de594f9c2969ed2633a` and returned **PASS**: all three P1s are
+closed, no P0/P1 remains, and the release may proceed. The uploaded ZIP was not
+available to the reviewer after the interrupted connection, so this verdict is
+explicitly source-at-commit evidence rather than attachment-ACK evidence.
+
+The re-review specifically accepted HTML escaping plus the jsdom injection test;
+Running-meta write/readback verification before current-run removal; terminal
+checkpoint retention, stable run identity and exactly-once retry; and legacy internal
+Person IDs paired with anonymous public aliases.
+
+`BEATGARDEN_P1_REREVIEW_COMPLETE`
