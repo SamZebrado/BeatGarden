@@ -7,13 +7,13 @@ const SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(SHELL);
-    const index = await fetch('./index.html');
+    await cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })));
+    const index = await fetch(new Request('./index.html', { cache: 'reload' }));
     const html = await index.text();
     const entryAssets = extractPrecacheAssets(html)
       .map((value) => new URL(value, self.registration.scope).href)
       .filter((url) => new URL(url).origin === self.location.origin);
-    await cache.addAll(entryAssets);
+    await cache.addAll(entryAssets.map((url) => new Request(url, { cache: 'reload' })));
   })());
   self.skipWaiting();
 });
