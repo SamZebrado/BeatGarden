@@ -1,6 +1,7 @@
 import type { RunningDifficulty } from './difficulty';
 import { MAX_RUNNING_ENEMIES, type RunningSimulationStateV1 } from './simulation';
 import type { ScenarioSimulationStateV1, ScenarioWorld } from './scenarioSimulation';
+import { isRelationshipState } from './personScience';
 
 export const CURRENT_RUN_STORAGE_KEY = 'beatgarden.running.current.v1';
 
@@ -38,34 +39,38 @@ export function clearCurrentRun(storage: Pick<Storage, 'removeItem'> | null = br
 
 export function isCurrentRunV1(value: unknown): value is CurrentRunV1 {
   if (!record(value) || value.version !== 1 || value.status !== 'active' || !world(value.world) || !difficulty(value.difficulty)) return false;
+  if (!exactKeys(value, ['version', 'status', 'savedAt', 'seed', 'world', 'difficulty', 'simulation'])) return false;
   if (!safeInteger(value.seed, 0, 0xffffffff) || !finite(value.savedAt, 0, 1e16) || !record(value.simulation)) return false;
   if (!safeTree(value, 0)) return false;
   return value.world === 'phd' ? validPhdSimulation(value.simulation) : validScenarioSimulation(value.simulation, value.world);
 }
 
 function validPhdSimulation(s: Record<string, unknown>): boolean {
+  if (!exactKeys(s, ['rngState', 'nextId', 'spawnTimer', 'shotTimer', 'meetingAt', 'meetingPhase', 'meetingRemaining', 'meetingCount', 'milestoneRosterInitialized', 'enemies', 'projectiles', 'pickups', 'hitPulses', 'upgrades', 'player', 'time', 'level', 'xp', 'upgradePending', 'defeated', 'gameOver', 'phd'])) return false;
   if (!finiteKeys(s, ['nextId', 'spawnTimer', 'shotTimer', 'meetingAt', 'meetingRemaining', 'meetingCount', 'time', 'level', 'xp', 'defeated'])) return false;
   if (!safeInteger(s.rngState, 0, 0xffffffff) || !safeInteger(s.nextId, 1, 1e9) || !safeInteger(s.level, 1, 1e6) || !safeInteger(s.defeated, 0, 1e9)) return false;
   if (!['idle', 'telegraph', 'active'].includes(String(s.meetingPhase)) || !boolKeys(s, ['milestoneRosterInitialized', 'upgradePending', 'gameOver'])) return false;
   if (!phdEnemyArray(s.enemies) || !projectileArray(s.projectiles, 256) || !pickupArray(s.pickups, 128) || !pulseArray(s.hitPulses)) return false;
-  if (!record(s.upgrades) || !integerKeys(s.upgrades, ['orbit', 'cadence', 'vitality'], 0, 1e6) || !validPlayer(s.player)) return false;
+  if (!record(s.upgrades) || !exactKeys(s.upgrades, ['orbit', 'cadence', 'vitality']) || !integerKeys(s.upgrades, ['orbit', 'cadence', 'vitality'], 0, 1e6) || !validPlayer(s.player)) return false;
   if (!record(s.phd) || !record(s.phd.state) || !finiteKeys(s.phd, ['nextProjectAt', 'nextQualifyingPrompt', 'nextDefensePrompt', 'nextLifestyleAt', 'pausedAcademicTime', 'milestoneTimingScale'])) return false;
+  if (!exactKeys(s.phd, ['state', 'nextProjectAt', 'nextQualifyingPrompt', 'nextDefensePrompt', 'nextLifestyleAt', 'pausedAcademicTime', 'contributions', 'milestoneTimingScale'])) return false;
   const state = s.phd.state;
   if (!finiteKeys(state, ['energy', 'focus', 'spirit', 'calendarLoad', 'signal', 'noise', 'pollution', 'logic', 'clarity', 'boundary', 'purpose', 'connection', 'evidence', 'year', 'seasonPulse', 'annualReviews', 'completedProjects', 'independentResearch', 'assignedLabor', 'supervisorRequests', 'revisionRemaining'])) return false;
-  if (!validPhdState(state)) return false;
+  if (!validPhdState(state) || (state.relationship !== undefined && !isRelationshipState(state.relationship))) return false;
   if (!uniqueEnumArray(s.phd.contributions, PROJECT_IDS)) return false;
   if (!uniqueIdsAndNext(s.nextId, s.enemies, s.projectiles, s.pickups, s.hitPulses)) return false;
   return validPhdRoster(s, state);
 }
 
 function validScenarioSimulation(s: Record<string, unknown>, world: 'master' | 'work'): boolean {
+  if (!exactKeys(s, ['rngState', 'nextId', 'time', 'spawnTimer', 'shotTimer', 'eventAt', 'eventPhase', 'eventRemaining', 'eventKind', 'nextChoiceAt', 'climaxPhase', 'climaxProgress', 'climaxBossSpawned', 'completed', 'gameOver', 'defeated', 'energy', 'focus', 'spirit', 'calendar', 'progress', 'choice', 'masterSupervisor', 'masterCareerPlan', 'masterProposalPhase', 'masterProposalRemaining', 'masterProposalProgress', 'masterProposalRosterInitialized', 'workStage', 'managerId', 'marketStrength', 'experience', 'careerTime', 'workConversionScore', 'promotionProgress', 'conversionChoiceShown', 'nextMarketAt', 'nextConversionAt', 'nextClimaxAt', 'relationships', 'activePriority', 'priorityRemaining', 'enemies', 'projectiles', 'pickups', 'player'])) return false;
   const numbers = ['nextId', 'time', 'spawnTimer', 'shotTimer', 'eventAt', 'eventRemaining', 'nextChoiceAt', 'climaxProgress', 'defeated', 'energy', 'focus', 'spirit', 'calendar', 'progress', 'masterProposalRemaining', 'masterProposalProgress', 'marketStrength', 'experience', 'careerTime', 'workConversionScore', 'promotionProgress', 'nextMarketAt', 'nextConversionAt', 'nextClimaxAt', 'priorityRemaining'];
   if (!finiteKeys(s, numbers) || !safeInteger(s.rngState, 0, 0xffffffff) || !safeInteger(s.nextId, 1, 1e9) || !safeInteger(s.defeated, 0, 1e9)) return false;
   if (!boolKeys(s, ['climaxBossSpawned', 'completed', 'gameOver', 'masterProposalRosterInitialized', 'conversionChoiceShown'])) return false;
   if (!['idle', 'telegraph', 'active'].includes(String(s.eventPhase)) || !['none', 'termRush', 'daily', 'weekly'].includes(String(s.eventKind)) || !['none', 'telegraph', 'active'].includes(String(s.climaxPhase))) return false;
   if (typeof s.activePriority !== 'string' || s.activePriority.length > 8 || !validPlayer(s.player)) return false;
   if (!enumValue(s.masterSupervisor, [null, ...PERSON_IDS]) || !enumValue(s.masterCareerPlan, [null, ...CAREER_PLANS]) || !enumValue(s.masterProposalPhase, MASTER_PROPOSAL_PHASES)) return false;
-  if (!enumValue(s.workStage, WORK_STAGES) || !enumValue(s.managerId, [null, ...MANAGER_IDS]) || !validScenarioChoice(s.choice, world)) return false;
+  if (!enumValue(s.workStage, WORK_STAGES) || !enumValue(s.managerId, [null, ...MANAGER_IDS]) || !validScenarioChoice(s.choice, world) || !validRelationships(s.relationships)) return false;
   if (!safeInteger(s.masterProposalProgress, 0, 6) || !safeInteger(s.climaxProgress, 0, world === 'master' ? 5 : 16)) return false;
   if (world === 'master' && (s.workStage !== 'offers' || s.managerId !== null || s.conversionChoiceShown !== false)) return false;
   if (world === 'work' && (s.masterSupervisor !== null || s.masterCareerPlan !== null || s.masterProposalPhase !== 'none' || s.masterProposalRosterInitialized !== false || s.masterProposalProgress !== 0)) return false;
@@ -80,10 +85,12 @@ const LIFESTYLE_IDS = ['rest', 'exercise', 'social', 'mindfulness', 'weekendOver
 const PERSON_IDS = ['mei', 'rowan', 'lin'] as const;
 const CAREER_PLANS = ['researchPhd', 'employment', 'undecided'] as const;
 const MANAGER_IDS = ['clear-builder', 'opaque-driver', 'steady-coach'] as const;
+const STABLE_PERSON_IDS = [...PERSON_IDS, 'mara', 'dax', 'noa'] as const;
 const WORK_STAGES = ['offers', 'trial', 'conversion', 'employed', 'promotion'] as const;
 const MASTER_PROPOSAL_PHASES = ['none', 'preparation', 'rehearsal', 'presentation', 'complete'] as const;
 
 function validPhdState(state: Record<string, unknown>): boolean {
+  if (!exactKeys(state, ['energy', 'focus', 'spirit', 'calendarLoad', 'signal', 'noise', 'pollution', 'logic', 'clarity', 'boundary', 'purpose', 'connection', 'evidence', 'year', 'seasonPulse', 'annualReviews', 'supervisorId', 'supervisorPersonId', 'supervisorFeedback', 'lifestyle', 'activeProject', 'completedProjects', 'independentResearch', 'assignedLabor', 'supervisorRequests', 'lastBoundaryReaction', 'relationship', 'thesisStage', 'qualifying', 'annualMilestone', 'preDefense', 'revisionRemaining', 'defense', 'choice', 'milestone', 'graduated', 'terminal'])) return false;
   if (!enumValue(state.supervisorId, [null, ...SUPERVISOR_IDS]) || !enumValue(state.supervisorPersonId, [null, ...PERSON_IDS])) return false;
   if (!enumValue(state.lastBoundaryReaction, ['none', 'respected', 'strained']) || !enumValue(state.thesisStage, ['seed', 'sapling', 'tree', 'bloom'])) return false;
   if (!enumValue(state.qualifying, ['locked', 'ready', 'passed']) || !enumValue(state.preDefense, ['hidden', 'ready', 'passed']) || !enumValue(state.defense, ['hidden', 'visible', 'ready', 'passed'])) return false;
@@ -99,6 +106,12 @@ function validPhdState(state: Record<string, unknown>): boolean {
   return true;
 }
 
+function validRelationships(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!record(value) || Object.keys(value).length > STABLE_PERSON_IDS.length) return false;
+  return Object.entries(value).every(([id, relationship]) => STABLE_PERSON_IDS.includes(id as typeof STABLE_PERSON_IDS[number]) && isRelationshipState(relationship));
+}
+
 function validPhdChoice(value: unknown): boolean {
   if (value === null) return true;
   if (!record(value) || typeof value.kind !== 'string') return false;
@@ -107,12 +120,12 @@ function validPhdChoice(value: unknown): boolean {
     supervisorRequest: ['accept', 'setBoundary', 'decline'], qualifying: ['attempt', 'defer'],
     preDefense: ['attempt', 'defer'], defense: ['attempt', 'defer'],
   };
-  return value.kind in options && exactArray(value.options, options[value.kind]);
+  return exactKeys(value, ['kind', 'options']) && value.kind in options && exactArray(value.options, options[value.kind]);
 }
 
 function validMilestone(value: unknown): boolean {
   if (value === null) return true;
-  return record(value) && enumValue(value.kind, ['qualifying', 'defense'])
+  return record(value) && exactKeys(value, ['kind', 'stance', 'phase', 'remaining', 'progress', 'target', 'damageScale']) && enumValue(value.kind, ['qualifying', 'defense'])
     && enumValue(value.stance, ['support', 'mixed', 'adversarial'])
     && enumValue(value.phase, ['preparation', 'rehearsal', 'presentation'])
     && finiteKeys(value, ['remaining', 'progress', 'target', 'damageScale'])
@@ -129,37 +142,41 @@ function validScenarioChoice(value: unknown, world: 'master' | 'work'): boolean 
     workConversion: ['continue', 'leaveSearch'], workPriority: ['protectFocus', 'acceptRush'],
   };
   const allowedKinds = world === 'master' ? ['masterTrack', 'masterSupervisor', 'careerPlan'] : ['workOffer', 'workConversion', 'workPriority'];
-  return allowedKinds.includes(value.kind) && exactArray(value.options, options[value.kind]);
+  return exactKeys(value, ['kind', 'options']) && allowedKinds.includes(value.kind) && exactArray(value.options, options[value.kind]);
 }
 
 function phdEnemyArray(value: unknown): boolean {
   return Array.isArray(value) && value.length <= MAX_RUNNING_ENEMIES && value.every((item) => entityBase(item)
+    && exactKeys(item, ['id', 'kind', 'x', 'y', 'hp', 'radius', 'source', 'flash'])
     && enumValue(item.kind, ['mite', 'reviewer', 'chair', 'phone', 'committee'])
     && enumValue(item.source, ['ambient', 'meeting', 'milestone']) && positiveKeys(item, ['hp', 'radius']) && finiteKeys(item, ['flash']));
 }
 
 function scenarioEnemyArray(value: unknown): boolean {
   return Array.isArray(value) && value.length <= MAX_RUNNING_ENEMIES && value.every((item) => entityBase(item)
+    && exactKeys(item, ['id', 'kind', 'x', 'y', 'hp', 'radius', 'source', 'flash'])
     && enumValue(item.kind, ['courseBlock', 'deadline', 'exam', 'request', 'notification', 'delivery'])
     && enumValue(item.source, ['ambient', 'periodic', 'milestone', 'climax']) && positiveKeys(item, ['hp', 'radius']) && finiteKeys(item, ['flash']));
 }
 
 function projectileArray(value: unknown, max: number): boolean {
   return Array.isArray(value) && value.length <= max && value.every((item) => entityBase(item)
+    && exactKeys(item, ['id', 'x', 'y', 'vx', 'vy', 'damage', 'radius', 'ttl'])
     && finiteKeys(item, ['vx', 'vy']) && positiveKeys(item, ['damage', 'radius', 'ttl']));
 }
 
 function pickupArray(value: unknown, max: number): boolean {
-  return Array.isArray(value) && value.length <= max && value.every((item) => entityBase(item) && positiveKeys(item, ['value', 'radius']));
+  return Array.isArray(value) && value.length <= max && value.every((item) => entityBase(item) && exactKeys(item, ['id', 'x', 'y', 'value', 'radius']) && positiveKeys(item, ['value', 'radius']));
 }
 
 function pulseArray(value: unknown): boolean {
   return Array.isArray(value) && value.length <= 128 && value.every((item) => entityBase(item)
+    && exactKeys(item, ['id', 'x', 'y', 'ttl', 'color'])
     && positiveKeys(item, ['ttl']) && safeInteger(item.color, 0, 0xffffff));
 }
 
 function validPlayer(value: unknown): boolean {
-  return record(value) && finiteKeys(value, ['x', 'y', 'hp', 'maxHp', 'radius', 'invulnerable'])
+  return record(value) && exactKeys(value, ['x', 'y', 'hp', 'maxHp', 'radius', 'invulnerable']) && finiteKeys(value, ['x', 'y', 'hp', 'maxHp', 'radius', 'invulnerable'])
     && finite(value.maxHp, Number.EPSILON, 1e9) && finite(value.radius, Number.EPSILON, 1e9) && finite(value.invulnerable, 0, 1e9);
 }
 
@@ -197,14 +214,14 @@ function validScenarioRoster(s: Record<string, unknown>, world: 'master' | 'work
   return true;
 }
 
-function nullableNumericRecord(value: unknown, keys: string[]): boolean { return value === null || (record(value) && finiteKeys(value, keys)); }
+function nullableNumericRecord(value: unknown, keys: string[]): boolean { return value === null || (record(value) && exactKeys(value, keys) && finiteKeys(value, keys)); }
 function validActiveProject(value: unknown): boolean {
   if (value === null) return true;
-  if (!record(value) || !enumValue(value.id, PROJECT_IDS) || !finite(value.progress, 0, 1e9) || !finite(value.goal, Number.EPSILON, 1e9)) return false;
+  if (!record(value) || !exactKeys(value, ['id', 'progress', 'goal']) || !enumValue(value.id, PROJECT_IDS) || !finite(value.progress, 0, 1e9) || !finite(value.goal, Number.EPSILON, 1e9)) return false;
   return (value.progress as number) <= (value.goal as number);
 }
 function nullableTaggedRecord(value: unknown, tag: string, allowed: readonly unknown[], numbers: string[]): boolean {
-  return value === null || (record(value) && enumValue(value[tag], allowed) && finiteKeys(value, numbers));
+  return value === null || (record(value) && exactKeys(value, [tag, ...numbers]) && enumValue(value[tag], allowed) && finiteKeys(value, numbers));
 }
 function exactArray(value: unknown, expected: readonly unknown[]): boolean {
   return Array.isArray(value) && value.length === expected.length && value.every((item, index) => item === expected[index]);
@@ -216,6 +233,7 @@ function finiteKeys(value: Record<string, unknown>, keys: string[]): boolean { r
 function positiveKeys(value: Record<string, unknown>, keys: string[]): boolean { return keys.every((key) => finite(value[key], Number.EPSILON, 1e9)); }
 function integerKeys(value: Record<string, unknown>, keys: string[], min: number, max: number): boolean { return keys.every((key) => safeInteger(value[key], min, max)); }
 function boolKeys(value: Record<string, unknown>, keys: string[]): boolean { return keys.every((key) => typeof value[key] === 'boolean'); }
+function exactKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean { return Object.keys(value).every((key) => allowed.includes(key)); }
 function enumValue(value: unknown, allowed: readonly unknown[]): boolean { return allowed.includes(value); }
 function finite(value: unknown, min: number, max: number): value is number { return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max; }
 function safeInteger(value: unknown, min: number, max: number): value is number { return Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max; }

@@ -56,7 +56,8 @@ export class BossStudio {
       const parsed = parseBossConfig(input.value);
       preview = parsed.value ?? null;
       confirm.disabled = !preview;
-      result.textContent = preview ? formatBossPreview(preview) : localizeBossValidationErrors(parsed.errors).join('\n');
+      const conflict = preview && loadRunningSave().customBosses.some((boss) => boss.id === preview!.id);
+      result.textContent = preview ? `${formatBossPreview(preview)}${conflict ? `\n\n${t('running.bossReplaceConflict')}` : ''}` : localizeBossValidationErrors(parsed.errors).join('\n');
     });
     confirm.addEventListener('click', () => {
       if (!preview) return;

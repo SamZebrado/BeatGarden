@@ -204,7 +204,7 @@ export class RunningSimulation {
   startSupervisorFeedbackReview(id: 'supportive' | 'controlling' | 'handsOff'): void {
     this.phd.startReviewChoice('supervisor');
     this.phd.choose(id, this.time);
-    this.phd.onMeeting();
+    this.phd.onMeeting(this.rng.next());
   }
 
   startSceneReview(scene: ReviewScene): void {
@@ -304,7 +304,7 @@ export class RunningSimulation {
         this.meetingPhase = 'active';
         this.meetingRemaining = 9;
         this.meetingCount += 1;
-        this.phd.onMeeting();
+        this.phd.onMeeting(this.rng.next());
         this.spawnMeetingRing();
       }
       return;

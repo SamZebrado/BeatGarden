@@ -1,6 +1,7 @@
 import type { RunningDifficulty } from './difficulty';
 import { parseBossConfig } from './bossSchema';
 import type { RunningWorld } from './types';
+import { parsePersonCore, type PersonCoreV1 } from './personScience';
 export type { RunningWorld } from './types';
 
 export const RUNNING_STORAGE_KEY_V1 = 'beatgarden.running.v1';
@@ -24,12 +25,13 @@ export interface RunningSaveV2 {
   difficultyRecords: Partial<Record<RunningWorld, RunningDifficulty>>;
   seenHints: string[];
   customBosses: StoredBossMetadata[];
+  customPeople: PersonCoreV1[];
   audioMuted: boolean;
 }
 
 export const DEFAULT_RUNNING_SAVE: Readonly<RunningSaveV2> = {
   version: 2, lastWorld: null, totalRuns: 0, worldCompletions: {}, milestoneCompletions: [],
-  unlockedContent: [], difficultyRecords: {}, seenHints: [], customBosses: [], audioMuted: false,
+  unlockedContent: [], difficultyRecords: {}, seenHints: [], customBosses: [], customPeople: [], audioMuted: false,
 };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -82,7 +84,23 @@ function sanitizeV2(value: Partial<RunningSaveV2>): RunningSaveV2 {
   }
   return { version: 2, lastWorld: validWorld(value.lastWorld) ? value.lastWorld : null, totalRuns: validCount(value.totalRuns), worldCompletions,
     milestoneCompletions: cleanIds(value.milestoneCompletions), unlockedContent: cleanIds(value.unlockedContent), difficultyRecords,
-    seenHints: cleanIds(value.seenHints), customBosses: Array.isArray(value.customBosses) ? value.customBosses.map(sanitizeBossMetadata).filter((boss): boss is StoredBossMetadata => boss !== null).slice(0, 50) : [], audioMuted: value.audioMuted === true };
+    seenHints: cleanIds(value.seenHints), customBosses: Array.isArray(value.customBosses) ? value.customBosses.map(sanitizeBossMetadata).filter((boss): boss is StoredBossMetadata => boss !== null).slice(0, 50) : [],
+    customPeople: Array.isArray(value.customPeople) ? value.customPeople.map(sanitizePerson).filter((person): person is PersonCoreV1 => person !== null).slice(0, 50) : [], audioMuted: value.audioMuted === true };
+}
+
+export function parseRunningSaveV2(value: unknown): { ok: true; value: RunningSaveV2 } | { ok: false; errors: string[] } {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, errors: ['meta: expected object.'] };
+  const record = value as Record<string, unknown>;
+  const allowed = ['version', 'lastWorld', 'totalRuns', 'worldCompletions', 'milestoneCompletions', 'unlockedContent', 'difficultyRecords', 'seenHints', 'customBosses', 'customPeople', 'audioMuted'];
+  const unknown = Object.keys(record).filter((key) => !allowed.includes(key));
+  if (unknown.length) return { ok: false, errors: unknown.map((key) => `meta.${key}: unknown field.`) };
+  if (record.version !== 2) return { ok: false, errors: ['meta.version: expected 2.'] };
+  // customPeople is an additive v2 field. Accept pre-Person-System v2 saves and
+  // migrate them in memory while keeping every supplied field strictly checked.
+  const candidate = record.customPeople === undefined ? { ...record, customPeople: [] } : record;
+  const normalized = sanitizeV2(candidate as Partial<RunningSaveV2>);
+  if (canonical(candidate) !== canonical(normalized)) return { ok: false, errors: ['meta: invalid or out-of-range Running data.'] };
+  return { ok: true, value: normalized };
 }
 
 function sanitizeBossMetadata(value: unknown): StoredBossMetadata | null {
@@ -95,11 +113,17 @@ function sanitizeBossMetadata(value: unknown): StoredBossMetadata | null {
   if (!parsed.ok || !parsed.value) return null;
   return { id: parsed.value.id, displayName: parsed.value.name.en, origin: parsed.value.origin, worlds: [...parsed.value.worlds], updatedAt: boss.updatedAt, data: parsed.value };
 }
+function sanitizePerson(value: unknown): PersonCoreV1 | null { const parsed = parsePersonCore(value); return parsed.ok ? parsed.value : null; }
 function validWorld(value: unknown): value is RunningWorld { return value === 'phd' || value === 'master' || value === 'work'; }
 function validCount(value: unknown): number { return Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : 0; }
 function safeId(value: unknown): value is string { return typeof value === 'string' && /^[a-z0-9][a-z0-9._:-]{0,79}$/i.test(value); }
 function cleanIds(value: unknown): string[] { return Array.isArray(value) ? unique(value.filter(safeId)).slice(0, 300) : []; }
 function unique(values: string[]): string[] { return [...new Set(values)]; }
 function parseStored<T>(value: string | null): T | null { try { return JSON.parse(value ?? 'null') as T | null; } catch { return null; } }
-function freshDefault(): RunningSaveV2 { return { ...DEFAULT_RUNNING_SAVE, worldCompletions: {}, milestoneCompletions: [], unlockedContent: [], difficultyRecords: {}, seenHints: [], customBosses: [] }; }
+function freshDefault(): RunningSaveV2 { return { ...DEFAULT_RUNNING_SAVE, worldCompletions: {}, milestoneCompletions: [], unlockedContent: [], difficultyRecords: {}, seenHints: [], customBosses: [], customPeople: [] }; }
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`).join(',')}}`;
+  return JSON.stringify(value);
+}
 function browserStorage(): StorageLike | null { if (typeof window === 'undefined') return null; try { return window.localStorage; } catch { return null; } }

@@ -1,4 +1,5 @@
 import { ACADEMIC_PEOPLE, adaptAcademicPerson, type PersonId } from './people';
+import { cloneRelationship, defaultRelationship, updateRelationship, type RelationshipStateV1, type SituationState } from './personScience';
 
 export type ProjectId = 'replication' | 'riskyIdea' | 'helping' | 'prestige';
 export type ThesisStage = 'seed' | 'sapling' | 'tree' | 'bloom';
@@ -63,6 +64,7 @@ export interface PhdSnapshot {
   assignedLabor: number;
   supervisorRequests: number;
   lastBoundaryReaction: 'none' | 'respected' | 'strained';
+  relationship: RelationshipStateV1;
   thesisStage: ThesisStage;
   qualifying: 'locked' | 'ready' | 'passed';
   annualMilestone: { kind: AnnualMilestoneKind; completedYear: number; remaining: number } | null;
@@ -125,7 +127,7 @@ export class PhdSystems {
     logic: 20, clarity: 20, boundary: 20, purpose: 20, connection: 20, evidence: 12,
     year: 1, seasonPulse: 0, annualReviews: 0, activeProject: null, completedProjects: 0,
     supervisorId: null, supervisorPersonId: null, supervisorFeedback: null, lifestyle: null,
-    independentResearch: 0, assignedLabor: 0, supervisorRequests: 0, lastBoundaryReaction: 'none',
+    independentResearch: 0, assignedLabor: 0, supervisorRequests: 0, lastBoundaryReaction: 'none', relationship: defaultRelationship(),
     thesisStage: 'seed', qualifying: 'locked', annualMilestone: null, preDefense: 'hidden', revisionRemaining: 0, defense: 'hidden', choice: null, milestone: null,
     graduated: false, terminal: 'ongoing',
   };
@@ -249,14 +251,21 @@ export class PhdSystems {
     if (project.progress >= project.goal) this.completeProject(project.id);
   }
 
-  onMeeting(): void {
+  onMeeting(seededRoll = .5): void {
     if (!this.state.supervisorId) return;
     const personId = this.state.supervisorPersonId ?? SUPERVISOR_PERSON[this.state.supervisorId];
     const supervisor = mentorVectorFor(personId);
-    const feedback = evaluateMentor(supervisor, {
+    const baseFeedback = evaluateMentor(supervisor, {
       logic: this.state.logic, clarity: this.state.clarity, boundary: this.state.boundary,
       purpose: this.state.purpose, connection: this.state.connection, evidence: this.state.evidence,
     });
+    const situation = this.currentSituation();
+    const role = adaptAcademicPerson(personId, 'phd-supervisor', this.state.relationship, situation, seededRoll);
+    const dynamicWeight = seededRoll === .5 ? 0 : .28;
+    const feedback = {
+      signal: Math.max(0, Math.round(baseFeedback.signal * (1 - dynamicWeight) + role.signal * dynamicWeight)),
+      noise: Math.max(0, Math.round(baseFeedback.noise * (1 - dynamicWeight) + role.noise * dynamicWeight)),
+    };
     this.state.signal = bound(this.state.signal + feedback.signal);
     this.state.noise = bound(this.state.noise + feedback.noise);
     this.state.focus = bound(this.state.focus + feedback.signal * 0.42);
@@ -267,9 +276,15 @@ export class PhdSystems {
     if (this.state.supervisorId === 'controlling') this.state.calendarLoad = bound(this.state.calendarLoad + 6);
     if (this.state.supervisorId === 'handsOff') this.state.clarity = bound(this.state.clarity - 2);
     this.state.supervisorFeedback = { ...feedback, remaining: 3.2 };
-    const role = adaptAcademicPerson(personId, 'phd-supervisor');
+    this.state.focus = bound(this.state.focus + role.opportunitySupport * 1.2);
+    this.state.relationship = updateRelationship(this.state.relationship, {
+      trust: this.state.relationship.trust + (feedback.signal - feedback.noise) / 220,
+      reciprocity: this.state.relationship.reciprocity + role.opportunitySupport * .025,
+      unresolvedConflict: this.state.relationship.unresolvedConflict + feedback.noise / 180 - feedback.signal / 300,
+    });
     this.state.supervisorRequests += 1;
-    if (this.state.supervisorRequests % 2 === 0 && role.assignmentPressure + role.laborExtraction > .9) {
+    const requestThreshold = .46 + seededRoll * .12;
+    if (this.state.supervisorRequests % 2 === 0 && role.assignmentPressure * .62 + role.laborExtraction * .38 >= requestThreshold) {
       this.state.choice = { kind: 'supervisorRequest', options: ['accept', 'setBoundary', 'decline'] };
     }
   }
@@ -494,7 +509,7 @@ export class PhdSystems {
 
   private milestoneStance(): MilestoneArena['stance'] {
     if (!this.state.supervisorPersonId) return 'mixed';
-    const role = adaptAcademicPerson(this.state.supervisorPersonId, 'phd-supervisor');
+    const role = adaptAcademicPerson(this.state.supervisorPersonId, 'phd-supervisor', this.state.relationship, this.currentSituation());
     if (role.graduationSupport >= .72 && role.noise <= 4) return 'support';
     if (role.laborExtraction >= .6 || role.boundaryReaction < .4) return 'adversarial';
     return 'mixed';
@@ -520,7 +535,7 @@ export class PhdSystems {
   private resolveSupervisorRequest(option: 'accept' | 'setBoundary' | 'decline'): void {
     const personId = this.state.supervisorPersonId;
     if (!personId) return;
-    const behavior = adaptAcademicPerson(personId, 'phd-supervisor');
+    const behavior = adaptAcademicPerson(personId, 'phd-supervisor', this.state.relationship, this.currentSituation());
     this.state.choice = null;
     if (option === 'accept') {
       // Assigned labor creates short-term output but does not grow the independent
@@ -531,6 +546,11 @@ export class PhdSystems {
       this.state.calendarLoad = bound(this.state.calendarLoad + 18);
       this.state.energy = bound(this.state.energy - 10);
       this.state.spirit = bound(this.state.spirit - behavior.laborExtraction * 12);
+      this.state.relationship = updateRelationship(this.state.relationship, {
+        reciprocity: this.state.relationship.reciprocity + .05,
+        trust: this.state.relationship.trust + behavior.allocationFairness * .025 - behavior.laborExtraction * .02,
+        acceptedLabor: this.state.relationship.acceptedLabor + 1,
+      });
       return;
     }
     const respected = behavior.boundaryReaction >= (option === 'setBoundary' ? .46 : .62);
@@ -542,6 +562,21 @@ export class PhdSystems {
     this.state.calendarLoad = bound(this.state.calendarLoad - (respected ? 7 : 2));
     this.state.pollution = bound(this.state.pollution + (respected ? 0 : 8));
     this.state.spirit = bound(this.state.spirit + (respected ? 4 : -5));
+    this.state.relationship = updateRelationship(this.state.relationship, {
+      trust: this.state.relationship.trust + (respected ? .035 : -.055),
+      unresolvedConflict: this.state.relationship.unresolvedConflict + (respected ? -.05 : .09),
+      boundaryHistory: this.state.relationship.boundaryHistory + (respected ? .07 : -.06),
+      boundaryAttempts: this.state.relationship.boundaryAttempts + 1,
+    });
+  }
+
+  private currentSituation(): SituationState {
+    return {
+      workload: this.state.calendarLoad / 100,
+      pressure: Math.max(this.state.pollution, this.state.noise) / 100,
+      scarcity: 1 - (this.state.energy + this.state.focus) / 200,
+      stakes: this.state.milestone ? 1 : Math.min(1, this.state.year / 9),
+    };
   }
 
   private selectLifestyle(id: LifestyleId): void {
@@ -649,6 +684,7 @@ function bound(value: number): number { return Math.max(0, Math.min(100, value))
 function clonePhdSnapshot(state: PhdSnapshot): PhdSnapshot {
   return {
     ...state,
+    relationship: cloneRelationship(state.relationship),
     activeProject: state.activeProject ? { ...state.activeProject } : null,
     choice: state.choice ? { ...state.choice, options: [...state.choice.options] } as PhdChoice : null,
     milestone: state.milestone ? { ...state.milestone } : null,

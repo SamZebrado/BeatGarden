@@ -140,7 +140,9 @@ describe('versioned current Running run', () => {
     runScenario(original, 180);
     const active = original.snapshot();
     const restored = new ScenarioSimulation('work', 37, 'garden', { damageEnabled: false, restore: original.exportState() });
-    expect(restored.snapshot()).toEqual(active);
+    // Enemy hit-flash is transient presentation state and is intentionally
+    // normalized to zero in the authoritative checkpoint.
+    expect(authoritativeScenario(restored.snapshot())).toEqual(authoritativeScenario(active));
     expect(restored.snapshot().priorityRemaining).toBeGreaterThan(0);
     runUntilScenarioChoice(restored, 'workConversion', 1800);
     expect(restored.snapshot().choice?.kind).toBe('workConversion');
@@ -185,6 +187,7 @@ describe('versioned current Running run', () => {
       (run) => { run.simulation.phd.state.choice = { kind: 'nonsense', options: [] }; },
       (run) => { run.simulation.phd.state.milestone.phase = 'nonsense'; },
       (run) => { run.simulation.phd.state.supervisorId = 'supportive'; run.simulation.phd.state.supervisorPersonId = 'rowan'; },
+      (run) => { run.simulation.phd.state.relationship.trust = 2; },
       (run) => { run.simulation.enemies[0].source = 'ambient'; },
       (run) => { run.simulation.enemies[0].kind = 'garbage'; },
       (run) => { run.simulation.projectiles = [{ id: run.simulation.nextId++, x: 1, y: 1, vx: 1, vy: 1, radius: 1, ttl: 1 }]; },
@@ -204,6 +207,7 @@ describe('versioned current Running run', () => {
     for (const corrupt of [
       (run: any) => { run.simulation.masterProposalPhase = 'nonsense'; },
       (run: any) => { run.simulation.masterSupervisor = 'garbage'; },
+      (run: any) => { run.simulation.relationships.mei.unresolvedConflict = -1; },
       (run: any) => { run.simulation.masterProposalProgress += 1; },
       (run: any) => { run.simulation.enemies[0].source = 'ambient'; },
       (run: any) => { run.simulation.choice = { kind: 'workOffer', options: ['offer-a', 'offer-b', 'offer-c'] }; },
@@ -212,6 +216,7 @@ describe('versioned current Running run', () => {
       (run: any) => { run.simulation.choice = { kind: 'workOffer', options: ['offer-a'] }; },
       (run: any) => { run.simulation.workStage = 'nonsense'; },
       (run: any) => { run.simulation.managerId = 'garbage'; },
+      (run: any) => { run.simulation.relationships.invented = { trust: .5, reciprocity: .5, unresolvedConflict: 0, boundaryHistory: .5, acceptedLabor: 0, boundaryAttempts: 0 }; },
       (run: any) => { run.simulation.enemies = [{ id: run.simulation.nextId++, kind: 'garbage', source: 'ambient', x: 1, y: 1, hp: 1, radius: 1, flash: 0 }]; },
       (run: any) => { run.simulation.pickups = [{ id: run.simulation.nextId++, x: 1, y: 1, radius: 1 }]; },
     ]) expectOnlyCurrentRunRejected(workRun, corrupt);

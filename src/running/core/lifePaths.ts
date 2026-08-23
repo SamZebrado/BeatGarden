@@ -1,4 +1,5 @@
-import { ACADEMIC_PEOPLE, adaptAcademicPerson, type PersonId } from './people';
+import { ACADEMIC_PEOPLE, PERSON_CORES, adaptAcademicPerson, type ManagerPersonId, type PersonId } from './people';
+import { defaultRelationship, derivePersonBehavior, type PersonBehavior, type RelationshipStateV1, type RoleProfile, type SituationState } from './personScience';
 import type { SeededRng } from './rng';
 
 export type CareerPlan = 'researchPhd' | 'employment' | 'undecided';
@@ -7,6 +8,7 @@ export type ManagerId = 'clear-builder' | 'opaque-driver' | 'steady-coach';
 
 export interface ManagerProfile {
   id: ManagerId;
+  personId: ManagerPersonId;
   clarity: number; transparency: number; resources: number; autonomy: number;
   stability: number; fairness: number; boundaryRespect: number; feedback: number;
   sponsorship: number; volatility: number;
@@ -21,9 +23,9 @@ export interface WorkOffer {
 }
 
 export const MANAGERS: Record<ManagerId, ManagerProfile> = {
-  'clear-builder': { id: 'clear-builder', clarity: .88, transparency: .86, resources: .72, autonomy: .72, stability: .78, fairness: .84, boundaryRespect: .8, feedback: .86, sponsorship: .7, volatility: .2 },
-  'opaque-driver': { id: 'opaque-driver', clarity: .36, transparency: .28, resources: .9, autonomy: .34, stability: .42, fairness: .44, boundaryRespect: .3, feedback: .62, sponsorship: .78, volatility: .82 },
-  'steady-coach': { id: 'steady-coach', clarity: .72, transparency: .74, resources: .58, autonomy: .82, stability: .9, fairness: .8, boundaryRespect: .88, feedback: .7, sponsorship: .48, volatility: .12 },
+  'clear-builder': { id: 'clear-builder', personId: 'mara', clarity: .88, transparency: .86, resources: .72, autonomy: .72, stability: .78, fairness: .84, boundaryRespect: .8, feedback: .86, sponsorship: .7, volatility: .2 },
+  'opaque-driver': { id: 'opaque-driver', personId: 'dax', clarity: .36, transparency: .28, resources: .9, autonomy: .34, stability: .42, fairness: .44, boundaryRespect: .3, feedback: .62, sponsorship: .78, volatility: .82 },
+  'steady-coach': { id: 'steady-coach', personId: 'noa', clarity: .72, transparency: .74, resources: .58, autonomy: .82, stability: .9, fairness: .8, boundaryRespect: .88, feedback: .7, sponsorship: .48, volatility: .12 },
 };
 
 export const WORK_OFFERS: readonly WorkOffer[] = [
@@ -32,8 +34,8 @@ export const WORK_OFFERS: readonly WorkOffer[] = [
   { id: 'offer-c', managerId: 'steady-coach', environment: 'exploratory', pressure: .38, opportunity: .56 },
 ];
 
-export function masterRoleOutcome(personId: PersonId): ReturnType<typeof adaptAcademicPerson> {
-  return adaptAcademicPerson(personId, 'master-supervisor');
+export function masterRoleOutcome(personId: PersonId, relationship: RelationshipStateV1 = defaultRelationship(), situation: SituationState = { workload: .42, pressure: .38, scarcity: .32, stakes: .45 }, seededRoll = .5): ReturnType<typeof adaptAcademicPerson> {
+  return adaptAcademicPerson(personId, 'master-supervisor', relationship, situation, seededRoll);
 }
 
 export function partialAcademicSignals(personId: PersonId): Pick<(typeof ACADEMIC_PEOPLE)[PersonId], 'expertise' | 'resources' | 'domainMatch'> {
@@ -65,9 +67,17 @@ export function effectiveWorkOffer(offer: WorkOffer, market: number, experience:
   };
 }
 
-export function conversionScore(managerId: ManagerId, performance: number, resources: number): number {
+export function managerPersonBehavior(managerId: ManagerId, relationship: RelationshipStateV1 = defaultRelationship(), situation: SituationState = { workload: .5, pressure: .5, scarcity: .4, stakes: .6 }, seededRoll = .5): PersonBehavior {
   const manager = MANAGERS[managerId];
-  return clamp01(performance * .46 + resources * .24 + manager.fairness * .18 + manager.sponsorship * .12 - manager.volatility * .1);
+  const role: RoleProfile = { expertise: manager.feedback, mentoringSkill: manager.feedback, resourceAccess: manager.resources, communicationClarity: manager.clarity, demandLevel: clamp01(.35 + manager.volatility * .45), autonomySupport: manager.autonomy, boundaryRespect: manager.boundaryRespect, allocationFairness: manager.fairness, emotionalSafety: manager.stability, powerAsymmetry: .84 };
+  return derivePersonBehavior(PERSON_CORES[manager.personId], role, relationship, situation, seededRoll);
+}
+
+export function conversionScore(managerId: ManagerId, performance: number, resources: number, behavior?: Pick<PersonBehavior, 'allocationFairness' | 'supportOpportunity'>): number {
+  const manager = MANAGERS[managerId];
+  const fairness = behavior?.allocationFairness ?? manager.fairness;
+  const support = behavior?.supportOpportunity ?? manager.sponsorship;
+  return clamp01(performance * .46 + resources * .24 + fairness * .18 + support * .12 - manager.volatility * .1);
 }
 
 function clamp01(value: number): number { return Math.max(0, Math.min(1, value)); }

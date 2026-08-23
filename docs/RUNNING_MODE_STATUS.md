@@ -22,6 +22,50 @@ ChatGPT review conversation.
   migrated. V2 owns completions, milestone records, difficulty records, persistent
   semantic hints, local Boss metadata and Running mute state.
 
+### Person Science and player-owned data portability — 2026-08-23
+
+- Person Science v1 now models each recurring fictional Person as one stable
+  `beatgarden-person.v1` core with continuous Big Five temperament plus separate
+  sincerity, fairness, greed-avoidance and modesty inputs. PhD/Master role adapters and
+  Work manager roles retain their own expertise, management, resources, clarity,
+  demands, autonomy, boundaries, allocation, safety and power authority.
+- PhD, Master and Work interactions combine the stable core with bounded saved
+  Relationship history and Situation derived from existing run state. Only discrete
+  interactions sample the authoritative seeded RNG. Trait weights are modest and the
+  UI exposes consequences rather than psychometric terminology or scores.
+- Relationship is an additive current-run field. Older checkpoints default to neutral;
+  invalid nested relationship data rejects only the unfinished run. Custom People are
+  an additive v2 meta library with strict schema validation and stable-ID replacement.
+- Settings now contains Data & Portability without adding another permanent in-game
+  control. `beatgarden-save-bundle.v1` exports/imports explicit Running meta and the
+  optional unfinished run. Import is parse/validate/preview/confirm/apply/verify with
+  rollback. `beatgarden-custom-content.v1` handles reusable People and Bosses; Boss
+  Studio keeps its contextual workflow. No operation dumps, enumerates or mutates
+  Rhythm storage.
+- Maintained architecture and scientific caveats are in `PERSON_SYSTEM.md` and
+  `RESEARCH_FOUNDATIONS.md`. Research is hidden causal structure, not permanent HUD
+  scores or required reading.
+- Desktop browser acceptance covered save export, strict preview/cancel/confirm import,
+  exact unfinished-PhD continuation, Person/Boss custom-content export/import,
+  stable-ID Boss replacement preview, narrow portrait and landscape layouts, PhD/Master/
+  Work choices, Text Off, Emoji Beta and Rhythm menu isolation. The complete PhD
+  checkpoint retained RNG and Relationship state after export/import/reload, and the
+  browser console remained free of warnings/errors.
+- The designated ChatGPT review completed with its requested terminal marker. Its
+  capacity finding was repaired by rejecting additions beyond 50 unique People/Bosses
+  while continuing to allow same-ID replacement; custom-content writes now verify the
+  exact candidate and roll back on a parseable-but-altered write. Production meetings
+  already consumed one authoritative RNG draw at the telegraph-to-active transition;
+  the development review seam was aligned with that rule. Final verification: lint
+  PASS, 255/255 tests in 37 files, Pages-base production build PASS and live dependency
+  audit 0 vulnerabilities. The known lazy Phaser chunk-size warning remains.
+- Android QA was attempted on connected device `bbda35e` using an ADB reverse to the
+  isolated local origin. The device remained behind its system dreaming lock-screen
+  layer and every permitted screenshot was black. Logged-in Chrome CDP forwarding was
+  deliberately not used, so this checkpoint's Android interaction/import/reload gate
+  is **UNVERIFIED**, not PASS. Desktop and earlier Android evidence are not substituted
+  for this missing current-device proof.
+
 ### Production freeze incident closure — 2026-08-23
 
 - Before changing the Android tab or production storage, the frozen production scene

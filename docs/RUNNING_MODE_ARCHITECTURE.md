@@ -6,6 +6,11 @@
 
 ## Current post-Gate architecture — 2026-08-23
 
+- `core/personScience.ts` owns strict `beatgarden-person.v1` cores: continuous Big
+  Five temperament and separate non-exploitation facets. `core/people.ts` supplies
+  role adapters; role competence remains independent. Saved Relationship and derived
+  Situation produce small, seeded, bounded behavior effects. See `PERSON_SYSTEM.md`
+  and `RESEARCH_FOUNDATIONS.md` for the maintained semantics and evidence boundaries.
 - `core/people.ts` owns bounded Person profiles. A Person is not a Supervisor,
   Manager, reviewer, Committee member or Boss. Role adapters interpret a stable Person
   without copying a giant role-specific object.
@@ -41,6 +46,15 @@
   across authoritative arrays with `nextId` strictly above them, and active finite
   rosters must equal their saved target-minus-progress identity. A structurally valid
   but semantically impossible snapshot is corruption, never restore authority.
+- `core/portability.ts` owns the explicit data-only `beatgarden-save-bundle.v1` and
+  `beatgarden-custom-content.v1` boundaries. Whole-save import follows parse → strict
+  validate/migrate in memory → preview → explicit confirmation → write both Running
+  keys → verify, with best-effort rollback to the exact prior values on storage failure.
+  It never enumerates or writes Rhythm/browser data. Stable Person/Boss IDs replace on
+  confirmed custom-content import; equal display names with different IDs coexist.
+- `SettingsView` owns Data & Portability. It exports/imports whole Running state and
+  reusable People/Bosses. Boss Studio retains contextual Boss controls. Legend remains
+  explanatory and does not own mutating data operations.
 
 ## Decision
 
@@ -141,6 +155,12 @@ request to create empty scaffolding.
   bounds entities/projectiles/pickups and rejects non-finite/partial/unknown data. A
   corrupt current run is removed independently; storage is never enumerated or bulk
   deleted.
+- Person Science v1 additively stores `customPeople` in v2 meta and Relationship in
+  current-run state. Missing fields in old valid saves migrate to empty/neutral values.
+  Running Save Bundle v1 contains `{schema, version, exportedAt, meta, currentRun}`;
+  custom content is already represented inside `meta`, so it is not duplicated in the
+  whole-save envelope. Reusable custom bundles contain `{schema, version, exportedAt,
+  people, bosses}`. Individual Person and Boss files keep their own strict schemas.
 
 ## PWA and deployment contract
 

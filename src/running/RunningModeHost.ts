@@ -4,6 +4,7 @@ import { resetSemanticHints } from './SemanticHints';
 import { warmRunningOfflineCache } from '../pwa/warmRunningCache';
 import type { RunningDifficulty } from './core/difficulty';
 import { clearCurrentRun, loadCurrentRun, type CurrentRunV1 } from './core/currentRun';
+import { SettingsView } from '../settings/SettingsView';
 
 export interface RunningGameHandle { destroy(): void; saveNow?(): void }
 
@@ -80,12 +81,17 @@ export class RunningModeHost {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:16px;margin-top:24px">
         <button data-role="phd" style="min-height:160px;padding:24px;border-radius:24px;border:1px solid #61c78b;background:linear-gradient(145deg,#185943,#18354c);color:#fff;text-align:left;cursor:pointer"><span style="font-size:36px">🌳</span><strong style="display:block;font-size:27px;margin-top:10px">${t('running.phd')}</strong><span style="display:block;color:#d7f8e4;font-size:16px;margin-top:9px">${t('running.phdDetail')}</span></button>
         ${world('master', t('running.master'), t('running.masterDetail'), '📘', '#6fbce8')}${world('work', t('running.work'), t('running.workDetail'), '▦', '#e4b764')}${locked(t('running.cultivation'), '◇')}
-      </div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px"><button data-role="boss-studio" style="padding:11px 16px;border-radius:999px;border:1px solid #7b9e91;background:#10231f;color:#fff;cursor:pointer">⬡ ${t('running.bossStudio')}</button><button data-role="reset-hints" style="padding:11px 16px;border-radius:999px;border:1px solid #55736a;background:#10231f;color:#cce0d9;cursor:pointer">↺ ${t('running.resetHints')}</button></div>`;
+      </div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px"><button data-role="settings" style="padding:11px 16px;border-radius:999px;border:1px solid #7b9e91;background:#10231f;color:#fff;cursor:pointer">⚙ ${t('settings.title')}</button><button data-role="boss-studio" style="padding:11px 16px;border-radius:999px;border:1px solid #7b9e91;background:#10231f;color:#fff;cursor:pointer">⬡ ${t('running.bossStudio')}</button><button data-role="reset-hints" style="padding:11px 16px;border-radius:999px;border:1px solid #55736a;background:#10231f;color:#cce0d9;cursor:pointer">↺ ${t('running.resetHints')}</button></div>`;
     page.querySelector<HTMLButtonElement>('[data-role="back"]')!.addEventListener('click', this.actions.onBack);
     page.querySelector<HTMLButtonElement>('[data-role="language"]')!.addEventListener('click', () => { toggleLocale(); this.showWorldSelect(); });
     page.querySelector<HTMLButtonElement>('[data-role="phd"]')!.addEventListener('click', () => this.actions.onWorldChanged('phd'));
     page.querySelector<HTMLButtonElement>('[data-role="master"]')!.addEventListener('click', () => this.actions.onWorldChanged('master'));
     page.querySelector<HTMLButtonElement>('[data-role="work"]')!.addEventListener('click', () => this.actions.onWorldChanged('work'));
+    page.querySelector<HTMLButtonElement>('[data-role="settings"]')!.addEventListener('click', () => new SettingsView(this.root, () => {
+      const imported = loadCurrentRun();
+      if (imported) this.showResumeChoice(imported);
+      else this.showWorldSelect();
+    }));
     page.querySelector<HTMLButtonElement>('[data-role="boss-studio"]')!.addEventListener('click', async () => {
       const { BossStudio } = await import('./BossStudio');
       new BossStudio(this.root, () => this.showWorldSelect()).show();

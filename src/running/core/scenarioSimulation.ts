@@ -1,8 +1,9 @@
 import { createRng, type SeededRng } from './rng';
 import { MAX_RUNNING_ENEMIES, RUNNING_WORLD, placeSpawnAtDistance, type RunningInput, type Vec2 } from './simulation';
 import { adjustEnemyDamage, adjustEnemySpeed, adjustSpawnInterval, adjustTelegraphDuration, type RunningDifficulty } from './difficulty';
-import { MANAGERS, WORK_OFFERS, conversionScore, effectiveWorkOffer, masterRoleOutcome, offerViability, seededMarketStrength, type CareerPlan, type ManagerId, type WorkStage } from './lifePaths';
-import type { PersonId } from './people';
+import { MANAGERS, WORK_OFFERS, conversionScore, effectiveWorkOffer, managerPersonBehavior, masterRoleOutcome, offerViability, seededMarketStrength, type CareerPlan, type ManagerId, type WorkStage } from './lifePaths';
+import type { PersonId, StablePersonId } from './people';
+import { cloneRelationship, defaultRelationship, updateRelationship, type RelationshipStateV1, type SituationState } from './personScience';
 
 export type ScenarioWorld = 'master' | 'work';
 export type ScenarioEnemyKind = 'courseBlock' | 'deadline' | 'exam' | 'request' | 'notification' | 'delivery';
@@ -78,6 +79,7 @@ export interface ScenarioSimulationStateV1 {
   masterProposalPhase: NonNullable<ScenarioSnapshot['masterPath']>['proposal']['phase']; masterProposalRemaining: number; masterProposalProgress: number; masterProposalRosterInitialized: boolean;
   workStage: WorkStage; managerId: ManagerId | null; marketStrength: number; experience: number; careerTime: number; workConversionScore: number; promotionProgress: number;
   conversionChoiceShown: boolean; nextMarketAt: number; nextConversionAt: number; nextClimaxAt: number;
+  relationships?: Partial<Record<StablePersonId, RelationshipStateV1>>;
   activePriority: string; priorityRemaining: number;
   enemies: ScenarioEnemy[]; projectiles: ScenarioProjectile[]; pickups: ScenarioPickup[]; player: ScenarioSnapshot['player'];
 }
@@ -133,6 +135,7 @@ export class ScenarioSimulation {
   private workConversionScore = 0;
   private promotionProgress = 0;
   private conversionChoiceShown = false;
+  private relationships: Partial<Record<StablePersonId, RelationshipStateV1>> = {};
   private nextMarketAt = 18;
   private nextConversionAt = 28;
   private nextClimaxAt: number;
@@ -201,10 +204,12 @@ export class ScenarioSimulation {
     const choiceKind = this.choice.kind;
     if (this.choice.kind === 'masterSupervisor') {
       this.masterSupervisor = option as PersonId;
-      const role = masterRoleOutcome(this.masterSupervisor);
+      const relationship = this.relationshipFor(this.masterSupervisor);
+      const role = masterRoleOutcome(this.masterSupervisor, relationship, this.currentSituation(), this.rng.next());
       this.focus = bound(this.focus + role.signal * .22);
       this.calendar = bound(this.calendar + role.assignmentPressure * 8);
       this.spirit = bound(this.spirit - role.noise * .18);
+      this.setRelationship(this.masterSupervisor, updateRelationship(relationship, { trust: relationship.trust + (role.signal - role.noise) / 180, reciprocity: relationship.reciprocity + role.opportunitySupport * .03 }));
     } else if (this.choice.kind === 'careerPlan') {
       this.masterCareerPlan = option as CareerPlan;
       this.nextClimaxAt = Math.max(this.nextClimaxAt, this.time + 12);
@@ -215,12 +220,17 @@ export class ScenarioSimulation {
       const baseOffer = WORK_OFFERS.find((item) => item.id === option)!;
       const offer = effectiveWorkOffer(baseOffer, this.marketStrength, this.experience);
       this.managerId = offer.managerId;
+      const manager = MANAGERS[this.managerId];
+      const relationship = this.relationshipFor(manager.personId);
+      const behavior = managerPersonBehavior(this.managerId, relationship, this.currentSituation(), this.rng.next());
       this.workStage = 'trial';
       this.activePriority = offer.environment === 'fast' ? '⚡' : offer.environment === 'structured' ? '▣' : '◇';
       this.calendar = bound(this.calendar + offer.pressure * 12);
       // An offer's viable opportunity affects the starting clarity of the trial; the
       // baseline onboarding cost keeps this meaningful even from a full Focus bar.
       this.focus = bound(this.focus - 6 + offerViability(offer, this.marketStrength, this.experience) * 8);
+      this.focus = bound(this.focus + behavior.signal * 3 - behavior.noise * 2);
+      this.setRelationship(manager.personId, updateRelationship(relationship, { trust: relationship.trust + behavior.signal * .025 - behavior.noise * .02 }));
       this.nextChoiceAt = this.time + 5;
       this.nextConversionAt = this.time + 28;
     } else if (this.choice.kind === 'workConversion') {
@@ -370,6 +380,7 @@ export class ScenarioSimulation {
       workStage: this.workStage, managerId: this.managerId, marketStrength: this.marketStrength, experience: this.experience, careerTime: this.careerTime,
       workConversionScore: this.workConversionScore, promotionProgress: this.promotionProgress, conversionChoiceShown: this.conversionChoiceShown,
       nextMarketAt: this.nextMarketAt, nextConversionAt: this.nextConversionAt, nextClimaxAt: this.nextClimaxAt,
+      relationships: Object.fromEntries(Object.entries(this.relationships).map(([id, relationship]) => [id, cloneRelationship(relationship)])),
       activePriority: this.activePriority, priorityRemaining: this.priorityRemaining, enemies: this.enemies.map((item) => ({ ...item, flash: 0 })),
       projectiles: this.projectiles.map((item) => ({ ...item })), pickups: this.pickups.map((item) => ({ ...item })), player: { ...this.player },
     };
@@ -386,6 +397,7 @@ export class ScenarioSimulation {
     this.masterProposalRemaining = state.masterProposalRemaining; this.masterProposalProgress = state.masterProposalProgress; this.masterProposalRosterInitialized = state.masterProposalRosterInitialized;
     this.workStage = state.workStage; this.managerId = state.managerId; this.marketStrength = state.marketStrength; this.experience = state.experience; this.careerTime = state.careerTime;
     this.workConversionScore = state.workConversionScore; this.promotionProgress = state.promotionProgress; this.conversionChoiceShown = state.conversionChoiceShown;
+    this.relationships = Object.fromEntries(Object.entries(state.relationships ?? {}).map(([id, relationship]) => [id, cloneRelationship(relationship)]));
     this.nextMarketAt = state.nextMarketAt; this.nextConversionAt = state.nextConversionAt; this.nextClimaxAt = state.nextClimaxAt;
     this.activePriority = state.activePriority; this.priorityRemaining = state.priorityRemaining;
     this.enemies = state.enemies.map((item) => ({ ...item })); this.projectiles = state.projectiles.map((item) => ({ ...item }));
@@ -440,10 +452,14 @@ export class ScenarioSimulation {
       this.nextMarketAt = this.time + 18;
     }
     const manager = MANAGERS[this.managerId];
+    const relationship = this.relationshipFor(manager.personId);
+    // Continuous scoring must not advance the authoritative RNG every frame.
+    // Random variation is sampled only at discrete offers and role interactions.
+    const behavior = managerPersonBehavior(this.managerId, relationship, this.currentSituation(), .5);
     // Genuine work Progress is the career authority. Ordinary interruption kills
     // remain pressure handling and cannot farm conversion or promotion.
     const performance = Math.min(1, this.progress / 80);
-    this.workConversionScore = conversionScore(this.managerId, performance, (this.energy + this.focus) / 200);
+    this.workConversionScore = conversionScore(this.managerId, performance, (this.energy + this.focus) / 200, behavior);
     this.calendar = bound(this.calendar + manager.volatility * .05 * dt);
     if (this.workStage === 'trial' && this.time >= this.nextConversionAt && !this.conversionChoiceShown) {
       this.choice = { kind: 'workConversion', options: ['continue', 'leaveSearch'] };
@@ -451,7 +467,7 @@ export class ScenarioSimulation {
       this.conversionChoiceShown = true;
     }
     if (this.workStage === 'employed') {
-      this.promotionProgress = Math.min(100, this.promotionProgress + (performance + manager.sponsorship * .45) * dt);
+      this.promotionProgress = Math.min(100, this.promotionProgress + (performance + behavior.supportOpportunity * .45) * dt);
       if (this.promotionProgress >= 100) {
         this.workStage = 'promotion';
         this.completed = true;
@@ -489,6 +505,7 @@ export class ScenarioSimulation {
         const count = this.eventKind === 'weekly' ? 12 : this.world === 'master' ? 8 : 4;
         for (let index = 0; index < count; index += 1) this.spawn(this.world === 'master' ? 'courseBlock' : (this.eventKind === 'weekly' ? 'request' : 'notification'), index / count * Math.PI * 2, 'periodic');
         this.calendar = bound(this.calendar + (this.eventKind === 'weekly' ? 18 : 9));
+        this.applyRoleInteraction();
         this.eventRemaining = this.eventKind === 'weekly' ? 6 : 4;
       }
     } else if (this.eventPhase === 'active') {
@@ -500,6 +517,32 @@ export class ScenarioSimulation {
       }
     }
   }
+
+  private applyRoleInteraction(): void {
+    if (this.world === 'master' && this.masterSupervisor) {
+      const relationship = this.relationshipFor(this.masterSupervisor);
+      const role = masterRoleOutcome(this.masterSupervisor, relationship, this.currentSituation(), this.rng.next());
+      this.focus = bound(this.focus + role.signal * .08);
+      this.spirit = bound(this.spirit - role.noise * .06 + role.opportunitySupport * 1.4);
+      this.calendar = bound(this.calendar + role.assignmentPressure * 2.5);
+      this.setRelationship(this.masterSupervisor, updateRelationship(relationship, { trust: relationship.trust + (role.signal - role.noise) / 260, reciprocity: relationship.reciprocity + role.opportunitySupport * .018 }));
+    } else if (this.world === 'work' && this.managerId) {
+      const manager = MANAGERS[this.managerId];
+      const relationship = this.relationshipFor(manager.personId);
+      const behavior = managerPersonBehavior(this.managerId, relationship, this.currentSituation(), this.rng.next());
+      this.focus = bound(this.focus + behavior.signal * 3 - behavior.noise * 2.5);
+      this.calendar = bound(this.calendar + behavior.requestPressure * 4);
+      this.spirit = bound(this.spirit + behavior.supportOpportunity * 2 - behavior.noise * 1.5);
+      this.setRelationship(manager.personId, updateRelationship(relationship, { trust: relationship.trust + behavior.signal * .025 - behavior.noise * .025, unresolvedConflict: relationship.unresolvedConflict + behavior.noise * .02 - behavior.supportOpportunity * .015 }));
+    }
+  }
+
+  private currentSituation(): SituationState {
+    return { workload: this.calendar / 100, pressure: Math.max(0, Math.min(1, this.enemies.length / 32)), scarcity: 1 - (this.energy + this.focus) / 200, stakes: this.climaxPhase === 'none' ? (this.world === 'work' ? Math.min(1, this.careerTime / 90) : Math.min(1, this.time / 90)) : 1 };
+  }
+
+  private relationshipFor(id: StablePersonId): RelationshipStateV1 { return cloneRelationship(this.relationships[id] ?? defaultRelationship()); }
+  private setRelationship(id: StablePersonId, relationship: RelationshipStateV1): void { this.relationships[id] = relationship; }
 
   private beginClimax(): void {
     const masterReady = this.world !== 'master' || (this.masterProposalPhase === 'complete' && this.masterCareerPlan !== null);
