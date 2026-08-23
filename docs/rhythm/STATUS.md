@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation implementation and exact evidence closure are in progress.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation is implemented and exact-verified with its bounded Gate request pending. R4 Product Shell / Result Loop is implemented and exact-verified locally, without pre-claiming its Gate.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -32,8 +32,8 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 ### Current product blockers
 
-1. R3: the four authored stages need their exact candidate verification and independent bounded Gate review.
-2. R4: Result pages still prioritize timing diagnostics over player reward.
+1. R3: the exact candidate is waiting for independent bounded Gate review; Bridge send confirmation is recoverable but has not produced a nonce-owned message bubble.
+2. R4: implementation and exact verification are complete; independent bounded review must remain ordered after R3.
 3. R5: AutoChart Normal and Hard fixtures both produced all-tap charts; phrase and mixed-gesture playability are not demonstrated.
 
 ## LOG
@@ -129,13 +129,23 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Exact detached verification at `ef87dff`: TypeScript lint PASS; 45 files / 294 tests PASS; Pages-base production build PASS. Rhythm main 243.37 kB / gzip 66.25 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No file under `src/running/` changed.
 - Exact Android runtime `ef87dff` on device `bbda35e` / Xiaomi `24091RPADC`: a real touch aligned to Bubble's authored first formal target recorded `pointerType: touch`, `GREAT`, Combo 1 and Groove 21.84 at 1163×632 CSS px / DPR 2.75. `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0` before and after; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
 
+### R4 — Product Shell / Result Loop implementation and smoke
+
+- Rhythm Home keeps Original Stages and Your Music as the two primary choices; calibration, audio/streaming test, settings and provenance remain lower-priority utilities in the scrollable shell.
+- Stage Select cards now expose a procedural mechanic preview, concise promise, mechanic/input badge, approximate difficulty, local best grade and local best accuracy. Cards become a reachable single column in a 390×844 viewport.
+- Result presentation now prioritizes Grade, Score, Accuracy, New Best/local best, Best Combo and player-facing early/balanced/late timing tendency. P/G/O/M, mean, median and timing histogram moved into a secondary expandable detail surface.
+- Retry is immediate and primary. Next Stage advances through the authored order without returning to Stage Select; Stage Select remains the tertiary exit. The final stage omits Next Stage rather than wrapping unexpectedly.
+- Result grading, timing-tendency dead zone and New Best comparison are pure deterministic helpers with boundary regression coverage. Simplified Chinese and complete English replacement UI were checked separately.
+- Exact detached verification at `acc1da0`: `npm ci` PASS (87 packages, 0 vulnerabilities); TypeScript lint PASS; 46 files / 297 tests PASS; Pages-base production build PASS. Rhythm main 247.61 kB / gzip 67.77 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
+- Exact Android runtime `acc1da0` on device `bbda35e` / Xiaomi `24091RPADC`: real CDP `touchStart` / `touchEnd` opened the result detail surface at 1163×632 CSS px / DPR 2.75 and exposed all secondary metrics. `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0` before and after; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Submit exact R3 candidate `ef87dff` plus its evidence-only closure for bounded independent review.
-2. If R3 is PARTIAL/FAIL, fix only the reported blocker and repeat exact desktop/touch verification.
-3. On R3 PASS, enter R4 Product Shell and Result Loop automatically.
+1. Recover the exact nonce-owned R3 bounded review without duplicating the request; fix only a concrete R3 blocker if returned.
+2. On R3 PASS, submit exact R4 candidate `acc1da0` plus its evidence-only closure for bounded independent review.
+3. Continue local R5 AutoChart phrase/gesture work while Gate replies are pending; do not pre-claim R4 or R5.
 
 Timing invariant for all future slices:
 
