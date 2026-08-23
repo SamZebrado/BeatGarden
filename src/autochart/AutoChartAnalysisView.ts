@@ -21,6 +21,7 @@ export class AutoChartAnalysisView {
   private waveform: number[] = [];
   private decodedBuffer: AudioBuffer | null = null;
   private analysisRun = 0;
+  private songName = '';
 
   constructor(private readonly root: HTMLElement, private readonly onBack?: () => void) {
     this.render();
@@ -103,6 +104,7 @@ export class AutoChartAnalysisView {
       });
       if (run !== this.analysisRun) return;
       this.chart = generateAutoChart(this.analysis, this.difficulty, this.seed);
+      this.songName = file.name;
       status.textContent = file.name;
       this.renderResults();
     } catch (error) {
@@ -121,33 +123,46 @@ export class AutoChartAnalysisView {
     panel.style.cssText = 'margin-top:8px;padding:22px;border-radius:18px;background:#121a35;border:1px solid #2c3968;';
     const bpm = this.analysis.tempo.bpm?.toFixed(1) ?? '—';
     const mode = this.analysis.tempo.mode === 'beat-grid' ? t('autochart.beatMode') : t('autochart.localMode');
+    const gestureCount = this.chart.notes.filter((note) => note.type !== 'tap').length;
+    const style = gestureCount === 0 ? t('autochart.style.tap')
+      : gestureCount / Math.max(1, this.chart.notes.length) < .22 ? t('autochart.style.flow') : t('autochart.style.mixed');
     panel.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px">
-        <div><small>${t('autochart.tempo')}</small><strong style="display:block;font-size:28px">${bpm}</strong></div>
-        <div><small>${t('autochart.confidence')}</small><strong style="display:block;font-size:28px">${Math.round(this.analysis.tempo.confidence * 100)}%</strong></div>
-        <div><small>${t('autochart.mode')}</small><strong style="display:block;font-size:20px">${mode}</strong></div>
-        <div><small>${t('autochart.onsets')}</small><strong style="display:block;font-size:28px">${this.analysis.onsets.length}</strong></div>
-        <div><small>${t('autochart.notes')}</small><strong data-role="note-count" style="display:block;font-size:28px">${this.chart.notes.length}</strong></div>
+        <div><small>${t('autochart.song')}</small><strong data-role="song" style="display:block;font-size:22px;overflow-wrap:anywhere"></strong></div>
+        <div><small>${t('autochart.difficulty')}</small><strong style="display:block;font-size:22px">${t(`autochart.${this.difficulty}`)}</strong></div>
+        <div><small>${t('autochart.chartStyle')}</small><strong data-role="chart-style" style="display:block;font-size:22px">${style}</strong></div>
       </div>
       <canvas data-role="analysis-canvas" width="1000" height="300" style="width:100%;margin-top:22px;border-radius:12px;background:#080c1d"></canvas>
       <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin-top:22px">
         <label>${t('autochart.difficulty')}<select data-role="difficulty" style="display:block;margin-top:6px;padding:12px;background:#080c1d;color:#fff;border:1px solid #53618d;border-radius:10px">
           <option value="easy">${t('autochart.easy')}</option><option value="normal">${t('autochart.normal')}</option><option value="hard">${t('autochart.hard')}</option>
         </select></label>
-        <label>${t('autochart.seed')}<input data-role="seed" type="number" value="${this.seed}" min="0" max="999999" style="display:block;margin-top:6px;padding:12px;width:130px;background:#080c1d;color:#fff;border:1px solid #53618d;border-radius:10px" /></label>
-        <button data-role="regenerate" style="padding:13px 18px;border:0;border-radius:11px;background:#4dcb9a;color:#07150f;font-weight:800">${t('autochart.regenerate')}</button>
+        <button data-role="regenerate" style="padding:13px 18px;border:0;border-radius:11px;background:#4dcb9a;color:#07150f;font-weight:800">${t('autochart.generate')}</button>
         <button data-role="play" style="padding:13px 18px;border:0;border-radius:11px;background:#ffd16d;color:#201400;font-weight:900">${t('autochart.play')}</button>
       </div>
+      <details style="margin-top:18px;padding:14px 16px;border-radius:12px;background:#0a1026;color:#bfcbed">
+        <summary style="cursor:pointer;font-weight:700;color:#dce5ff">${t('autochart.advanced')}</summary>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px">
+          <div><small>${t('autochart.tempo')}</small><strong style="display:block">${bpm}</strong></div>
+          <div><small>${t('autochart.confidence')}</small><strong style="display:block">${Math.round(this.analysis.tempo.confidence * 100)}%</strong></div>
+          <div><small>${t('autochart.mode')}</small><strong style="display:block">${mode}</strong></div>
+          <div><small>${t('autochart.onsets')}</small><strong style="display:block">${this.analysis.onsets.length}</strong></div>
+          <div><small>${t('autochart.notes')}</small><strong style="display:block">${this.chart.notes.length}</strong></div>
+          <div><small>${t('autochart.quality')}</small><strong style="display:block">${this.chart.quality.densityPerMinute}/min · ${Math.round(this.chart.quality.restRatio * 100)}% ${t('autochart.rest')}</strong></div>
+        </div>
+        <label style="display:block;margin-top:14px">${t('autochart.seed')}<input data-role="seed" type="number" value="${this.seed}" min="0" max="999999" style="display:block;margin-top:6px;padding:10px;width:130px;background:#080c1d;color:#fff;border:1px solid #53618d;border-radius:10px" /></label>
+      </details>
     `;
+    panel.querySelector<HTMLElement>('[data-role="song"]')!.textContent = this.songName || t('autochart.localSong');
     const difficulty = panel.querySelector<HTMLSelectElement>('[data-role="difficulty"]')!;
     difficulty.value = this.difficulty;
     difficulty.addEventListener('change', () => {
       this.difficulty = difficulty.value as AutoChartDifficulty;
-      this.regenerate(panel);
+      this.regenerate();
     });
     panel.querySelector<HTMLButtonElement>('[data-role="regenerate"]')!.addEventListener('click', () => {
       this.seed = Number(panel.querySelector<HTMLInputElement>('[data-role="seed"]')!.value) || 0;
-      this.regenerate(panel);
+      this.regenerate();
     });
     panel.querySelector<HTMLButtonElement>('[data-role="play"]')!.addEventListener('click', () => {
       if (this.decodedBuffer && this.chart) {
@@ -173,11 +188,10 @@ export class AutoChartAnalysisView {
     else window.location.href = './';
   }
 
-  private regenerate(panel: HTMLElement): void {
+  private regenerate(): void {
     if (!this.analysis) return;
     this.chart = generateAutoChart(this.analysis, this.difficulty, this.seed);
-    panel.querySelector<HTMLElement>('[data-role="note-count"]')!.textContent = String(this.chart.notes.length);
-    this.drawAnalysis(panel.querySelector<HTMLCanvasElement>('[data-role="analysis-canvas"]')!);
+    this.renderResults();
   }
 
   private drawAnalysis(canvas: HTMLCanvasElement): void {

@@ -294,7 +294,7 @@ function buildTargets(notes: readonly AutoChartNote[]): PulseTarget[] {
       targets.push({ type: 'judge-target', id: `${note.id}-start`, beat, songTimeSec: note.songTimeSec, inputKind: 'holdStart', pairedId: releaseId, meta: { note, part: 'start' } });
       targets.push({ type: 'judge-target', id: releaseId, beat: beat + 0.5, songTimeSec: note.songTimeSec + (note.durationSec ?? 0.7), inputKind: 'holdRelease', pairedId: `${note.id}-start`, meta: { note, part: 'release' } });
     } else if (note.type === 'swipe') {
-      const direction = index % 2 ? 'left' : 'right';
+      const direction = note.swipeDirection ?? (index % 2 ? 'left' : 'right');
       targets.push({ type: 'judge-target', id: note.id, beat, songTimeSec: note.songTimeSec, inputKind: direction === 'left' ? 'swipeLeft' : 'swipeRight', meta: { note, direction } });
     } else {
       targets.push({ type: 'judge-target', id: note.id, beat, songTimeSec: note.songTimeSec, inputKind: 'tap', meta: { note } });

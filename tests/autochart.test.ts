@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeMonoPcm } from '../src/autochart/analyzer';
 import { generateAutoChart } from '../src/autochart/generateChart';
+import type { AutoChartAnalysis } from '../src/autochart/types';
 
 const SAMPLE_RATE = 22_050;
 
@@ -87,6 +88,48 @@ describe('AutoChart deterministic DSP', () => {
     const hard = generateAutoChart(analysis, 'hard', 8);
     expect(easy.notes.length).toBeLessThan(hard.notes.length);
     expect(easy.notes.every((note) => note.type !== 'swipe')).toBe(true);
+    expect(hard.notes.some((note) => note.type === 'swipe')).toBe(true);
+    expect(hard.quality.densityPerMinute).toBeGreaterThan(easy.quality.densityPerMinute);
+    expect(hard.quality.holdConflicts).toBe(0);
+    expect(hard.quality.impossibleProximity).toBe(0);
+  });
+
+  it('builds repeating phrases, section accents and deliberate rests', () => {
+    const analysis = analyzeMonoPcm(mix(
+      rhythmicBursts(18, .5, 100, .65),
+      rhythmicBursts(18, .5, 6_200, .28, .25),
+    ), SAMPLE_RATE);
+    const normal = generateAutoChart(analysis, 'normal', 21);
+    expect(new Set(normal.notes.map((note) => note.phraseIndex)).size).toBeGreaterThan(2);
+    expect(normal.notes.some((note) => note.section === 'intro')).toBe(true);
+    expect(normal.notes.some((note) => note.section === 'peak' || note.section === 'build')).toBe(true);
+    expect(normal.notes.some((note) => note.type === 'swipe')).toBe(true);
+    expect(normal.quality.restRatio).toBeGreaterThan(0);
+    expect(normal.quality.longestActionStreak).toBeLessThan(9);
+  });
+
+  it('maps holds only to sustained, conflict-free phrases', () => {
+    const times = Array.from({ length: 12 }, (_, index) => index * 1.5);
+    const analysis: AutoChartAnalysis = {
+      durationSec: 18,
+      sampleRate: SAMPLE_RATE,
+      peakRms: .6,
+      frames: Array.from({ length: 180 }, (_, index) => ({
+        timeSec: index / 10, rms: .5, spectralCentroidHz: 900, spectralRolloffHz: 1200,
+        lowEnergy: .1, lowMidEnergy: .2, midEnergy: .6, highEnergy: .1,
+        globalFlux: .1, lowFlux: .02, midFlux: .08, highFlux: .01, localDynamicRange: .4,
+      })),
+      onsets: times.map((timeSec) => ({
+        timeSec, strength: 4, normalizedStrength: 4, band: 'mid' as const,
+        lowStrength: .1, midStrength: .8, highStrength: .1,
+      })),
+      tempo: { bpm: 80, confidence: .9, phaseSec: 0, beatTimesSec: times, mode: 'beat-grid' },
+    };
+    const hard = generateAutoChart(analysis, 'hard', 7);
+    const holds = hard.notes.filter((note) => note.type === 'hold');
+    expect(holds.length).toBeGreaterThan(0);
+    expect(holds.every((note) => (note.durationSec ?? 0) >= .55)).toBe(true);
+    expect(hard.quality.holdConflicts).toBe(0);
   });
 
   it('analyzes a one-minute fixture with bounded frame and chart storage', () => {

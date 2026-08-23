@@ -1,6 +1,7 @@
 export type FrequencyBand = 'low' | 'mid' | 'high';
 export type AutoChartTimingMode = 'beat-grid' | 'onset-timed';
 export type AutoChartDifficulty = 'easy' | 'normal' | 'hard';
+export type AutoChartSection = 'intro' | 'low' | 'build' | 'peak' | 'outro';
 
 export interface FeatureFrame {
   timeSec: number;
@@ -54,6 +55,20 @@ export interface AutoChartNote {
   band: FrequencyBand;
   score: number;
   durationSec?: number;
+  section: AutoChartSection;
+  phraseIndex: number;
+  accent: boolean;
+  swipeDirection?: 'left' | 'right';
+}
+
+export interface AutoChartQuality {
+  densityPerMinute: number;
+  longestActionStreak: number;
+  restRatio: number;
+  gestureChangeRate: number;
+  holdConflicts: number;
+  impossibleProximity: number;
+  sectionBalance: Record<AutoChartSection, number>;
 }
 
 export interface GeneratedAutoChart {
@@ -63,5 +78,5 @@ export interface GeneratedAutoChart {
   difficulty: AutoChartDifficulty;
   seed: number;
   notes: AutoChartNote[];
+  quality: AutoChartQuality;
 }
-
