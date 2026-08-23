@@ -1,22 +1,27 @@
 import Phaser from 'phaser';
 import type { RunningGameHandle } from '../RunningModeHost';
 import { RUNNING_WORLD, RunningSimulation, type ReviewScene, type RunningInput, type RunningSnapshot, type UpgradeId } from '../core/simulation';
-import { t, type StringKey } from '../../i18n/strings';
+import { getLocale, t, type StringKey } from '../../i18n/strings';
 import type { RunningDifficulty } from '../core/difficulty';
 import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
 import { EmojiBeta } from '../EmojiBeta';
 import { RunningLegend, createPhdLegendEntries } from '../RunningLegend';
-import { loadRunningSave, markWorldCompleted, updateRunningSave } from '../core/save';
+import { loadRunningSave, recordFailedJourney, recordSuccessfulJourney, updateRunningSave } from '../core/save';
 import type { AnnualMilestoneKind } from '../core/phdSystems';
 import { PromotionAction } from '../PromotionAction';
 import { beginCardPress, cardAtPoint, cardPressMovedTooFar, completesCardPress, phdChoiceCardRects, upgradeCardRects, type CardPress, type ChoiceViewport } from './choiceCards';
 import { clearCurrentRun, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
+import { JourneyResult } from '../JourneyResult';
+import { academicPublicProfile, seededAcademicBackground } from '../core/people';
+import type { AchievementId, StoryMarkId } from '../core/journal';
 
 const STEP = 1 / 60;
 
 export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => void; difficulty: RunningDifficulty; resume?: Extract<CurrentRunV1, { world: 'phd' }> }): Promise<RunningGameHandle> {
   const runSeed = options.resume?.seed ?? seedFromUrl();
+  const runInstance = options.resume?.savedAt ?? Date.now();
+  let sourceRunSerial = 0;
   root.replaceChildren();
   root.style.cssText = 'width:100vw;height:100vh;display:block;overflow:hidden;background:#071512;touch-action:none;';
   const host = document.createElement('div');
@@ -45,6 +50,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     private legend!: RunningLegend;
     private legendOpen = false;
     private promotion!: PromotionAction;
+    private result!: JourneyResult;
     private previous: RunningSnapshot | null = null;
     private completionRecorded = false;
     private touchCount = 0;
@@ -80,6 +86,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.emoji = new EmojiBeta(root, isTextOff());
       this.legend = new RunningLegend(root, { world: 'phd', textOff: isTextOff(), getEntries: () => createPhdLegendEntries(this.simulation.snapshot(), loadRunningSave().seenHints), onOpenChange: (open) => { this.legendOpen = open; if (open) this.joystick = null; } });
       this.promotion = new PromotionAction(root, isTextOff());
+      this.result = new JourneyResult(root, isTextOff());
       this.render(this.simulation.snapshot());
       this.time.addEvent({ delay: 4000, loop: true, callback: () => this.saveNow() });
       this.saveNow();
@@ -202,10 +209,12 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.choicePress = null;
       this.previous = null;
       this.completionRecorded = false;
+      sourceRunSerial += 1;
       this.pollutionTrail = [];
       this.lastPollutionSample = -1;
       this.checkpointToken = '';
       this.promotion.hide();
+      this.result.hide();
       this.saveNow();
     }
 
@@ -312,7 +321,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       hudOverlay.querySelector<HTMLElement>('[data-role="meeting"]')!.textContent = state.meeting.phase === 'telegraph' ? `◉  ${Math.max(1, Math.ceil(state.meeting.remaining))}` : state.meeting.phase === 'active' ? (textOff ? '◉' : `◉  ${t('running.meeting')}`) : '';
       const thesisSymbol = { seed: '·', sapling: '♧', tree: '♣', bloom: '✿' }[state.phd.thesisStage];
       hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent = textOff ? `◷${state.phd.year}  ${thesisSymbol}` : `Y${state.phd.year}  🌱 ${t(`running.thesis.${state.phd.thesisStage}` as const)}`;
-      if (state.phd.supervisorId) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += textOff ? '  ◆' : `  ·  ◆ ${t(`running.supervisor.${state.phd.supervisorId}` as StringKey)}`;
+      if (state.phd.supervisorPersonId) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += textOff ? '  ◆' : `  ·  ◆ ${academicPublicProfile(state.phd.supervisorPersonId).code}`;
       if (!textOff && state.phd.annualMilestone) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += `  ·  ${t(annualMilestoneKey(state.phd.annualMilestone.kind))}`;
       if (!textOff && state.phd.revisionRemaining > 0) hudOverlay.querySelector<HTMLElement>('[data-role="systems"]')!.textContent += `  ·  ${t('running.revision')}`;
       if (state.phd.lifestyle) {
@@ -592,19 +601,22 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       if (!choice) return;
       const view = this.cameras.main.worldView;
       g.fillStyle(0x030908, 0.86).fillRect(view.left, view.top, view.width, view.height);
+      const candidateProfiles = state.phd.supervisorCandidates.map(academicPublicProfile);
       const labels = choice.kind === 'project' ? [t('running.projectReplication'), t('running.projectIdea'), t('running.projectHelping'), t('running.projectPrestige')]
-        : choice.kind === 'supervisor' ? [t('running.supervisor.supportive'), t('running.supervisor.controlling'), t('running.supervisor.handsOff')]
+        : choice.kind === 'supervisor' ? candidateProfiles.map((profile) => profile.code)
           : choice.kind === 'lifestyle' ? [t('running.lifestyle.rest'), t('running.lifestyle.exercise'), t('running.lifestyle.social'), t('running.lifestyle.mindfulness'), t('running.lifestyle.weekendOvertime')]
             : choice.kind === 'supervisorRequest' ? [t('running.supervisorRequest.accept'), t('running.supervisorRequest.boundary'), t('running.supervisorRequest.decline')]
+            : choice.kind === 'recovery' ? [t('running.choice.takeBreak'), t('running.choice.keepPushing')]
             : [t('running.attempt'), t('running.defer')];
       const icons = choice.kind === 'project' ? ['▣', '✦', '◇', '★']
-        : choice.kind === 'supervisor' ? ['◆◇', '◆!', '◆·']
+        : choice.kind === 'supervisor' ? candidateProfiles.map((profile) => profile.uncertainty === 'high' ? '◆?' : profile.uncertainty === 'medium' ? '◆·' : '◆◇')
           : choice.kind === 'lifestyle' ? ['☾', '↗', '◇◇', '◌', '⚡+']
-            : choice.kind === 'supervisorRequest' ? ['▣+', '◇|', '×'] : ['▶', '◷'];
+            : choice.kind === 'supervisorRequest' ? ['▣+', '◇|', '×'] : choice.kind === 'recovery' ? ['◌', '▶'] : ['▶', '◷'];
       const details = choice.kind === 'project' ? ['⚡16  ◉12  ▧12  →  ⬡◈', '⚡13  ◉18  ▧10  →  ✦', '⚡17  ◉8  ▧15  →  ◇', '⚡22  ◉16  ▧22  →  ★']
-        : choice.kind === 'supervisor' ? [t('running.supervisor.supportiveDetail'), t('running.supervisor.controllingDetail'), t('running.supervisor.handsOffDetail')]
+        : choice.kind === 'supervisor' ? state.phd.supervisorCandidates.map((personId, index) => `${candidateProfiles[index]!.qualities.map((quality) => publicQuality(quality)).join(' · ')}\n${seededAcademicBackground(personId, runSeed, getLocale())}`)
           : choice.kind === 'lifestyle' ? [t('running.lifestyle.restDetail'), t('running.lifestyle.exerciseDetail'), t('running.lifestyle.socialDetail'), t('running.lifestyle.mindfulnessDetail'), t('running.lifestyle.weekendOvertimeDetail')]
             : choice.kind === 'supervisorRequest' ? ['◆+  ▧+  ◷−', '◇+  ▧−', '◇  ≈?']
+            : choice.kind === 'recovery' ? [t('running.choice.takeBreakDetail'), t('running.choice.keepPushingDetail')]
             : ['◉  ▶  ◆', '◷  ♡'];
       const colors = [0x79d8b0, 0xf1c867, 0x7fc6ef, 0xd99af0, 0xff9678];
       const cards = phdChoiceCardRects(this.choiceViewport(), labels.length, this.isPortrait());
@@ -619,7 +631,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         this.ephemeralText(x + width / 2, y + height * 0.91, String(index + 1), '#9dc8b8', 14);
       }
       const portraitTitle = choice.kind === 'supervisor' ? t('running.supervisorChoiceTitleCompact') : choice.kind === 'lifestyle' ? t('running.lifestyleTitleCompact') : '';
-      const title = choice.kind === 'supervisor' ? t('running.supervisorChoiceTitle') : choice.kind === 'lifestyle' ? t('running.lifestyleTitle') : choice.kind === 'supervisorRequest' ? t('running.supervisorRequestTitle') : choice.kind === 'qualifying' ? t('running.qualifying') : choice.kind === 'preDefense' ? t('running.preDefense') : choice.kind === 'defense' ? t('running.defense') : '';
+      const title = choice.kind === 'supervisor' ? t('running.supervisorChoiceTitle') : choice.kind === 'lifestyle' ? t('running.lifestyleTitle') : choice.kind === 'supervisorRequest' ? t('running.supervisorRequestTitle') : choice.kind === 'recovery' ? (getLocale() === 'zh-CN' ? '出现一个恢复机会' : 'A recovery opportunity') : choice.kind === 'qualifying' ? t('running.qualifying') : choice.kind === 'preDefense' ? t('running.preDefense') : choice.kind === 'defense' ? t('running.defense') : '';
       if (title && !isTextOff()) this.ephemeralText(view.centerX, view.top + (this.isPortrait() ? 112 : 55), this.isPortrait() && portraitTitle ? portraitTitle : title, '#fff3bc', this.isPortrait() ? 15 : 26, true, this.isPortrait() ? Math.max(220, view.width - 28) : undefined);
     }
 
@@ -699,7 +711,9 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         x: (state.player.x - view.left) * this.cameras.main.zoom + this.cameras.main.x,
         y: (state.player.y - view.top) * this.cameras.main.zoom + this.cameras.main.y,
       });
-      this.audio.setPressure(state.meeting.phase === 'active' || !!state.phd.milestone);
+      this.audio.setPressure(state.meeting.phase === 'active');
+      this.audio.setMilestone(!!state.phd.milestone);
+      this.audio.setRecovery(state.phd.choice?.kind === 'recovery');
       if (prior) {
         if (state.hitPulses.some((pulse) => pulse.color === 0xf9f29f && !prior.hitPulses.some((old) => old.id === pulse.id))) this.audio.cue('hit');
         if (state.defeated > prior.defeated) this.audio.cue('defeat');
@@ -730,18 +744,34 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         clearCurrentRun();
         this.completionRecorded = true;
         this.audio.cue('complete');
-        markWorldCompleted('phd', state.difficulty);
-        const refreshed = loadRunningSave();
+        const marks: StoryMarkId[] = [];
+        const signals: AchievementId[] = ['qualifying-light'];
+        if (state.phd.lastBoundaryReaction === 'respected') { marks.push('held-boundary'); signals.push('boundary-held'); }
+        if (state.phd.signal >= 40 && state.phd.noise >= 24) { marks.push('high-pressure-high-signal', 'noise-but-useful'); signals.push('signal-in-static'); }
+        if (state.phd.year >= 7) { marks.push('late-bloom'); signals.push('late-bloom'); }
+        if (state.phd.preDefense === 'passed') { marks.push('rebuilt-after-setback'); signals.push('revision-return'); }
+        if (state.phd.assignedLabor >= 24) marks.push('too-much-extra-work');
+        if (state.phd.supervisorPersonId === 'op-vl') marks.push('quiet-mentor');
+        if (state.phd.independentResearch >= 35) signals.push('independent-root');
+        if (state.phd.recoveryOutcome === 'takeBreak') { marks.push('gentle-pause'); signals.push('recovery-choice'); }
+        if (state.phd.recoveredFromLow) signals.push('back-from-low');
+        const exported = this.simulation.exportState();
+        const completed = recordSuccessfulJourney({ sourceRunId: `phd:${runSeed}:${runInstance}:${sourceRunSerial}`, world: 'phd', difficulty: state.difficulty, runDuration: state.time, finalStage: `year-${state.phd.year}:graduated`, personCode: state.phd.supervisorPersonId ? academicPublicProfile(state.phd.supervisorPersonId).code : null, routeChoices: [state.phd.supervisorPersonId ?? 'none', state.phd.lifestyle?.id ?? 'no-lifestyle'], relationship: state.phd.relationship, build: exported.upgrades, resources: { energy: state.phd.energy, focus: state.phd.focus, spirit: state.phd.spirit }, milestones: ['phd:qualifying', 'phd:pre-defense', 'phd:defense'], storyMarks: marks, musicStyle: loadRunningSave().musicStyle, achievementSignals: signals });
+        const refreshed = completed.save;
         updateRunningSave({ milestoneCompletions: [...refreshed.milestoneCompletions, 'phd:defense'] });
+        this.result.show(completed.record);
         this.promotion.show({
           world: 'phd', completionNumber: refreshed.worldCompletions.phd ?? 1, difficulty: state.difficulty,
           orbitCount: state.orbitCount, energy: state.phd.energy, focus: state.phd.focus, spirit: state.phd.spirit,
           evidence: state.phd.evidence, connection: state.phd.connection,
-        });
+        }, completed.record.recordId);
+      } else if (state.gameOver && !this.completionRecorded) {
+        this.completionRecorded = true;
+        recordFailedJourney('phd');
       }
       this.previous = state;
     }
-    destroyRuntime(): void { this.legend?.destroy(); this.audio?.destroy(); this.emoji?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
+    destroyRuntime(): void { this.legend?.destroy(); this.audio?.destroy(); this.emoji?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); this.result?.destroy(); }
 
     private ephemeralText(x: number, y: number, value: string, color: string, size: number, bold = false, wrapWidth?: number): void {
       const label = this.add.text(x, y, value, { color, fontSize: `${size}px`, fontStyle: bold ? 'bold' : 'normal', fontFamily: 'system-ui', align: 'center', ...(wrapWidth ? { wordWrap: { width: wrapWidth, useAdvancedWrap: false } } : {}) }).setOrigin(0.5).setDepth(30);
@@ -784,6 +814,11 @@ function isTextOff(): boolean {
   return new URLSearchParams(window.location.search).get('textOff') === '1';
 }
 
+function publicQuality(value: string): string {
+  if (getLocale() === 'en') return value.replace('-', ' ');
+  return ({ clarity: '清晰', autonomy: '自主', access: '可联系', resources: '资源', structure: '结构', demand: '要求较高', weekly: '每周沟通', development: '发展支持', stability: '稳定', exploration: '探索', 'cross-field': '跨领域', career: '生涯支持', 'low-contact': '低接触', prestige: '声望', 'high-pace': '高节奏' } as Record<string, string>)[value] ?? value;
+}
+
 function annualMilestoneKey(kind: AnnualMilestoneKind): StringKey {
   return kind === 'firstYearTalk' ? 'running.milestone.year1' : kind === 'proposal' ? 'running.milestone.year2' : 'running.milestone.annual';
 }
@@ -797,7 +832,7 @@ function createSimulation(difficulty: RunningDifficulty, resume?: Extract<Curren
     simulation.startMilestoneReview(reviewMilestone);
   }
   const reviewChoice = search.get('reviewChoice');
-  if (import.meta.env.DEV && (reviewChoice === 'supervisor' || reviewChoice === 'lifestyle')) simulation.startChoiceReview(reviewChoice);
+  if (import.meta.env.DEV && (reviewChoice === 'supervisor' || reviewChoice === 'lifestyle' || reviewChoice === 'recovery')) simulation.startChoiceReview(reviewChoice);
   const reviewSupervisor = search.get('reviewSupervisor');
   if (import.meta.env.DEV && (reviewSupervisor === 'supportive' || reviewSupervisor === 'controlling' || reviewSupervisor === 'handsOff')) {
     simulation.startChoiceReview('supervisor');

@@ -132,6 +132,26 @@ Traceability: run state/choices → Relationship + Situation →
 `updateRelationship`, `PhdSystems.currentSituation`, and
 `ScenarioSimulation.currentSituation`.
 
+## Mentoring-pattern and recovery evidence — 2026-08-23
+
+| Construct or pattern | Evidence | What it supports | BeatGarden translation | What it does **not** mean | Status / extrapolation |
+|---|---|---|---|---|---|
+| Career and psychosocial support | The 2019 National Academies consensus report, *The Science of Effective Mentorship in STEMM*, defines mentorship as a working alliance providing career and psychosocial support. Its online guide names career guidance, skill development, sponsorship, encouragement, problem-solving and active listening as functions. | Treating career support, feedback/support and recognition as distinct role capacities rather than one generic “good mentor” score. | Academic role profiles separately model expertise, mentoring skill, resources, clarity, autonomy support and emotional safety. | That any fictional profile predicts a real mentor, or that one trait guarantees an outcome. | Implemented. Exact weights and profiles are authored design extrapolations. |
+| Expectations and feedback | The National Academies guide describes aligning expectations and timely, constructive communication as trainable mentoring competencies. | Clear expectations and useful feedback as recurring, player-legible mentoring behaviors. | Public candidate qualities can include clarity/structure/accessibility; later events reveal how those qualities operate under pressure. | A validated selection instrument or a promise that partial information is sufficient to choose a real supervisor. | Implemented as partial-information, seeded fictional choices. |
+| Negative mentoring experiences | The same consensus guide treats mentoring quality as a continuum and distinguishes problematic events within otherwise mixed relationships from wholly harmful relationships. It also warns that negative experiences can cause harm. | Modeling unstable priorities, unavailability, extraction, unfair allocation, boundary strain and unsafe feedback as consequential behavior patterns, while preserving mixed profiles. | Hidden Person + Role + Relationship + Situation behavior changes Signal, Noise, requests, boundaries and allocation over time. Severe abuse is not a cute selectable power-up. | That harm is merely a personality quirk, morally neutral, optimal, or accurately diagnosed by the game. | Implemented with bounded fictional profiles; no real names, institutions or copied anecdotes. |
+| Advisor relationship and graduate distress | Evans et al. (2018) reported survey evidence linking graduate mental-health concerns and advisor relationships. It is observational, self-reported evidence, not a causal experiment. | Treating supervisory context as consequential and avoiding a purely individual-trait account of strain. | Pressure, resources, role power and relationship history moderate behavior; they are not inferred from temperament alone. | That BeatGarden can diagnose, treat or estimate mental illness, or that an advisor relationship alone causes a clinical outcome. | Design guardrail implemented; no clinical labels appear in play. |
+| Short recovery breaks | Albulescu et al. (2022) synthesized 22 independent samples (N=2,335). Micro-breaks had small significant associations with higher vigor and lower fatigue; the overall performance effect was not significant. | A bounded game trade-off where a short break may restore a little Spirit/Energy while Calendar advances. | One optional Recovery Event per run and three no-failure Rest Corner activities. Recovery is neither mandatory nor infinitely farmable. | Treatment, guaranteed wellbeing, guaranteed cognitive performance, or a clinical intervention. | Implemented. Resource amounts and opportunity costs are game-balance extrapolations. |
+
+Primary authorities:
+
+- National Academies of Sciences, Engineering, and Medicine (2019), [*The Science of Effective Mentorship in STEMM*](https://doi.org/10.17226/25568) and its [online mentorship guide](https://nap.nationalacademies.org/resource/25568/interactive/mentorship-defined.html).
+- Evans et al. (2018), [*Evidence for a mental health crisis in graduate education*](https://doi.org/10.1038/nbt.4089), *Nature Biotechnology* 36, 282–284.
+- Albulescu et al. (2022), [*“Give me a break!” A systematic review and meta-analysis on the efficacy of micro-breaks for increasing well-being and performance*](https://doi.org/10.1371/journal.pone.0272460), *PLOS ONE* 17(8):e0272460.
+
+The default cast is a bounded synthetic design. No public review, forum post, real
+faculty member, lab or university is represented. Recurrent negative patterns were
+drawn from the research taxonomy above, not copied from individual anecdotes.
+
 ## Information and ownership boundaries
 
 - **Running Save Bundle (`beatgarden-save-bundle.v1`):** player Running progression,

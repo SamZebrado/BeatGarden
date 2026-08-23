@@ -28,6 +28,19 @@ export const MANAGERS: Record<ManagerId, ManagerProfile> = {
   'steady-coach': { id: 'steady-coach', personId: 'noa', clarity: .72, transparency: .74, resources: .58, autonomy: .82, stability: .9, fairness: .8, boundaryRespect: .88, feedback: .7, sponsorship: .48, volatility: .12 },
 };
 
+export const MANAGER_PUBLIC: Record<ManagerId, { code: string; qualities: readonly [string, string, string]; uncertainty: 'low' | 'medium' | 'high' }> = {
+  'clear-builder': { code: 'CL-ST', qualities: ['clarity', 'structure', 'development'], uncertainty: 'low' },
+  'opaque-driver': { code: 'RS-HP', qualities: ['resources', 'high-pace', 'growth'], uncertainty: 'high' },
+  'steady-coach': { code: 'AU-LS', qualities: ['autonomy', 'stability', 'exploration'], uncertainty: 'medium' },
+};
+
+export function seededManagerBackground(managerId: ManagerId, seed: number, locale: 'zh-CN' | 'en'): string {
+  const team = locale === 'zh-CN' ? ['小型团队', '中型团队', '扩张中的团队'] : ['Small team', 'Medium team', 'Growing team'];
+  const period = locale === 'zh-CN' ? ['交付节奏稳定', '正在承接新项目', '近期优先级变化较多', '处于年度规划期'] : ['Stable delivery rhythm', 'Taking on a new project', 'Recent priority changes', 'In an annual planning period'];
+  let hash = 2166136261; for (const character of `${seed}:${managerId}`) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+  return `${team[(hash >>> 0) % team.length]}。${period[(hash >>> 7) % period.length]}。`;
+}
+
 export const WORK_OFFERS: readonly WorkOffer[] = [
   { id: 'offer-a', managerId: 'clear-builder', environment: 'structured', pressure: .48, opportunity: .62 },
   { id: 'offer-b', managerId: 'opaque-driver', environment: 'fast', pressure: .88, opportunity: .9 },

@@ -2,7 +2,7 @@ import { createRng, type SeededRng } from './rng';
 import { MAX_RUNNING_ENEMIES, RUNNING_WORLD, placeSpawnAtDistance, type RunningInput, type Vec2 } from './simulation';
 import { adjustEnemyDamage, adjustEnemySpeed, adjustSpawnInterval, adjustTelegraphDuration, type RunningDifficulty } from './difficulty';
 import { MANAGERS, WORK_OFFERS, conversionScore, effectiveWorkOffer, managerPersonBehavior, masterRoleOutcome, offerViability, seededMarketStrength, type CareerPlan, type ManagerId, type WorkStage } from './lifePaths';
-import type { PersonId, StablePersonId } from './people';
+import { academicCandidatesForSeed, type PersonId, type StablePersonId } from './people';
 import { cloneRelationship, defaultRelationship, updateRelationship, type RelationshipStateV1, type SituationState } from './personScience';
 
 export type ScenarioWorld = 'master' | 'work';
@@ -13,7 +13,8 @@ export type ScenarioChoice =
   | { kind: 'careerPlan'; options: readonly CareerPlan[] }
   | { kind: 'workOffer'; options: readonly ['offer-a', 'offer-b', 'offer-c'] }
   | { kind: 'workConversion'; options: readonly ['continue', 'leaveSearch'] }
-  | { kind: 'workPriority'; options: readonly ['protectFocus', 'acceptRush'] };
+  | { kind: 'workPriority'; options: readonly ['protectFocus', 'acceptRush'] }
+  | { kind: 'recovery'; options: readonly ['takeBreak', 'keepPushing'] };
 
 export interface ScenarioEnemy extends Vec2 {
   id: number;
@@ -53,6 +54,7 @@ export interface ScenarioSnapshot {
     year: 1 | 2 | 3;
     stage: 'coursework-onboarding' | 'research-project' | 'proposal' | 'finish-defense';
     supervisorPersonId: PersonId | null;
+    candidates: readonly [PersonId, PersonId, PersonId];
     careerPlan: CareerPlan | null;
     proposal: { phase: 'none' | 'preparation' | 'rehearsal' | 'presentation' | 'complete'; progress: number; target: number };
   } | null;
@@ -67,6 +69,8 @@ export interface ScenarioSnapshot {
   } | null;
   completed: boolean;
   gameOver: boolean;
+  recovery: { offered: boolean; outcome: 'none' | 'takeBreak' | 'keepPushing'; recoveredFromLow: boolean };
+  routeFlags: { protectFocusUsed: boolean; changedDirection: boolean };
 }
 
 export interface ScenarioSimulationStateV1 {
@@ -80,6 +84,9 @@ export interface ScenarioSimulationStateV1 {
   workStage: WorkStage; managerId: ManagerId | null; marketStrength: number; experience: number; careerTime: number; workConversionScore: number; promotionProgress: number;
   conversionChoiceShown: boolean; nextMarketAt: number; nextConversionAt: number; nextClimaxAt: number;
   relationships?: Partial<Record<StablePersonId, RelationshipStateV1>>;
+  masterCandidates: readonly [PersonId, PersonId, PersonId];
+  recoveryOffered: boolean; recoveryOutcome: 'none' | 'takeBreak' | 'keepPushing'; recoveredFromLow: boolean;
+  protectFocusUsed: boolean; changedDirection: boolean;
   activePriority: string; priorityRemaining: number;
   enemies: ScenarioEnemy[]; projectiles: ScenarioProjectile[]; pickups: ScenarioPickup[]; player: ScenarioSnapshot['player'];
 }
@@ -122,6 +129,7 @@ export class ScenarioSimulation {
   private progress = 0;
   private choice: ScenarioChoice | null = null;
   private masterSupervisor: PersonId | null = null;
+  private masterCandidates: readonly [PersonId, PersonId, PersonId];
   private masterCareerPlan: CareerPlan | null = null;
   private masterProposalPhase: NonNullable<ScenarioSnapshot['masterPath']>['proposal']['phase'] = 'none';
   private masterProposalRemaining = 0;
@@ -136,6 +144,11 @@ export class ScenarioSimulation {
   private promotionProgress = 0;
   private conversionChoiceShown = false;
   private relationships: Partial<Record<StablePersonId, RelationshipStateV1>> = {};
+  private recoveryOffered = false;
+  private recoveryOutcome: 'none' | 'takeBreak' | 'keepPushing' = 'none';
+  private recoveredFromLow = false;
+  private protectFocusUsed = false;
+  private changedDirection = false;
   private nextMarketAt = 18;
   private nextConversionAt = 28;
   private nextClimaxAt: number;
@@ -151,6 +164,7 @@ export class ScenarioSimulation {
   constructor(readonly world: ScenarioWorld, seed = 0x51ce2026, private readonly difficulty: RunningDifficulty = 'garden', options: { automaticOffense?: boolean; damageEnabled?: boolean; restore?: ScenarioSimulationStateV1 } = {}) {
     this.config = CONFIG[world];
     this.rng = createRng(seed, options.restore?.rngState);
+    this.masterCandidates = options.restore?.masterCandidates ?? academicCandidatesForSeed(seed ^ 0x4d415354);
     this.automaticOffense = options.automaticOffense ?? true;
     this.damageEnabled = options.damageEnabled ?? true;
     this.eventAt = this.config.eventAt;
@@ -160,7 +174,7 @@ export class ScenarioSimulation {
       this.restore(options.restore);
       return;
     }
-    if (world === 'master') this.choice = { kind: 'masterSupervisor', options: ['mei', 'rowan', 'lin'] };
+    if (world === 'master') this.choice = { kind: 'masterSupervisor', options: [...this.masterCandidates] };
     else {
       this.marketStrength = seededMarketStrength(this.rng);
       this.choice = { kind: 'workOffer', options: ['offer-a', 'offer-b', 'offer-c'] };
@@ -178,6 +192,11 @@ export class ScenarioSimulation {
     this.updatePressure(dt);
     this.updateEvent(dt);
     this.updateClimax(dt);
+    if (!this.recoveryOffered && this.climaxPhase === 'none' && (this.spirit <= 28 || this.calendar >= 78)) {
+      this.recoveryOffered = true;
+      this.choice = { kind: 'recovery', options: ['takeBreak', 'keepPushing'] };
+      return;
+    }
     if (this.climaxPhase === 'none' && this.time >= this.nextClimaxAt) this.beginClimax();
     if (this.climaxPhase === 'none' && !this.choice && this.time >= this.nextChoiceAt && this.masterProposalPhase === 'none') this.openChoice();
     this.spawnTimer -= dt;
@@ -200,6 +219,9 @@ export class ScenarioSimulation {
   }
 
   choose(option: string): boolean {
+    if (this.choice?.kind === 'masterSupervisor' && (option === 'mei' || option === 'rowan' || option === 'lin') && !this.choice.options.includes(option)) {
+      option = this.choice.options[{ mei: 0, rowan: 1, lin: 2 }[option]]!;
+    }
     if (!this.choice || !this.choice.options.includes(option as never)) return false;
     const choiceKind = this.choice.kind;
     if (this.choice.kind === 'masterSupervisor') {
@@ -243,6 +265,7 @@ export class ScenarioSimulation {
         }
       } else {
         // Switching is possible but costs scarce Career Time, Calendar, Energy and Spirit.
+        this.changedDirection = true;
         this.workStage = 'offers';
         this.managerId = null;
         this.careerTime += 12;
@@ -262,12 +285,13 @@ export class ScenarioSimulation {
       this.calendar = bound(this.calendar + [16, 12, 18, 20][index]);
       this.progress = Math.min(this.config.progressTarget, this.progress + [9, 13, 10, 15][index]);
     } else if (option === 'protectFocus') {
+      this.protectFocusUsed = true;
       this.activePriority = '▣';
       this.priorityRemaining = 13;
       this.focus = bound(this.focus + 13);
       this.calendar = bound(this.calendar + 3);
       this.spirit = bound(this.spirit + 4);
-    } else {
+    } else if (choiceKind === 'workPriority') {
       this.activePriority = '⚡';
       this.priorityRemaining = 13;
       this.progress = Math.min(this.config.progressTarget, this.progress + 15);
@@ -275,6 +299,13 @@ export class ScenarioSimulation {
       this.focus = bound(this.focus - 10);
       this.calendar = bound(this.calendar + 20);
       for (let index = 0; index < 4; index += 1) this.spawn('request', index / 4 * Math.PI * 2, 'periodic');
+    } else if (choiceKind === 'recovery') {
+      this.recoveryOutcome = option as 'takeBreak' | 'keepPushing';
+      if (option === 'takeBreak') {
+        const severe = this.spirit <= 28 || this.energy <= 25 || this.calendar >= 78;
+        this.spirit = bound(this.spirit + 18); this.energy = bound(this.energy + 10); this.calendar = bound(this.calendar + 7);
+        this.recoveredFromLow = severe;
+      } else { this.focus = bound(this.focus + 4); this.calendar = bound(this.calendar + 3); }
     }
     this.choice = null;
     this.nextChoiceAt = choiceKind === 'masterSupervisor' ? this.config.choiceAt
@@ -298,11 +329,12 @@ export class ScenarioSimulation {
     }
   }
 
-  startChoiceReview(kind: 'careerPlan' | 'workOffer' | 'workConversion' | 'workPriority'): void {
+  startChoiceReview(kind: 'careerPlan' | 'workOffer' | 'workConversion' | 'workPriority' | 'recovery'): void {
     if (kind === 'careerPlan' && this.world === 'master') this.choice = { kind: 'careerPlan', options: ['researchPhd', 'employment', 'undecided'] };
     else if (kind === 'workOffer' && this.world === 'work') this.choice = { kind: 'workOffer', options: ['offer-a', 'offer-b', 'offer-c'] };
     else if (kind === 'workConversion' && this.world === 'work') this.choice = { kind: 'workConversion', options: ['continue', 'leaveSearch'] };
     else if (kind === 'workPriority' && this.world === 'work') this.choice = { kind: 'workPriority', options: ['protectFocus', 'acceptRush'] };
+    else if (kind === 'recovery') { this.recoveryOffered = true; this.choice = { kind: 'recovery', options: ['takeBreak', 'keepPushing'] }; }
   }
 
   defeatDesignatedTargetForReview(id: number): boolean {
@@ -356,6 +388,7 @@ export class ScenarioSimulation {
         year: this.time < 30 ? 1 : this.time < 60 ? 2 : 3,
         stage: this.time < 30 ? 'coursework-onboarding' : this.time < 55 ? 'research-project' : this.masterProposalPhase !== 'complete' ? 'proposal' : 'finish-defense',
         supervisorPersonId: this.masterSupervisor,
+        candidates: [...this.masterCandidates],
         careerPlan: this.masterCareerPlan,
         proposal: { phase: this.masterProposalPhase, progress: this.masterProposalProgress, target: 6 },
       } : null,
@@ -365,6 +398,8 @@ export class ScenarioSimulation {
         conversionScore: this.workConversionScore, promotionProgress: this.promotionProgress,
       } : null,
       completed: this.completed, gameOver: this.gameOver,
+      recovery: { offered: this.recoveryOffered, outcome: this.recoveryOutcome, recoveredFromLow: this.recoveredFromLow },
+      routeFlags: { protectFocusUsed: this.protectFocusUsed, changedDirection: this.changedDirection },
     };
   }
 
@@ -381,6 +416,8 @@ export class ScenarioSimulation {
       workConversionScore: this.workConversionScore, promotionProgress: this.promotionProgress, conversionChoiceShown: this.conversionChoiceShown,
       nextMarketAt: this.nextMarketAt, nextConversionAt: this.nextConversionAt, nextClimaxAt: this.nextClimaxAt,
       relationships: Object.fromEntries(Object.entries(this.relationships).map(([id, relationship]) => [id, cloneRelationship(relationship)])),
+      masterCandidates: [...this.masterCandidates], recoveryOffered: this.recoveryOffered, recoveryOutcome: this.recoveryOutcome, recoveredFromLow: this.recoveredFromLow,
+      protectFocusUsed: this.protectFocusUsed, changedDirection: this.changedDirection,
       activePriority: this.activePriority, priorityRemaining: this.priorityRemaining, enemies: this.enemies.map((item) => ({ ...item, flash: 0 })),
       projectiles: this.projectiles.map((item) => ({ ...item })), pickups: this.pickups.map((item) => ({ ...item })), player: { ...this.player },
     };
@@ -397,6 +434,9 @@ export class ScenarioSimulation {
     this.masterProposalRemaining = state.masterProposalRemaining; this.masterProposalProgress = state.masterProposalProgress; this.masterProposalRosterInitialized = state.masterProposalRosterInitialized;
     this.workStage = state.workStage; this.managerId = state.managerId; this.marketStrength = state.marketStrength; this.experience = state.experience; this.careerTime = state.careerTime;
     this.workConversionScore = state.workConversionScore; this.promotionProgress = state.promotionProgress; this.conversionChoiceShown = state.conversionChoiceShown;
+    this.masterCandidates = state.masterCandidates ?? ['mei', 'rowan', 'lin'];
+    this.recoveryOffered = state.recoveryOffered ?? false; this.recoveryOutcome = state.recoveryOutcome ?? 'none'; this.recoveredFromLow = state.recoveredFromLow ?? false;
+    this.protectFocusUsed = state.protectFocusUsed ?? false; this.changedDirection = state.changedDirection ?? false;
     this.relationships = Object.fromEntries(Object.entries(state.relationships ?? {}).map(([id, relationship]) => [id, cloneRelationship(relationship)]));
     this.nextMarketAt = state.nextMarketAt; this.nextConversionAt = state.nextConversionAt; this.nextClimaxAt = state.nextClimaxAt;
     this.activePriority = state.activePriority; this.priorityRemaining = state.priorityRemaining;

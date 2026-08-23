@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isCurrentRunV1 } from '../src/running/core/currentRun';
+import { adaptAcademicPerson, type PersonId } from '../src/running/core/people';
 import { MAX_RUNNING_ENEMIES, RUNNING_WORLD, RunningSimulation, placeSpawnAtDistance } from '../src/running/core/simulation';
 
 function run(simulation: RunningSimulation, seconds: number, x = 0, y = 0): void {
@@ -71,7 +72,11 @@ describe('Running fixed-step authority', () => {
   it('exposes the second-meeting supervisor request and resumes after a response', () => {
     const original = new RunningSimulation(72, { automaticOffense: false });
     original.startChoiceReview('supervisor');
-    expect(original.choosePhdOption('controlling')).toBe(true);
+    // The middle slot is no longer a fixed legacy personality. Select the
+    // seeded candidate with the strongest request pressure for this behavior test.
+    const candidates = original.snapshot().phd.supervisorCandidates;
+    const slot = strongestRequestSlot(candidates);
+    expect(original.choosePhdOption(slot)).toBe(true);
     const state = original.exportState();
     state.meetingPhase = 'telegraph';
     state.meetingRemaining = 1 / 60;
@@ -281,4 +286,10 @@ function runWithUpgrades(simulation: RunningSimulation, seconds: number): void {
 function choosePending(simulation: RunningSimulation): void {
   const choice = simulation.snapshot().phd.choice;
   if (choice) simulation.choosePhdOption(choice.options[0]);
+}
+
+function strongestRequestSlot(candidates: readonly PersonId[]): 'supportive' | 'controlling' | 'handsOff' {
+  const slots = ['supportive', 'controlling', 'handsOff'] as const;
+  return slots.map((slot, index) => ({ slot, behavior: adaptAcademicPerson(candidates[index]!, 'phd-supervisor') }))
+    .sort((a, b) => (b.behavior.assignmentPressure * .62 + b.behavior.laborExtraction * .38) - (a.behavior.assignmentPressure * .62 + a.behavior.laborExtraction * .38))[0]!.slot;
 }

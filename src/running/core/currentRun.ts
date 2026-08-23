@@ -23,9 +23,33 @@ export function loadCurrentRun(storage: CurrentRunStorage | null = browserStorag
   if (!storage) return null;
   let parsed: unknown;
   try { parsed = JSON.parse(storage.getItem(CURRENT_RUN_STORAGE_KEY) ?? 'null'); } catch { parsed = null; }
+  parsed = migrateCurrentRunV1(parsed);
   if (isCurrentRunV1(parsed)) return parsed;
   if (storage.getItem(CURRENT_RUN_STORAGE_KEY) !== null) storage.removeItem(CURRENT_RUN_STORAGE_KEY);
   return null;
+}
+
+/** Additive in-memory migration for checkpoints created before cast/recovery authority. */
+export function migrateCurrentRunV1(value: unknown): unknown {
+  if (!record(value) || !record(value.simulation)) return value;
+  const migrated = structuredClone(value) as Record<string, any>;
+  const simulation = migrated.simulation as Record<string, any>;
+  if (migrated.world === 'phd' && record(simulation.phd) && record(simulation.phd.state)) {
+    const state = simulation.phd.state;
+    if (state.supervisorCandidates === undefined) state.supervisorCandidates = ['mei', 'rowan', 'lin'];
+    if (state.recoveryOffered === undefined) state.recoveryOffered = false;
+    if (state.recoveryOutcome === undefined) state.recoveryOutcome = 'none';
+    if (state.recoveredFromLow === undefined) state.recoveredFromLow = false;
+  }
+  if ((migrated.world === 'master' || migrated.world === 'work')) {
+    if (simulation.masterCandidates === undefined) simulation.masterCandidates = ['mei', 'rowan', 'lin'];
+    if (simulation.recoveryOffered === undefined) simulation.recoveryOffered = false;
+    if (simulation.recoveryOutcome === undefined) simulation.recoveryOutcome = 'none';
+    if (simulation.recoveredFromLow === undefined) simulation.recoveredFromLow = false;
+    if (simulation.protectFocusUsed === undefined) simulation.protectFocusUsed = false;
+    if (simulation.changedDirection === undefined) simulation.changedDirection = false;
+  }
+  return migrated;
 }
 
 export function saveCurrentRun(run: CurrentRunV1, storage: CurrentRunStorage | null = browserStorage()): void {
@@ -63,14 +87,15 @@ function validPhdSimulation(s: Record<string, unknown>): boolean {
 }
 
 function validScenarioSimulation(s: Record<string, unknown>, world: 'master' | 'work'): boolean {
-  if (!exactKeys(s, ['rngState', 'nextId', 'time', 'spawnTimer', 'shotTimer', 'eventAt', 'eventPhase', 'eventRemaining', 'eventKind', 'nextChoiceAt', 'climaxPhase', 'climaxProgress', 'climaxBossSpawned', 'completed', 'gameOver', 'defeated', 'energy', 'focus', 'spirit', 'calendar', 'progress', 'choice', 'masterSupervisor', 'masterCareerPlan', 'masterProposalPhase', 'masterProposalRemaining', 'masterProposalProgress', 'masterProposalRosterInitialized', 'workStage', 'managerId', 'marketStrength', 'experience', 'careerTime', 'workConversionScore', 'promotionProgress', 'conversionChoiceShown', 'nextMarketAt', 'nextConversionAt', 'nextClimaxAt', 'relationships', 'activePriority', 'priorityRemaining', 'enemies', 'projectiles', 'pickups', 'player'])) return false;
+  if (!exactKeys(s, ['rngState', 'nextId', 'time', 'spawnTimer', 'shotTimer', 'eventAt', 'eventPhase', 'eventRemaining', 'eventKind', 'nextChoiceAt', 'climaxPhase', 'climaxProgress', 'climaxBossSpawned', 'completed', 'gameOver', 'defeated', 'energy', 'focus', 'spirit', 'calendar', 'progress', 'choice', 'masterSupervisor', 'masterCareerPlan', 'masterProposalPhase', 'masterProposalRemaining', 'masterProposalProgress', 'masterProposalRosterInitialized', 'workStage', 'managerId', 'marketStrength', 'experience', 'careerTime', 'workConversionScore', 'promotionProgress', 'conversionChoiceShown', 'nextMarketAt', 'nextConversionAt', 'nextClimaxAt', 'relationships', 'masterCandidates', 'recoveryOffered', 'recoveryOutcome', 'recoveredFromLow', 'protectFocusUsed', 'changedDirection', 'activePriority', 'priorityRemaining', 'enemies', 'projectiles', 'pickups', 'player'])) return false;
   const numbers = ['nextId', 'time', 'spawnTimer', 'shotTimer', 'eventAt', 'eventRemaining', 'nextChoiceAt', 'climaxProgress', 'defeated', 'energy', 'focus', 'spirit', 'calendar', 'progress', 'masterProposalRemaining', 'masterProposalProgress', 'marketStrength', 'experience', 'careerTime', 'workConversionScore', 'promotionProgress', 'nextMarketAt', 'nextConversionAt', 'nextClimaxAt', 'priorityRemaining'];
   if (!finiteKeys(s, numbers) || !safeInteger(s.rngState, 0, 0xffffffff) || !safeInteger(s.nextId, 1, 1e9) || !safeInteger(s.defeated, 0, 1e9)) return false;
-  if (!boolKeys(s, ['climaxBossSpawned', 'completed', 'gameOver', 'masterProposalRosterInitialized', 'conversionChoiceShown'])) return false;
+  if (!boolKeys(s, ['climaxBossSpawned', 'completed', 'gameOver', 'masterProposalRosterInitialized', 'conversionChoiceShown', 'recoveryOffered', 'recoveredFromLow', 'protectFocusUsed', 'changedDirection'])) return false;
   if (!['idle', 'telegraph', 'active'].includes(String(s.eventPhase)) || !['none', 'termRush', 'daily', 'weekly'].includes(String(s.eventKind)) || !['none', 'telegraph', 'active'].includes(String(s.climaxPhase))) return false;
   if (typeof s.activePriority !== 'string' || s.activePriority.length > 8 || !validPlayer(s.player)) return false;
   if (!enumValue(s.masterSupervisor, [null, ...PERSON_IDS]) || !enumValue(s.masterCareerPlan, [null, ...CAREER_PLANS]) || !enumValue(s.masterProposalPhase, MASTER_PROPOSAL_PHASES)) return false;
   if (!enumValue(s.workStage, WORK_STAGES) || !enumValue(s.managerId, [null, ...MANAGER_IDS]) || !validScenarioChoice(s.choice, world) || !validRelationships(s.relationships)) return false;
+  if (!enumValue(s.recoveryOutcome, ['none', 'takeBreak', 'keepPushing']) || !uniqueEnumArray(s.masterCandidates, PERSON_IDS) || (s.masterCandidates as unknown[]).length !== 3) return false;
   if (!safeInteger(s.masterProposalProgress, 0, 6) || !safeInteger(s.climaxProgress, 0, world === 'master' ? 5 : 16)) return false;
   if (world === 'master' && (s.workStage !== 'offers' || s.managerId !== null || s.conversionChoiceShown !== false)) return false;
   if (world === 'work' && (s.masterSupervisor !== null || s.masterCareerPlan !== null || s.masterProposalPhase !== 'none' || s.masterProposalRosterInitialized !== false || s.masterProposalProgress !== 0)) return false;
@@ -82,7 +107,7 @@ function validScenarioSimulation(s: Record<string, unknown>, world: 'master' | '
 const PROJECT_IDS = ['replication', 'riskyIdea', 'helping', 'prestige'] as const;
 const SUPERVISOR_IDS = ['supportive', 'controlling', 'handsOff'] as const;
 const LIFESTYLE_IDS = ['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime'] as const;
-const PERSON_IDS = ['mei', 'rowan', 'lin'] as const;
+const PERSON_IDS = ['mei', 'rowan', 'lin', 'cl-au', 'rs-hd', 'wm-lg', 'ex-la', 'st-ct', 'fr-cd', 'op-vl', 'pr-hp'] as const;
 const CAREER_PLANS = ['researchPhd', 'employment', 'undecided'] as const;
 const MANAGER_IDS = ['clear-builder', 'opaque-driver', 'steady-coach'] as const;
 const STABLE_PERSON_IDS = [...PERSON_IDS, 'mara', 'dax', 'noa'] as const;
@@ -90,19 +115,22 @@ const WORK_STAGES = ['offers', 'trial', 'conversion', 'employed', 'promotion'] a
 const MASTER_PROPOSAL_PHASES = ['none', 'preparation', 'rehearsal', 'presentation', 'complete'] as const;
 
 function validPhdState(state: Record<string, unknown>): boolean {
-  if (!exactKeys(state, ['energy', 'focus', 'spirit', 'calendarLoad', 'signal', 'noise', 'pollution', 'logic', 'clarity', 'boundary', 'purpose', 'connection', 'evidence', 'year', 'seasonPulse', 'annualReviews', 'supervisorId', 'supervisorPersonId', 'supervisorFeedback', 'lifestyle', 'activeProject', 'completedProjects', 'independentResearch', 'assignedLabor', 'supervisorRequests', 'lastBoundaryReaction', 'relationship', 'thesisStage', 'qualifying', 'annualMilestone', 'preDefense', 'revisionRemaining', 'defense', 'choice', 'milestone', 'graduated', 'terminal'])) return false;
+  if (!exactKeys(state, ['energy', 'focus', 'spirit', 'calendarLoad', 'signal', 'noise', 'pollution', 'logic', 'clarity', 'boundary', 'purpose', 'connection', 'evidence', 'year', 'seasonPulse', 'annualReviews', 'supervisorId', 'supervisorPersonId', 'supervisorCandidates', 'supervisorFeedback', 'lifestyle', 'activeProject', 'completedProjects', 'independentResearch', 'assignedLabor', 'supervisorRequests', 'lastBoundaryReaction', 'relationship', 'recoveryOffered', 'recoveryOutcome', 'recoveredFromLow', 'thesisStage', 'qualifying', 'annualMilestone', 'preDefense', 'revisionRemaining', 'defense', 'choice', 'milestone', 'graduated', 'terminal'])) return false;
   if (!enumValue(state.supervisorId, [null, ...SUPERVISOR_IDS]) || !enumValue(state.supervisorPersonId, [null, ...PERSON_IDS])) return false;
   if (!enumValue(state.lastBoundaryReaction, ['none', 'respected', 'strained']) || !enumValue(state.thesisStage, ['seed', 'sapling', 'tree', 'bloom'])) return false;
   if (!enumValue(state.qualifying, ['locked', 'ready', 'passed']) || !enumValue(state.preDefense, ['hidden', 'ready', 'passed']) || !enumValue(state.defense, ['hidden', 'visible', 'ready', 'passed'])) return false;
   if (!enumValue(state.terminal, ['ongoing', 'finalYear', 'ended', 'graduated']) || typeof state.graduated !== 'boolean') return false;
+  if (!uniqueEnumArray(state.supervisorCandidates, PERSON_IDS) || (state.supervisorCandidates as unknown[]).length !== 3 || typeof state.recoveryOffered !== 'boolean' || typeof state.recoveredFromLow !== 'boolean' || !enumValue(state.recoveryOutcome, ['none', 'takeBreak', 'keepPushing'])) return false;
   if (!nullableNumericRecord(state.supervisorFeedback, ['signal', 'noise', 'remaining'])) return false;
   if (!nullableTaggedRecord(state.lifestyle, 'id', LIFESTYLE_IDS, ['remaining'])) return false;
   if (!validActiveProject(state.activeProject)) return false;
   if (!nullableTaggedRecord(state.annualMilestone, 'kind', ['firstYearTalk', 'proposal', 'annualCommittee'], ['completedYear', 'remaining'])) return false;
   if (!validPhdChoice(state.choice) || !validMilestone(state.milestone)) return false;
   if (state.supervisorId === null !== (state.supervisorPersonId === null)) return false;
-  const personForSupervisor = { supportive: 'mei', controlling: 'rowan', handsOff: 'lin' } as const;
-  if (state.supervisorId !== null && state.supervisorPersonId !== personForSupervisor[state.supervisorId as keyof typeof personForSupervisor]) return false;
+  if (state.supervisorId !== null) {
+    const index = { supportive: 0, controlling: 1, handsOff: 2 }[state.supervisorId as 'supportive' | 'controlling' | 'handsOff'];
+    if (state.supervisorPersonId !== (state.supervisorCandidates as unknown[])[index]) return false;
+  }
   return true;
 }
 
@@ -117,7 +145,7 @@ function validPhdChoice(value: unknown): boolean {
   if (!record(value) || typeof value.kind !== 'string') return false;
   const options: Record<string, readonly unknown[]> = {
     project: PROJECT_IDS, supervisor: SUPERVISOR_IDS, lifestyle: LIFESTYLE_IDS,
-    supervisorRequest: ['accept', 'setBoundary', 'decline'], qualifying: ['attempt', 'defer'],
+    supervisorRequest: ['accept', 'setBoundary', 'decline'], recovery: ['takeBreak', 'keepPushing'], qualifying: ['attempt', 'defer'],
     preDefense: ['attempt', 'defer'], defense: ['attempt', 'defer'],
   };
   return exactKeys(value, ['kind', 'options']) && value.kind in options && exactArray(value.options, options[value.kind]);
@@ -141,8 +169,11 @@ function validScenarioChoice(value: unknown, world: 'master' | 'work'): boolean 
     careerPlan: CAREER_PLANS, workOffer: ['offer-a', 'offer-b', 'offer-c'],
     workConversion: ['continue', 'leaveSearch'], workPriority: ['protectFocus', 'acceptRush'],
   };
-  const allowedKinds = world === 'master' ? ['masterTrack', 'masterSupervisor', 'careerPlan'] : ['workOffer', 'workConversion', 'workPriority'];
-  return exactKeys(value, ['kind', 'options']) && allowedKinds.includes(value.kind) && exactArray(value.options, options[value.kind]);
+  const allowedKinds = world === 'master' ? ['masterTrack', 'masterSupervisor', 'careerPlan', 'recovery'] : ['workOffer', 'workConversion', 'workPriority', 'recovery'];
+  if (!exactKeys(value, ['kind', 'options']) || !allowedKinds.includes(value.kind)) return false;
+  if (value.kind === 'masterSupervisor') return uniqueEnumArray(value.options, PERSON_IDS) && (value.options as unknown[]).length === 3;
+  if (value.kind === 'recovery') return exactArray(value.options, ['takeBreak', 'keepPushing']);
+  return exactArray(value.options, options[value.kind]);
 }
 
 function phdEnemyArray(value: unknown): boolean {

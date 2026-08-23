@@ -1,5 +1,5 @@
 import { parseBossConfig, type BossConfigV1 } from './bossSchema';
-import { CURRENT_RUN_STORAGE_KEY, isCurrentRunV1, type CurrentRunV1 } from './currentRun';
+import { CURRENT_RUN_STORAGE_KEY, isCurrentRunV1, migrateCurrentRunV1, type CurrentRunV1 } from './currentRun';
 import { parsePersonCore, type PersonCoreV1 } from './personScience';
 import { DEFAULT_RUNNING_SAVE, RUNNING_STORAGE_KEY, loadRunningSave, parseRunningSaveV2, type RunningSaveV2, type StoredBossMetadata } from './save';
 import { RunningSimulation } from './simulation';
@@ -31,6 +31,11 @@ export interface ImportPreview {
   totalRuns: number;
   people: number;
   bosses: number;
+  journeys: number;
+  medals: number;
+  storyMarks: number;
+  musicStyle: RunningSaveV2['musicStyle'];
+  restSessions: number;
 }
 
 export interface PortabilityStorage {
@@ -58,8 +63,9 @@ export function parseRunningSaveBundle(json: string): { ok: true; value: Running
   if (!validIsoDate(value.exportedAt)) return { ok: false, errors: ['exportedAt: expected an ISO date.'] };
   const meta = parseRunningSaveV2(value.meta);
   if (!meta.ok) return { ok: false, errors: meta.errors };
-  if (value.currentRun !== null && !isCurrentRunV1(value.currentRun)) return { ok: false, errors: ['currentRun: invalid Running checkpoint.'] };
-  const currentRun = value.currentRun === null ? null : normalizeCurrentRun(value.currentRun);
+  const migratedRun = value.currentRun === null ? null : migrateCurrentRunV1(value.currentRun);
+  if (migratedRun !== null && !isCurrentRunV1(migratedRun)) return { ok: false, errors: ['currentRun: invalid Running checkpoint.'] };
+  const currentRun = migratedRun === null ? null : normalizeCurrentRun(migratedRun);
   if (value.currentRun !== null && currentRun === null) return { ok: false, errors: ['currentRun: unknown or non-authoritative fields are not allowed.'] };
   const bundle: RunningSaveBundleV1 = { schema: SAVE_BUNDLE_SCHEMA, version: 1, exportedAt: value.exportedAt, meta: meta.value, currentRun };
   return { ok: true, value: bundle, preview: previewRunningBundle(bundle) };
@@ -67,7 +73,7 @@ export function parseRunningSaveBundle(json: string): { ok: true; value: Running
 
 export function previewRunningBundle(bundle: RunningSaveBundleV1): ImportPreview {
   const simulation = bundle.currentRun?.simulation as { time?: number } | undefined;
-  return { world: bundle.currentRun?.world ?? null, difficulty: bundle.currentRun?.difficulty ?? null, simulationTime: typeof simulation?.time === 'number' ? simulation.time : null, totalRuns: bundle.meta.totalRuns, people: bundle.meta.customPeople.length, bosses: bundle.meta.customBosses.length };
+  return { world: bundle.currentRun?.world ?? null, difficulty: bundle.currentRun?.difficulty ?? null, simulationTime: typeof simulation?.time === 'number' ? simulation.time : null, totalRuns: bundle.meta.totalRuns, people: bundle.meta.customPeople.length, bosses: bundle.meta.customBosses.length, journeys: bundle.meta.journeyHistory.length, medals: bundle.meta.achievements.length, storyMarks: bundle.meta.storyMarks.length, musicStyle: bundle.meta.musicStyle, restSessions: bundle.meta.aggregateStats.restSessions };
 }
 
 /** Fully validate before writing; roll back both Running keys on any write/verify failure. */
@@ -151,9 +157,8 @@ function normalizeCurrentRun(run: CurrentRunV1): CurrentRunV1 | null {
     ? new RunningSimulation(run.seed, { difficulty: run.difficulty, restore: run.simulation }).exportState()
     : new ScenarioSimulation(run.world, run.seed, run.difficulty, { restore: run.simulation }).exportState();
   const normalized = { ...run, simulation } as CurrentRunV1;
-  // Relationship fields were additive to the existing v1 checkpoint. Explicitly
-  // migrate their absence, then compare against an engine re-export so unknown or
-  // non-authoritative nested fields cannot ride inside an otherwise valid envelope.
+  // Re-export through engine authority so unknown or non-authoritative nested fields
+  // cannot ride inside an otherwise valid envelope.
   if (run.world === 'phd') {
     const phdState = (supplied.simulation as ReturnType<RunningSimulation['exportState']>).phd.state;
     if (phdState.relationship === undefined) phdState.relationship = (simulation as ReturnType<RunningSimulation['exportState']>).phd.state.relationship;

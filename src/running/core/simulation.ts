@@ -1,5 +1,6 @@
 import { createRng, type SeededRng } from './rng';
 import { PhdSystems, resourceModifiers, type PhdSnapshot, type PhdSystemsStateV1 } from './phdSystems';
+import { academicCandidatesForSeed } from './people';
 import { adjustEnemyDamage, adjustEnemySpeed, adjustSpawnInterval, adjustTelegraphDuration, type RunningDifficulty } from './difficulty';
 
 export const RUNNING_WORLD = { width: 1280, height: 720 } as const;
@@ -124,7 +125,7 @@ export class RunningSimulation {
   constructor(seed = 0xbea72026, options: RunningSimulationOptions = {}) {
     this.rng = createRng(seed, options.restore?.rngState);
     this.difficulty = options.difficulty ?? 'garden';
-    this.phd = new PhdSystems({ milestoneTimingScale: this.difficulty === 'sprout' ? 1.2 : this.difficulty === 'storm' ? .78 : 1, ...(options.restore ? { restore: options.restore.phd } : {}) });
+    this.phd = new PhdSystems({ milestoneTimingScale: this.difficulty === 'sprout' ? 1.2 : this.difficulty === 'storm' ? .78 : 1, supervisorCandidates: academicCandidatesForSeed(seed), ...(options.restore ? { restore: options.restore.phd } : {}) });
     this.automaticOffense = options.automaticOffense ?? true;
     if (options.restore) {
       this.restore(options.restore);
@@ -197,7 +198,7 @@ export class RunningSimulation {
     return true;
   }
 
-  startChoiceReview(kind: 'supervisor' | 'lifestyle'): void {
+  startChoiceReview(kind: 'supervisor' | 'lifestyle' | 'recovery'): void {
     this.phd.startReviewChoice(kind);
   }
 

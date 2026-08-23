@@ -1,6 +1,9 @@
 import { PERSON_SCHEMA, defaultRelationship, derivePersonBehavior, type PersonBehavior, type PersonCoreV1, type RelationshipStateV1, type RoleProfile, type SituationState } from './personScience';
 
-export type PersonId = 'mei' | 'rowan' | 'lin';
+export const DEFAULT_ACADEMIC_CAST = ['cl-au', 'rs-hd', 'wm-lg', 'ex-la', 'st-ct', 'fr-cd', 'op-vl', 'pr-hp'] as const;
+export type DefaultAcademicPersonId = typeof DEFAULT_ACADEMIC_CAST[number];
+export type LegacyAcademicPersonId = 'mei' | 'rowan' | 'lin';
+export type PersonId = LegacyAcademicPersonId | DefaultAcademicPersonId;
 export type ManagerPersonId = 'mara' | 'dax' | 'noa';
 export type StablePersonId = PersonId | ManagerPersonId;
 export type AcademicRole = 'phd-supervisor' | 'master-supervisor';
@@ -26,6 +29,14 @@ export const PERSON_CORES: Record<StablePersonId, PersonCoreV1> = {
   mara: core('mara', 'Mara', '玛拉', [.62, .82, .58, .71, .28], [.82, .84, .76, .68]),
   dax: core('dax', 'Dax', '达克斯', [.7, .86, .8, .34, .69], [.42, .4, .3, .28]),
   noa: core('noa', 'Noa', '诺亚', [.8, .56, .38, .76, .2], [.84, .82, .86, .8]),
+  'cl-au': core('cl-au', 'CL-AU', 'CL-AU', [.71, .78, .48, .68, .31], [.82, .84, .78, .7]),
+  'rs-hd': core('rs-hd', 'RS-HD', 'RS-HD', [.76, .9, .62, .43, .54], [.55, .5, .46, .42]),
+  'wm-lg': core('wm-lg', 'WM-LG', 'WM-LG', [.63, .66, .42, .72, .36], [.77, .75, .72, .69]),
+  'ex-la': core('ex-la', 'EX-LA', 'EX-LA', [.91, .51, .33, .64, .39], [.73, .69, .76, .74]),
+  'st-ct': core('st-ct', 'ST-CT', 'ST-CT', [.52, .86, .46, .57, .27], [.8, .82, .79, .68]),
+  'fr-cd': core('fr-cd', 'FR-CD', 'FR-CD', [.68, .81, .71, .39, .65], [.43, .38, .34, .31]),
+  'op-vl': core('op-vl', 'OP-VL', 'OP-VL', [.84, .44, .28, .75, .22], [.86, .83, .88, .8]),
+  'pr-hp': core('pr-hp', 'PR-HP', 'PR-HP', [.73, .92, .76, .35, .7], [.4, .36, .28, .29]),
 };
 
 const ACADEMIC_ROLE_PROFILES: Record<AcademicRole, Record<PersonId, RoleProfile>> = {
@@ -33,16 +44,33 @@ const ACADEMIC_ROLE_PROFILES: Record<AcademicRole, Record<PersonId, RoleProfile>
     mei: role(.9, .88, .76, .82, .36, .86, .9, .86, .9, .78),
     rowan: role(.97, .48, .92, .84, .88, .26, .2, .42, .3, .9),
     lin: role(.64, .5, .38, .34, .32, .9, .92, .78, .74, .72),
+    'cl-au': role(.86, .83, .7, .9, .42, .88, .84, .82, .84, .75),
+    'rs-hd': role(.94, .67, .91, .68, .78, .52, .48, .58, .61, .88),
+    'wm-lg': role(.82, .78, .63, .72, .48, .72, .76, .77, .79, .73),
+    'ex-la': role(.9, .61, .48, .58, .38, .91, .82, .71, .76, .7),
+    'st-ct': role(.79, .86, .69, .84, .55, .63, .79, .8, .82, .76),
+    'fr-cd': role(.96, .58, .88, .62, .9, .32, .25, .4, .38, .91),
+    'op-vl': role(.76, .49, .36, .43, .28, .94, .91, .84, .86, .68),
+    'pr-hp': role(.98, .52, .95, .71, .92, .29, .22, .35, .34, .94),
   },
   'master-supervisor': {
     mei: role(.88, .78, .7, .76, .42, .68, .86, .84, .86, .66),
     rowan: role(.94, .56, .84, .8, .72, .4, .3, .48, .4, .74),
     lin: role(.62, .62, .34, .42, .28, .72, .9, .78, .78, .58),
+    'cl-au': role(.84, .8, .68, .88, .38, .82, .86, .83, .86, .64),
+    'rs-hd': role(.91, .71, .86, .7, .65, .58, .56, .63, .68, .72),
+    'wm-lg': role(.8, .81, .59, .76, .42, .7, .8, .8, .82, .62),
+    'ex-la': role(.87, .68, .44, .62, .34, .86, .84, .75, .8, .58),
+    'st-ct': role(.77, .84, .66, .86, .48, .66, .82, .82, .84, .66),
+    'fr-cd': role(.93, .62, .82, .64, .76, .4, .34, .48, .46, .79),
+    'op-vl': role(.74, .58, .33, .48, .26, .88, .92, .86, .88, .57),
+    'pr-hp': role(.95, .55, .9, .72, .82, .36, .3, .43, .42, .84),
   },
 };
 
 /** Compatibility view retained for existing presentation and Boss adapters. */
-export const ACADEMIC_PEOPLE = Object.fromEntries((['mei', 'rowan', 'lin'] as const).map((id) => {
+const ALL_ACADEMIC_PERSON_IDS: readonly PersonId[] = ['mei', 'rowan', 'lin', ...DEFAULT_ACADEMIC_CAST];
+export const ACADEMIC_PEOPLE = Object.fromEntries(ALL_ACADEMIC_PERSON_IDS.map((id) => {
   const profile = ACADEMIC_ROLE_PROFILES['phd-supervisor'][id];
   return [id, {
     id, expertise: profile.expertise, resources: profile.resourceAccess, clarity: profile.communicationClarity,
@@ -54,6 +82,43 @@ export const ACADEMIC_PEOPLE = Object.fromEntries((['mei', 'rowan', 'lin'] as co
 
 export function academicRoleProfile(personId: PersonId, roleId: AcademicRole): RoleProfile {
   return { ...ACADEMIC_ROLE_PROFILES[roleId][personId] };
+}
+
+export interface PublicAcademicProfile { code: string; qualities: readonly [string, string, string]; uncertainty: 'low' | 'medium' | 'high' }
+const PUBLIC_ACADEMIC: Record<DefaultAcademicPersonId, PublicAcademicProfile> = {
+  'cl-au': { code: 'CL-AU', qualities: ['clarity', 'autonomy', 'access'], uncertainty: 'low' },
+  'rs-hd': { code: 'RS-HD', qualities: ['resources', 'structure', 'demand'], uncertainty: 'medium' },
+  'wm-lg': { code: 'WM-LG', qualities: ['weekly', 'development', 'stability'], uncertainty: 'low' },
+  'ex-la': { code: 'EX-LA', qualities: ['exploration', 'autonomy', 'cross-field'], uncertainty: 'medium' },
+  'st-ct': { code: 'ST-CT', qualities: ['structure', 'clarity', 'development'], uncertainty: 'low' },
+  'fr-cd': { code: 'FR-CD', qualities: ['resources', 'career', 'demand'], uncertainty: 'high' },
+  'op-vl': { code: 'OP-VL', qualities: ['autonomy', 'exploration', 'low-contact'], uncertainty: 'medium' },
+  'pr-hp': { code: 'PR-HP', qualities: ['prestige', 'resources', 'high-pace'], uncertainty: 'high' },
+};
+
+export function academicPublicProfile(personId: PersonId): PublicAcademicProfile {
+  if (personId in PUBLIC_ACADEMIC) return PUBLIC_ACADEMIC[personId as DefaultAcademicPersonId];
+  return { code: PERSON_CORES[personId].name.en.toUpperCase(), qualities: ['legacy', 'known', 'stable'], uncertainty: 'low' };
+}
+
+/** Deterministic selection without consuming gameplay RNG. */
+export function academicCandidatesForSeed(seed: number): readonly [DefaultAcademicPersonId, DefaultAcademicPersonId, DefaultAcademicPersonId] {
+  const pool = [...DEFAULT_ACADEMIC_CAST];
+  let value = seed >>> 0;
+  for (let index = pool.length - 1; index > 0; index -= 1) {
+    value = hash32(value + index * 0x9e3779b9);
+    const target = value % (index + 1);
+    [pool[index], pool[target]] = [pool[target]!, pool[index]!];
+  }
+  return [pool[0]!, pool[1]!, pool[2]!];
+}
+
+export function seededAcademicBackground(personId: PersonId, seed: number, locale: 'zh-CN' | 'en'): string {
+  const career = locale === 'zh-CN' ? ['职业早期', '职业中期', '资深阶段'] : ['Early career', 'Mid-career', 'Senior stage'];
+  const group = locale === 'zh-CN' ? ['小型团队', '中型团队', '大型团队'] : ['Small group', 'Medium group', 'Large group'];
+  const context = locale === 'zh-CN' ? ['每周一对一沟通', '组会较多', '沟通多由团队成员协助', '近期进入相邻研究方向', '正处在经费续期阶段', '目前处于稳定期'] : ['Weekly one-to-one meetings', 'Meeting-heavy rhythm', 'Communication is partly delegated', 'Moving into an adjacent field', 'Working through a funding renewal', 'Currently in a stable period'];
+  const value = hashText(`${seed}:${personId}`);
+  return `${career[value % career.length]} · ${group[(value >>> 5) % group.length]}。${context[(value >>> 11) % context.length]}。`;
 }
 
 export function academicPersonBehavior(personId: PersonId, roleId: AcademicRole, relationship: RelationshipStateV1 = defaultRelationship(), situation: SituationState = { workload: .45, pressure: .4, scarcity: .35, stakes: .5 }, seededRoll = .5): PersonBehavior {
@@ -86,3 +151,5 @@ function role(expertise: number, mentoringSkill: number, resourceAccess: number,
   return { expertise, mentoringSkill, resourceAccess, communicationClarity, demandLevel, autonomySupport, boundaryRespect, allocationFairness, emotionalSafety, powerAsymmetry };
 }
 function clamp01(value: number): number { return Math.max(0, Math.min(1, value)); }
+function hash32(value: number): number { value = Math.imul(value ^ (value >>> 16), 0x45d9f3b); value = Math.imul(value ^ (value >>> 16), 0x45d9f3b); return (value ^ (value >>> 16)) >>> 0; }
+function hashText(value: string): number { let hash = 2166136261; for (const character of value) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619); return hash >>> 0; }

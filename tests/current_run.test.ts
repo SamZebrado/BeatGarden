@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { clearCurrentRun, CURRENT_RUN_STORAGE_KEY, loadCurrentRun, saveCurrentRun, type CurrentRunV1 } from '../src/running/core/currentRun';
 import { RunningSimulation } from '../src/running/core/simulation';
 import { ScenarioSimulation } from '../src/running/core/scenarioSimulation';
+import { adaptAcademicPerson, type PersonId } from '../src/running/core/people';
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -77,11 +78,12 @@ describe('versioned current Running run', () => {
   it('restores PhD supervisor, project, assigned labor, boundary, lifestyle, year, and milestone authority', () => {
     const original = new RunningSimulation(17, { automaticOffense: false });
     original.startChoiceReview('supervisor');
-    original.choosePhdOption('controlling');
+    const selectedSlot = strongestRequestSlot(original.snapshot().phd.supervisorCandidates);
+    original.choosePhdOption(selectedSlot);
     runPhd(original, 760);
     if (original.snapshot().phd.choice?.kind === 'project') original.choosePhdOption('riskyIdea');
-    original.startSupervisorFeedbackReview('controlling');
-    original.startSupervisorFeedbackReview('controlling');
+    original.startSupervisorFeedbackReview(selectedSlot);
+    original.startSupervisorFeedbackReview(selectedSlot);
     expect(original.snapshot().phd.choice?.kind).toBe('supervisorRequest');
     original.choosePhdOption('accept');
     original.startChoiceReview('lifestyle');
@@ -89,7 +91,8 @@ describe('versioned current Running run', () => {
     original.startMilestoneReview('qualifying');
     const restored = new RunningSimulation(17, { automaticOffense: false, restore: original.exportState() });
     expect(restored.snapshot().phd).toEqual(original.snapshot().phd);
-    expect(restored.snapshot().phd).toMatchObject({ supervisorId: 'controlling', assignedLabor: 14, lifestyle: { id: 'exercise' }, milestone: { kind: 'qualifying' } });
+    expect(restored.snapshot().phd).toMatchObject({ supervisorId: selectedSlot, lifestyle: { id: 'exercise' }, milestone: { kind: 'qualifying' } });
+    expect(restored.snapshot().phd.assignedLabor).toBeGreaterThan(0);
   });
 
   it('restores Qualifying at exactly five of nine targets, never replenishes, then passes once', () => {
@@ -207,7 +210,7 @@ describe('versioned current Running run', () => {
     for (const corrupt of [
       (run: any) => { run.simulation.masterProposalPhase = 'nonsense'; },
       (run: any) => { run.simulation.masterSupervisor = 'garbage'; },
-      (run: any) => { run.simulation.relationships.mei.unresolvedConflict = -1; },
+      (run: any) => { run.simulation.relationships[run.simulation.masterSupervisor].unresolvedConflict = -1; },
       (run: any) => { run.simulation.masterProposalProgress += 1; },
       (run: any) => { run.simulation.enemies[0].source = 'ambient'; },
       (run: any) => { run.simulation.choice = { kind: 'workOffer', options: ['offer-a', 'offer-b', 'offer-c'] }; },
@@ -263,4 +266,10 @@ function authoritativePhd(snapshot: ReturnType<RunningSimulation['snapshot']>) {
 
 function authoritativeScenario(snapshot: ReturnType<ScenarioSimulation['snapshot']>) {
   return { ...snapshot, enemies: snapshot.enemies.map((enemy) => ({ ...enemy, flash: 0 })) };
+}
+
+function strongestRequestSlot(candidates: readonly PersonId[]): 'supportive' | 'controlling' | 'handsOff' {
+  const slots = ['supportive', 'controlling', 'handsOff'] as const;
+  return slots.map((slot, index) => ({ slot, behavior: adaptAcademicPerson(candidates[index]!, 'phd-supervisor') }))
+    .sort((a, b) => (b.behavior.assignmentPressure * .62 + b.behavior.laborExtraction * .38) - (a.behavior.assignmentPressure * .62 + a.behavior.laborExtraction * .38))[0]!.slot;
 }

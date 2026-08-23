@@ -1,11 +1,12 @@
 import { t } from '../i18n/strings';
 import { promotedPlayerBoss, type PromotedPlayerSnapshot } from './core/bossSchema';
-import { loadRunningSave, updateRunningSave, type StoredBossMetadata } from './core/save';
+import { attachPromotedBossToJourney, loadRunningSave, updateRunningSave, type StoredBossMetadata } from './core/save';
 
 /** Explicit post-completion action: a run never creates a Boss until the player chooses this. */
 export class PromotionAction {
   private readonly button: HTMLButtonElement;
   private snapshot: PromotedPlayerSnapshot | null = null;
+  private journeyRecordId: string | null = null;
 
   constructor(root: HTMLElement, private readonly textOff: boolean) {
     this.button = document.createElement('button');
@@ -16,9 +17,10 @@ export class PromotionAction {
     root.appendChild(this.button);
   }
 
-  show(snapshot: PromotedPlayerSnapshot): void {
+  show(snapshot: PromotedPlayerSnapshot, journeyRecordId: string | null = null): void {
     if (this.snapshot) return;
     this.snapshot = { ...snapshot };
+    this.journeyRecordId = journeyRecordId;
     this.button.textContent = this.textOff ? '✦ +' : `✦  ${t('running.promoteBoss')}`;
     this.button.setAttribute('aria-label', t('running.promoteBoss'));
     this.button.style.display = 'block';
@@ -26,6 +28,7 @@ export class PromotionAction {
 
   hide(): void {
     this.snapshot = null;
+    this.journeyRecordId = null;
     this.button.style.display = 'none';
     this.button.disabled = false;
   }
@@ -45,6 +48,7 @@ export class PromotionAction {
       data: config,
     };
     updateRunningSave({ customBosses: [...current.customBosses.filter((boss) => boss.id !== config.id), metadata] });
+    attachPromotedBossToJourney(this.journeyRecordId, config.id);
     this.button.disabled = true;
     this.button.textContent = this.textOff ? '✦ ✓' : `✓  ${t('running.promoteBossSaved')}`;
   };

@@ -1,8 +1,8 @@
 import { AudioEngine } from '../audio/AudioEngine';
 import { Synth, type SoundName } from '../audio/Synth';
 import { t } from '../i18n/strings';
-import { loadSettings } from '../settings/settings';
 import { loadRunningSave, updateRunningSave, type RunningWorld } from './core/save';
+import type { DynamicIntensity, MusicStyle } from './core/journal';
 
 type RunningAudioEngine = Pick<AudioEngine, 'state' | 'now' | 'unlockFromUserGesture' | 'setMusicVolume' | 'setSfxVolume' | 'close'>;
 type RunningSynth = Pick<Synth, 'play'>;
@@ -15,6 +15,12 @@ export const RUNNING_MUSIC_IDENTITIES = {
   master: { notes: [220, 277, 330, 370], spacing: .42, patch: 'pluck' as SoundName },
   work: { notes: [110, 110, 147, 123], spacing: .52, patch: 'bass' as SoundName },
 } as const;
+
+export const RUNNING_MUSIC_STYLES: Record<MusicStyle, { patch: SoundName; spacingScale: number; noteScale: number; baseVelocity: number }> = {
+  classic: { patch: 'bell', spacingScale: 1, noteScale: 1, baseVelocity: .12 },
+  chiptune: { patch: 'lead', spacingScale: .72, noteScale: 1, baseVelocity: .09 },
+  organic: { patch: 'bell', spacingScale: 1.55, noteScale: .5, baseVelocity: .1 },
+};
 
 export const RUNNING_CUES: Partial<Record<RunningAudioEvent, readonly [SoundName, number, number, number]>> = {
   hit: ['pluck', 350, .06, .12], defeat: ['pluck', 520, .1, .2], pickup: ['bell', 760, .18, .18], orbit: ['bell', 920, .35, .28],
@@ -34,13 +40,19 @@ export class RunningAudio {
   private unlocked = false;
   private muted = loadRunningSave().audioMuted;
   private pressure = false;
+  private milestone = false;
+  private recovery = false;
+  private readonly style: MusicStyle;
+  private readonly intensity: DynamicIntensity;
   private disposed = false;
   private readonly gesture = () => { if (!this.muted) void this.unlock(); };
   private readonly keyGesture = () => { if (!this.muted) void this.unlock(); };
 
   constructor(private readonly root: HTMLElement, private readonly world: RunningWorld, dependencies: RunningAudioDependencies = {}) {
-    const settings = loadSettings();
-    this.engine = dependencies.engine ?? new AudioEngine({ musicVolume: settings.musicVolume * 0.3, sfxVolume: settings.sfxVolume * 0.55 });
+    const running = loadRunningSave();
+    this.style = running.musicStyle;
+    this.intensity = running.dynamicIntensity;
+    this.engine = dependencies.engine ?? new AudioEngine({ musicVolume: running.runningMusicVolume * 0.3, sfxVolume: running.runningSfxVolume * 0.55 });
     this.synth = dependencies.synth ?? new Synth(this.engine as AudioEngine);
     this.button = document.createElement('button');
     this.button.dataset.role = 'running-audio-toggle';
@@ -54,6 +66,8 @@ export class RunningAudio {
   }
 
   setPressure(active: boolean): void { this.pressure = active; this.button.dataset.pressure = String(active); }
+  setMilestone(active: boolean): void { this.milestone = active; this.button.dataset.milestone = String(active); }
+  setRecovery(active: boolean): void { this.recovery = active; this.button.dataset.recovery = String(active); }
 
   cue(event: RunningAudioEvent): void {
     if (!this.unlocked || this.muted || this.engine.state !== 'unlocked') return;
@@ -84,9 +98,9 @@ export class RunningAudio {
       this.engine.setMusicVolume(0);
       this.engine.setSfxVolume(0);
     } else {
-      const settings = loadSettings();
-      this.engine.setMusicVolume(settings.musicVolume * 0.3);
-      this.engine.setSfxVolume(settings.sfxVolume * 0.55);
+      const running = loadRunningSave();
+      this.engine.setMusicVolume(running.runningMusicVolume * 0.3);
+      this.engine.setSfxVolume(running.runningSfxVolume * 0.55);
       await this.unlock();
       this.cue('choice');
     }
@@ -110,15 +124,31 @@ export class RunningAudio {
   private musicTick(): void {
     if (this.disposed) return;
     const identity = RUNNING_MUSIC_IDENTITIES[this.world];
+    const style = RUNNING_MUSIC_STYLES[this.style];
     if (this.unlocked && !this.muted && this.engine.state === 'unlocked') {
       const now = this.engine.now() + .04;
-      const note = identity.notes[this.step % identity.notes.length]!;
-      this.synth.play(identity.patch, now, note, identity.spacing * .55, .12);
-      if (this.pressure) this.synth.play('hatClosed', now + identity.spacing * .5, undefined, undefined, .1);
-      if (this.world === 'work' && this.step % 4 === 3) this.synth.play('uiClick', now + .24, 880, .05, .08);
+      const note = identity.notes[this.step % identity.notes.length]! * style.noteScale;
+      const patch = this.style === 'classic' ? identity.patch : style.patch;
+      const spacing = identity.spacing * style.spacingScale;
+      this.synth.play(patch, now, note, spacing * .55, style.baseVelocity);
+      if (this.style === 'chiptune') {
+        if (this.step % 2 === 0) this.synth.play('bass', now, note / 2, spacing * .72, .075);
+        if (this.step % 4 === 3) this.synth.play('lead', now + spacing * .33, note * 1.5, spacing * .22, .055);
+      } else if (this.style === 'organic' && this.step % 3 === 2) this.synth.play('pluck', now + spacing * .55, note * 1.5, spacing * .4, .055);
+      const layerScale = this.intensity === 'full' ? 1 : this.intensity === 'soft' ? .45 : 0;
+      if (this.pressure && layerScale > 0) {
+        this.synth.play(this.style === 'chiptune' ? 'uiClick' : 'hatClosed', now + spacing * .5, undefined, undefined, .08 * layerScale);
+        if (this.step % 4 === 0) this.synth.play('bass', now, note / 2, spacing * .6, .07 * layerScale);
+      }
+      if (this.milestone && layerScale > 0 && this.step % 2 === 0) {
+        this.synth.play(this.style === 'chiptune' ? 'lead' : 'bell', now + spacing * .22, note * 1.5, spacing * .42, .07 * layerScale);
+        this.synth.play('bass', now, note / 2, spacing * .8, .075 * layerScale);
+      }
+      if (this.recovery && layerScale > 0 && this.step % 2 === 0) this.synth.play('bell', now + spacing * .6, note * 1.25, spacing * .8, .06 * layerScale);
+      if (this.world === 'work' && this.style === 'classic' && this.step % 4 === 3) this.synth.play('uiClick', now + .24, 880, .05, .08);
       this.step += 1;
     }
-    if (!this.disposed) this.timer = window.setTimeout(() => this.musicTick(), musicIntervalMs(this.world));
+    if (!this.disposed) this.timer = window.setTimeout(() => this.musicTick(), musicIntervalMs(this.world, this.style));
   }
 
   private refreshButton(): void {
@@ -129,4 +159,4 @@ export class RunningAudio {
   }
 }
 
-export function musicIntervalMs(world: RunningWorld): number { return RUNNING_MUSIC_IDENTITIES[world].spacing * 1000; }
+export function musicIntervalMs(world: RunningWorld, style: MusicStyle = 'classic'): number { return RUNNING_MUSIC_IDENTITIES[world].spacing * RUNNING_MUSIC_STYLES[style].spacingScale * 1000; }

@@ -1,7 +1,7 @@
 import { getLocale, t } from '../i18n/strings';
 import { CUSTOM_CONTENT_SCHEMA, applyCustomContentBundle, applyRunningSaveBundle, createCustomContentBundle, createRunningSaveBundle, parseCustomContentBundle, parseRunningSaveBundle, type CustomContentBundleV1, type RunningSaveBundleV1 } from '../running/core/portability';
 import { parsePersonCore } from '../running/core/personScience';
-import { loadRunningSave, saveRunningData } from '../running/core/save';
+import { loadRunningSave, recordPortabilityEvent, saveRunningData } from '../running/core/save';
 
 export class DataPortabilityPanel {
   private pendingSave: RunningSaveBundleV1 | null = null;
@@ -22,7 +22,7 @@ export class DataPortabilityPanel {
     const style = document.createElement('style');
     style.textContent = '.data-button{display:inline-block;padding:11px 15px;border:1px solid #6d9285;border-radius:12px;background:#17352e;color:#fff;cursor:pointer;font:600 14px system-ui}.data-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #294a42;flex-wrap:wrap}';
     section.appendChild(style);
-    section.querySelector<HTMLButtonElement>('[data-role="export-save"]')!.addEventListener('click', () => downloadJson(saveFilename(), createRunningSaveBundle()));
+    section.querySelector<HTMLButtonElement>('[data-role="export-save"]')!.addEventListener('click', () => { recordPortabilityEvent('export'); downloadJson(saveFilename(), createRunningSaveBundle()); });
     section.querySelector<HTMLInputElement>('[data-role="import-save"]')!.addEventListener('change', (event) => void this.readSaveFile(event, section));
     section.querySelector<HTMLButtonElement>('[data-role="export-content"]')!.addEventListener('click', () => downloadJson(contentFilename(), createCustomContentBundle(loadRunningSave())));
     section.querySelector<HTMLInputElement>('[data-role="import-content"]')!.addEventListener('change', (event) => void this.readContentFile(event, section));
@@ -52,7 +52,7 @@ export class DataPortabilityPanel {
 
   private confirm(section: HTMLElement): void {
     try {
-      if (this.pendingSave) applyRunningSaveBundle(this.pendingSave);
+      if (this.pendingSave) { applyRunningSaveBundle(this.pendingSave); recordPortabilityEvent('import'); }
       else if (this.pendingContent) applyCustomContentBundle(this.pendingContent);
       else return;
       section.querySelector<HTMLOutputElement>('[data-role="result"]')!.textContent = t('settings.importApplied');
@@ -116,11 +116,12 @@ export class DataPortabilityPanel {
   }
 }
 
-export function formatSavePreview(preview: { world: string | null; difficulty: string | null; simulationTime: number | null; totalRuns: number; people: number; bosses: number }): string {
+export function formatSavePreview(preview: { world: string | null; difficulty: string | null; simulationTime: number | null; totalRuns: number; people: number; bosses: number; journeys?: number; medals?: number; storyMarks?: number; musicStyle?: string; restSessions?: number }): string {
   const run = preview.world && preview.difficulty && preview.simulationTime !== null
     ? t('settings.restoreRun').replace('{world}', localizeRunValue(preview.world)).replace('{difficulty}', localizeRunValue(preview.difficulty)).replace('{time}', `${Math.floor(preview.simulationTime)}s`)
     : t('settings.noCurrentRun');
-  return `${t('settings.replaceProgress')} · ${preview.totalRuns}\n${run}\n${t('settings.contentCounts').replace('{people}', String(preview.people)).replace('{bosses}', String(preview.bosses))}`;
+  const journal = getLocale() === 'zh-CN' ? `生涯 ${preview.journeys ?? 0} · 勋章 ${preview.medals ?? 0} · 印记 ${preview.storyMarks ?? 0} · 休息 ${preview.restSessions ?? 0} · 音乐 ${preview.musicStyle ?? 'classic'}` : `Journeys ${preview.journeys ?? 0} · Medals ${preview.medals ?? 0} · Marks ${preview.storyMarks ?? 0} · Rest ${preview.restSessions ?? 0} · Music ${preview.musicStyle ?? 'classic'}`;
+  return `${t('settings.replaceProgress')} · ${preview.totalRuns}\n${run}\n${journal}\n${t('settings.contentCounts').replace('{people}', String(preview.people)).replace('{bosses}', String(preview.bosses))}`;
 }
 
 export function downloadJson(name: string, value: unknown): void {

@@ -64,7 +64,7 @@ export class BossStudio {
       const save = loadRunningSave();
       const savedBoss = normalizeBossForCustomSave(preview);
       const stored = { id: savedBoss.id, displayName: bossDisplayName(savedBoss), origin: savedBoss.origin, worlds: savedBoss.worlds, updatedAt: new Date().toISOString(), data: savedBoss };
-      updateRunningSave({ customBosses: [...save.customBosses.filter((boss) => boss.id !== preview!.id), stored] });
+      updateRunningSave({ customBosses: [...save.customBosses.filter((boss) => boss.id !== preview!.id), stored], achievements: [...new Set([...save.achievements, 'boss-seed' as const])] });
       result.textContent = t('running.bossSaved'); preview = null; confirm.disabled = true; this.renderLibrary(page);
     });
     page.querySelector<HTMLButtonElement>('[data-role="prompt"]')!.addEventListener('click', () => void copyText(createBossAiPrompt()).then(() => { result.textContent = t('running.bossPromptCopied'); }));

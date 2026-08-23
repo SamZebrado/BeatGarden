@@ -10,6 +10,7 @@ export type PhdChoice =
   | { kind: 'supervisor'; options: readonly SupervisorId[] }
   | { kind: 'lifestyle'; options: readonly LifestyleId[] }
   | { kind: 'supervisorRequest'; options: readonly ['accept', 'setBoundary', 'decline'] }
+  | { kind: 'recovery'; options: readonly ['takeBreak', 'keepPushing'] }
   | { kind: 'qualifying'; options: readonly ['attempt', 'defer'] }
   | { kind: 'preDefense'; options: readonly ['attempt', 'defer'] }
   | { kind: 'defense'; options: readonly ['attempt', 'defer'] };
@@ -56,6 +57,7 @@ export interface PhdSnapshot {
   annualReviews: number;
   supervisorId: SupervisorId | null;
   supervisorPersonId: PersonId | null;
+  supervisorCandidates: readonly [PersonId, PersonId, PersonId];
   supervisorFeedback: { signal: number; noise: number; remaining: number } | null;
   lifestyle: { id: LifestyleId; remaining: number } | null;
   activeProject: { id: ProjectId; progress: number; goal: number } | null;
@@ -65,6 +67,9 @@ export interface PhdSnapshot {
   supervisorRequests: number;
   lastBoundaryReaction: 'none' | 'respected' | 'strained';
   relationship: RelationshipStateV1;
+  recoveryOffered: boolean;
+  recoveryOutcome: 'none' | 'takeBreak' | 'keepPushing';
+  recoveredFromLow: boolean;
   thesisStage: ThesisStage;
   qualifying: 'locked' | 'ready' | 'passed';
   annualMilestone: { kind: AnnualMilestoneKind; completedYear: number; remaining: number } | null;
@@ -126,8 +131,8 @@ export class PhdSystems {
     signal: 0, noise: 0, pollution: 0,
     logic: 20, clarity: 20, boundary: 20, purpose: 20, connection: 20, evidence: 12,
     year: 1, seasonPulse: 0, annualReviews: 0, activeProject: null, completedProjects: 0,
-    supervisorId: null, supervisorPersonId: null, supervisorFeedback: null, lifestyle: null,
-    independentResearch: 0, assignedLabor: 0, supervisorRequests: 0, lastBoundaryReaction: 'none', relationship: defaultRelationship(),
+    supervisorId: null, supervisorPersonId: null, supervisorCandidates: ['mei', 'rowan', 'lin'], supervisorFeedback: null, lifestyle: null,
+    independentResearch: 0, assignedLabor: 0, supervisorRequests: 0, lastBoundaryReaction: 'none', relationship: defaultRelationship(), recoveryOffered: false, recoveryOutcome: 'none', recoveredFromLow: false,
     thesisStage: 'seed', qualifying: 'locked', annualMilestone: null, preDefense: 'hidden', revisionRemaining: 0, defense: 'hidden', choice: null, milestone: null,
     graduated: false, terminal: 'ongoing',
   };
@@ -140,7 +145,7 @@ export class PhdSystems {
 
   private readonly milestoneTimingScale: number;
 
-  constructor(options: { initialResources?: Partial<Pick<PhdSnapshot, 'energy' | 'focus' | 'spirit'>>; milestoneTimingScale?: number; restore?: PhdSystemsStateV1 } = {}) {
+  constructor(options: { initialResources?: Partial<Pick<PhdSnapshot, 'energy' | 'focus' | 'spirit'>>; milestoneTimingScale?: number; supervisorCandidates?: readonly [PersonId, PersonId, PersonId]; restore?: PhdSystemsStateV1 } = {}) {
     this.milestoneTimingScale = Math.max(.6, Math.min(1.4, options.restore?.milestoneTimingScale ?? options.milestoneTimingScale ?? 1));
     if (options.restore) {
       this.state = clonePhdSnapshot(options.restore.state);
@@ -157,6 +162,7 @@ export class PhdSystems {
       if (options.initialResources.focus !== undefined) this.state.focus = bound(options.initialResources.focus);
       if (options.initialResources.spirit !== undefined) this.state.spirit = bound(options.initialResources.spirit);
     }
+    if (options.supervisorCandidates) this.state.supervisorCandidates = [...options.supervisorCandidates];
   }
 
   step(time: number, dt: number): void {
@@ -212,6 +218,12 @@ export class PhdSystems {
     this.state.calendarLoad = bound(this.state.calendarLoad - 0.08 * dt);
     this.state.pollution = bound(this.state.pollution - (0.035 + this.state.boundary / 5000) * dt);
     this.state.noise = bound(this.state.noise - 0.05 * dt);
+
+    if (!this.state.recoveryOffered && !this.state.milestone && (this.state.spirit <= 30 || this.state.pollution >= 75)) {
+      this.state.recoveryOffered = true;
+      this.state.choice = { kind: 'recovery', options: ['takeBreak', 'keepPushing'] };
+      return;
+    }
 
     if (this.state.year >= 2 && !this.state.lifestyle && time >= this.nextLifestyleAt) {
       this.state.choice = { kind: 'lifestyle', options: ['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime'] };
@@ -273,8 +285,6 @@ export class PhdSystems {
     this.state.pollution = bound(this.state.pollution + feedback.noise * (1 - this.state.purpose / 180));
     this.state.spirit = bound(this.state.spirit - feedback.noise * 0.32);
     this.state.calendarLoad = bound(this.state.calendarLoad + 7 * (1 - this.state.boundary / 150));
-    if (this.state.supervisorId === 'controlling') this.state.calendarLoad = bound(this.state.calendarLoad + 6);
-    if (this.state.supervisorId === 'handsOff') this.state.clarity = bound(this.state.clarity - 2);
     this.state.supervisorFeedback = { ...feedback, remaining: 3.2 };
     this.state.focus = bound(this.state.focus + role.opportunitySupport * 1.2);
     this.state.relationship = updateRelationship(this.state.relationship, {
@@ -283,7 +293,10 @@ export class PhdSystems {
       unresolvedConflict: this.state.relationship.unresolvedConflict + feedback.noise / 180 - feedback.signal / 300,
     });
     this.state.supervisorRequests += 1;
-    const requestThreshold = .46 + seededRoll * .12;
+    // Requests remain low-frequency (only every second meeting), while the
+    // threshold stays reachable by the high-demand/extractive members of the
+    // seeded cast. Lower-pressure profiles still do not request by default.
+    const requestThreshold = .34 + seededRoll * .12;
     if (this.state.supervisorRequests % 2 === 0 && role.assignmentPressure * .62 + role.laborExtraction * .38 >= requestThreshold) {
       this.state.choice = { kind: 'supervisorRequest', options: ['accept', 'setBoundary', 'decline'] };
     }
@@ -295,11 +308,11 @@ export class PhdSystems {
     this.state.noise = bound(this.state.noise + 8 * (1 - boundaryShield * 0.5));
     this.state.pollution = bound(this.state.pollution + 6 * (1 - this.state.purpose / 160));
     this.state.spirit = bound(this.state.spirit - 5 * (1 - this.state.connection / 180));
-    if (this.state.supervisorId === 'controlling') {
-      this.state.calendarLoad = bound(this.state.calendarLoad + 5);
-      this.state.pollution = bound(this.state.pollution + 4);
-    } else if (this.state.supervisorId === 'handsOff') {
-      this.state.noise = bound(this.state.noise - 2);
+    if (this.state.supervisorPersonId) {
+      const role = adaptAcademicPerson(this.state.supervisorPersonId, 'phd-supervisor', this.state.relationship, this.currentSituation());
+      this.state.calendarLoad = bound(this.state.calendarLoad + role.assignmentPressure * 4);
+      this.state.pollution = bound(this.state.pollution + role.noise * .22);
+      this.state.noise = bound(this.state.noise + role.laborExtraction * 2 - role.opportunitySupport);
     }
   }
 
@@ -310,6 +323,7 @@ export class PhdSystems {
     else if (choice.kind === 'supervisor') this.selectSupervisor(option as SupervisorId);
     else if (choice.kind === 'lifestyle') this.selectLifestyle(option as LifestyleId);
     else if (choice.kind === 'supervisorRequest') this.resolveSupervisorRequest(option as 'accept' | 'setBoundary' | 'decline');
+    else if (choice.kind === 'recovery') this.resolveRecovery(option as 'takeBreak' | 'keepPushing');
     else if (choice.kind === 'qualifying') this.resolveQualifying(option, time);
     else if (choice.kind === 'preDefense') this.resolvePreDefense(option, time);
     else this.resolveDefense(option, time);
@@ -325,10 +339,13 @@ export class PhdSystems {
     };
   }
 
-  startReviewChoice(kind: 'supervisor' | 'lifestyle'): void {
+  startReviewChoice(kind: 'supervisor' | 'lifestyle' | 'recovery'): void {
+    if (kind === 'recovery') this.state.recoveryOffered = true;
     this.state.choice = kind === 'supervisor'
       ? { kind: 'supervisor', options: ['supportive', 'controlling', 'handsOff'] }
-      : { kind: 'lifestyle', options: ['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime'] };
+      : kind === 'lifestyle'
+        ? { kind: 'lifestyle', options: ['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime'] }
+        : { kind: 'recovery', options: ['takeBreak', 'keepPushing'] };
   }
 
   startReviewProgression(scene: 'thesis' | 'defenseGate' | 'year9'): void {
@@ -517,7 +534,7 @@ export class PhdSystems {
 
   private selectSupervisor(id: SupervisorId): void {
     this.state.supervisorId = id;
-    this.state.supervisorPersonId = SUPERVISOR_PERSON[id];
+    this.state.supervisorPersonId = this.state.supervisorCandidates[{ supportive: 0, controlling: 1, handsOff: 2 }[id]];
     this.state.choice = null;
     if (id === 'supportive') {
       this.state.clarity = bound(this.state.clarity + 5);
@@ -529,6 +546,22 @@ export class PhdSystems {
     } else {
       this.state.boundary = bound(this.state.boundary + 5);
       this.state.clarity = bound(this.state.clarity - 4);
+    }
+  }
+
+  private resolveRecovery(option: 'takeBreak' | 'keepPushing'): void {
+    this.state.choice = null;
+    this.state.recoveryOutcome = option;
+    if (option === 'takeBreak') {
+      const severe = this.state.spirit <= 30 || this.state.energy <= 25 || this.state.pollution >= 75;
+      this.state.spirit = bound(this.state.spirit + 18);
+      this.state.energy = bound(this.state.energy + 10);
+      this.state.pollution = bound(this.state.pollution - 12);
+      this.state.calendarLoad = bound(this.state.calendarLoad + 8);
+      this.state.recoveredFromLow = severe;
+    } else {
+      this.state.focus = bound(this.state.focus + 4);
+      this.state.calendarLoad = bound(this.state.calendarLoad + 3);
     }
   }
 
@@ -684,6 +717,7 @@ function bound(value: number): number { return Math.max(0, Math.min(100, value))
 function clonePhdSnapshot(state: PhdSnapshot): PhdSnapshot {
   return {
     ...state,
+    supervisorCandidates: [...(state.supervisorCandidates ?? ['mei', 'rowan', 'lin'])] as [PersonId, PersonId, PersonId],
     relationship: cloneRelationship(state.relationship),
     activeProject: state.activeProject ? { ...state.activeProject } : null,
     choice: state.choice ? { ...state.choice, options: [...state.choice.options] } as PhdChoice : null,

@@ -6,6 +6,39 @@ ChatGPT review conversation.
 
 ## STATUS
 
+### Product-depth checkpoint — 2026-08-23
+
+- Garden Journal is implemented at the Running hub with durable bounded history,
+  25 cosmetic Medals and 11 independent Story Marks. Successful completion shows a
+  persistent Journey result before the optional promoted-player Boss action.
+- The built-in academic cast is eight anonymous Person cores. Each PhD/Master run
+  offers exactly three deterministic candidates with public codes, partial qualities
+  and short seeded fictional backgrounds; Work managers follow the same anonymous
+  presentation boundary.
+- Garden Classic, Famicom / Chiptune and Quiet Organic are immediately selectable.
+  Running music/SFX volume, mute and Full/Soft/Off adaptive intensity persist without
+  changing gameplay RNG.
+- Rest Corner has exactly three functional no-failure activities. Each life path has
+  at most one bounded low-state Recovery Event with an explicit time/resource
+  trade-off and resumable one-time outcome.
+- Running v2 migration and the established Save Bundle include all new durable state;
+  Journal is capped at 200 and Rhythm storage remains isolated. Detailed authority is
+  in `JOURNAL_RECOVERY_AUDIO.md` and evidence boundaries are in
+  `RESEARCH_FOUNDATIONS.md`.
+- Final local gates: `npm run lint` PASS; 271/271 tests in 41 files PASS;
+  `VITE_BASE=/BeatGarden/ npm run build` PASS with only the established lazy-Phaser
+  chunk warning; live `npm audit` reports 0 vulnerabilities.
+- Real browser QA covered desktop, 390×844 and 844×390. It exercised a persisted
+  completed Journey and result overlay, Journal/Medals/Story Marks, anonymous seeded
+  academic/manager cards, all three Rest activities, recovery choice plus reload and
+  Continue, audio preference persistence, Master, Work, Text Off, Emoji Beta and a
+  Rhythm Firefly audio-unlock smoke. Browser findings removed a legacy-cast review
+  override and fixed Journal's inherited flex centering/top clipping.
+- Android device `bbda35e` is connected but was objectively blocked by an asleep,
+  secure keyguard. No security bypass, CDP forward or ADB reverse was attempted; this
+  release's Android feature canary is **UNVERIFIED**. The existing black-screen hygiene
+  state and empty reverse list were left unchanged.
+
 ### Current product state
 
 - Gates A, B, C, D and E: `PASS`.

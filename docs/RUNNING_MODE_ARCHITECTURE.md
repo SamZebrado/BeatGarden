@@ -6,6 +6,21 @@
 
 ## Current post-Gate architecture — 2026-08-23
 
+- `core/journal.ts` and `core/save.ts` own the bounded `beatgarden-journey.v1`
+  historical record, 25 cosmetic Medals, 11 independent Story Marks and aggregate
+  attempt/rest/recovery/portability metadata. Successful completion uses one
+  idempotent transaction keyed by source run and retains the newest 200 records.
+- `GardenJournal.ts`, `JourneyResult.ts` and `RestCorner.ts` are compact DOM
+  presentation surfaces outside the combat HUD. Rest Corner owns exactly three
+  no-failure activities and writes no combat advantage.
+- `RunningAudio.ts` owns three immediately available procedural styles and continuous
+  Base/Pressure/Milestone/Recovery layers. Style, mute and adaptive intensity are
+  presentation authority and consume no gameplay RNG.
+- The default academic cast contains eight anonymous Person cores; seeded PhD/Master
+  runs expose exactly three public-code candidates with partial qualities and bounded
+  fictional context. Work managers use the same anonymity/partial-information rule.
+  Recovery choices are one-shot, bounded current-run state.
+
 - `core/personScience.ts` owns strict `beatgarden-person.v1` cores: continuous Big
   Five temperament and separate non-exploitation facets. `core/people.ts` supplies
   role adapters; role competence remains independent. Saved Relationship and derived

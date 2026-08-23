@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { t, type StringKey } from '../../i18n/strings';
+import { getLocale, t, type StringKey } from '../../i18n/strings';
 import type { RunningGameHandle } from '../RunningModeHost';
 import { RUNNING_WORLD, type RunningInput } from '../core/simulation';
 import { ScenarioSimulation, type ScenarioEnemy, type ScenarioSnapshot, type ScenarioWorld } from '../core/scenarioSimulation';
@@ -7,10 +7,14 @@ import type { RunningDifficulty } from '../core/difficulty';
 import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
 import { RunningLegend, createScenarioLegendEntries } from '../RunningLegend';
-import { loadRunningSave, markWorldCompleted } from '../core/save';
+import { loadRunningSave, recordFailedJourney, recordSuccessfulJourney } from '../core/save';
 import { PromotionAction } from '../PromotionAction';
 import { beginCardPress, cardAtPoint, cardPressMovedTooFar, completesCardPress, scenarioChoiceCardRects, type CardPress, type ChoiceViewport } from './choiceCards';
 import { clearCurrentRun, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
+import { JourneyResult } from '../JourneyResult';
+import { academicPublicProfile, seededAcademicBackground } from '../core/people';
+import { MANAGERS, MANAGER_PUBLIC, WORK_OFFERS, seededManagerBackground } from '../core/lifePaths';
+import type { AchievementId, StoryMarkId } from '../core/journal';
 
 const STEP = 1 / 60;
 
@@ -18,6 +22,8 @@ type ScenarioCurrentRun = Extract<CurrentRunV1, { world: ScenarioWorld }>;
 
 export async function bootScenarioGarden(root: HTMLElement, options: { world: ScenarioWorld; onExit: () => void; difficulty: RunningDifficulty; resume?: ScenarioCurrentRun }): Promise<RunningGameHandle> {
   const runSeed = options.resume?.seed ?? scenarioSeed(options.world);
+  const runInstance = options.resume?.savedAt ?? Date.now();
+  let sourceRunSerial = 0;
   root.replaceChildren();
   root.style.cssText = `width:100vw;height:100vh;overflow:hidden;background:${options.world === 'master' ? '#0b1830' : '#171b22'};touch-action:none;`;
   const host = document.createElement('div');
@@ -39,6 +45,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
     private legend!: RunningLegend;
     private legendOpen = false;
     private promotion!: PromotionAction;
+    private result!: JourneyResult;
     private previous: ScenarioSnapshot | null = null;
     private completionRecorded = false;
     private touchCount = 0;
@@ -63,6 +70,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       this.audio = new RunningAudio(root, options.world);
       this.legend = new RunningLegend(root, { world: options.world, textOff: isTextOff(), getEntries: () => createScenarioLegendEntries(this.simulation.snapshot(), loadRunningSave().seenHints), onOpenChange: (open) => { this.legendOpen = open; if (open) this.joystick = null; } });
       this.promotion = new PromotionAction(root, isTextOff());
+      this.result = new JourneyResult(root, isTextOff());
       this.time.addEvent({ delay: 4000, loop: true, callback: () => this.saveNow() });
       this.saveNow();
     }
@@ -88,7 +96,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       this.render(state);
     }
 
-    private restart(): void { clearCurrentRun(); this.simulation = createSimulation(options.world, options.difficulty); this.accumulator = 0; this.joystick = null; this.choicePress = null; this.checkpointToken = ''; this.previous = null; this.completionRecorded = false; this.promotion.hide(); this.saveNow(); }
+    private restart(): void { clearCurrentRun(); this.simulation = createSimulation(options.world, options.difficulty); this.accumulator = 0; this.joystick = null; this.choicePress = null; this.checkpointToken = ''; this.previous = null; this.completionRecorded = false; sourceRunSerial += 1; this.promotion.hide(); this.result.hide(); this.saveNow(); }
 
     saveNow(): void {
       const state = this.simulation.snapshot();
@@ -302,10 +310,10 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       const view = this.cameras.main.worldView;
       g.fillStyle(0x04070b, 0.88).fillRect(view.left, view.top, view.width, view.height);
       const icons = choice.kind === 'masterTrack' ? ['▦', '◆', '◇', '★']
-        : choice.kind === 'masterSupervisor' ? ['◆◇', '◆!', '◆·']
+        : choice.kind === 'masterSupervisor' ? choice.options.map((id) => academicPublicProfile(id as Parameters<typeof academicPublicProfile>[0]).uncertainty === 'high' ? '◆?' : '◆◇')
           : choice.kind === 'careerPlan' ? ['✦', '▣', '◇']
             : choice.kind === 'workOffer' ? ['▦', '⚡', '◇']
-              : choice.kind === 'workConversion' ? ['✓', '↗'] : ['▣', '⚡'];
+              : choice.kind === 'workConversion' ? ['✓', '↗'] : choice.kind === 'recovery' ? ['◌', '▶'] : ['▣', '⚡'];
       const colors = [0x7cc9f4, 0xffc56f, 0x79d8b0, 0xd99af0];
       const cards = scenarioChoiceCardRects(this.choiceViewport(), choice.options.length, this.isPortrait());
       for (let index = 0; index < choice.options.length; index += 1) {
@@ -314,8 +322,13 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         g.fillStyle(0x172832, 1).fillRoundedRect(x, y, width, height, 22);
         g.lineStyle(4, colors[index], 0.9).strokeRoundedRect(x, y, width, height, 22);
         this.label(x + width / 2, y + height * 0.38, icons[index], `#${colors[index].toString(16)}`, portrait ? 42 : 64);
-        if (!isTextOff()) this.label(x + width / 2, y + height * 0.65, t(`running.choice.${choice.options[index]}` as StringKey), '#ffffff', 17);
-        if (!isTextOff() && choice.kind === 'workPriority') this.label(x + width / 2, y + height * 0.78, portrait ? t(`running.choice.${choice.options[index]}Detail` as StringKey).replace(/, /g, ',\n') : t(`running.choice.${choice.options[index]}Detail` as StringKey), '#c8ddcf', portrait ? 11 : 14, portrait ? Math.max(180, width - 30) : undefined);
+        const option = choice.options[index]!;
+        const label = choice.kind === 'masterSupervisor' ? academicPublicProfile(option as Parameters<typeof academicPublicProfile>[0]).code : choice.kind === 'workOffer' ? MANAGER_PUBLIC[WORK_OFFERS[index]!.managerId].code : t(`running.choice.${option}` as StringKey);
+        if (!isTextOff()) this.label(x + width / 2, y + height * 0.58, label, '#ffffff', 17);
+        const detail = choice.kind === 'masterSupervisor' ? `${academicPublicProfile(option as Parameters<typeof academicPublicProfile>[0]).qualities.map(publicQuality).join(' · ')}\n${seededAcademicBackground(option as Parameters<typeof academicPublicProfile>[0], runSeed, getLocale())}`
+          : choice.kind === 'workOffer' ? `${MANAGER_PUBLIC[WORK_OFFERS[index]!.managerId].qualities.map(publicQuality).join(' · ')}\n${seededManagerBackground(WORK_OFFERS[index]!.managerId, runSeed, getLocale())}`
+            : choice.kind === 'workPriority' || choice.kind === 'recovery' ? t(`running.choice.${option}Detail` as StringKey) : '';
+        if (!isTextOff() && detail) this.label(x + width / 2, y + height * 0.76, portrait ? detail.replace(/ · /g, '\n') : detail, '#c8ddcf', portrait ? 10 : 12, portrait ? Math.max(180, width - 30) : width - 28);
         this.label(x + width / 2, y + height * 0.86, String(index + 1), '#a9c9c0', 15);
       }
     }
@@ -342,7 +355,9 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         else if (enemy.kind === 'notification') this.hints.show('notification', 'running.hint.notification');
       }
       const prior = this.previous;
-      this.audio.setPressure(state.event.phase === 'active' || state.climax.phase !== 'none');
+      this.audio.setPressure(state.event.phase === 'active');
+      this.audio.setMilestone(state.climax.phase !== 'none' || (state.masterPath?.proposal.phase !== 'none' && state.masterPath?.proposal.phase !== 'complete'));
+      this.audio.setRecovery(state.choice?.kind === 'recovery');
       if (prior) {
         if (state.defeated > prior.defeated) this.audio.cue('defeat');
         if (prior.pickups.some((pickup) => !state.pickups.some((current) => current.id === pickup.id))) this.audio.cue('pickup');
@@ -359,17 +374,39 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         clearCurrentRun();
         this.completionRecorded = true;
         this.audio.cue('complete');
-        markWorldCompleted(state.world, state.difficulty);
-        const refreshed = loadRunningSave();
+        const marks: StoryMarkId[] = [];
+        const signals: AchievementId[] = state.world === 'master' ? ['master-three-years'] : ['delivery-crown'];
+        if (state.recovery.outcome === 'takeBreak') { marks.push('gentle-pause'); signals.push('recovery-choice'); }
+        if (state.recovery.recoveredFromLow) { marks.push('rebuilt-after-setback'); signals.push('back-from-low'); }
+        if (state.world === 'master') {
+          if (state.masterPath?.careerPlan === 'researchPhd') signals.push('research-compass');
+          else if (state.masterPath?.careerPlan === 'employment') signals.push('workward-compass');
+          else if (state.masterPath?.careerPlan === 'undecided') signals.push('open-compass');
+          if (state.masterPath?.supervisorPersonId === 'op-vl') marks.push('quiet-mentor');
+        } else {
+          if (state.routeFlags.changedDirection) { marks.push('changed-direction'); signals.push('changed-direction'); }
+          if ((state.workPath?.marketStrength ?? 1) <= .42) { marks.push('weak-market-step'); signals.push('weak-market-conversion'); }
+          if (state.routeFlags.protectFocusUsed) { marks.push('protected-focus'); signals.push('protected-focus'); }
+        }
+        const exported = this.simulation.exportState();
+        const personId = state.masterPath?.supervisorPersonId ?? (state.workPath?.managerId ? MANAGERS[state.workPath.managerId].personId : null);
+        const personCode = state.masterPath?.supervisorPersonId ? academicPublicProfile(state.masterPath.supervisorPersonId).code : state.workPath?.managerId ? MANAGER_PUBLIC[state.workPath.managerId].code : null;
+        const relationship = personId ? exported.relationships?.[personId] ?? null : null;
+        const completed = recordSuccessfulJourney({ sourceRunId: `${state.world}:${runSeed}:${runInstance}:${sourceRunSerial}`, world: state.world, difficulty: state.difficulty, runDuration: state.time, finalStage: state.world === 'master' ? 'year-3:defense' : 'promotion', personCode, routeChoices: state.world === 'master' ? [state.masterPath?.careerPlan ?? 'none'] : [state.workPath?.managerId ?? 'none', state.routeFlags.changedDirection ? 'changed-direction' : 'stayed-path'], relationship, build: { orbit: state.orbitCount, cadence: 0, vitality: 0 }, resources: { energy: state.energy, focus: state.focus, spirit: state.spirit }, milestones: state.world === 'master' ? ['master:proposal', 'master:defense'] : ['work:conversion', 'work:promotion'], storyMarks: marks, musicStyle: loadRunningSave().musicStyle, achievementSignals: signals });
+        const refreshed = completed.save;
+        this.result.show(completed.record);
         this.promotion.show({
           world: state.world, completionNumber: refreshed.worldCompletions[state.world] ?? 1, difficulty: state.difficulty,
           orbitCount: state.orbitCount, energy: state.energy, focus: state.focus, spirit: state.spirit,
           activePriority: state.activePriority,
-        });
+        }, completed.record.recordId);
+      } else if (state.gameOver && !this.completionRecorded) {
+        this.completionRecorded = true;
+        recordFailedJourney(state.world);
       }
       this.previous = state;
     }
-    destroyRuntime(): void { this.legend?.destroy(); this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); }
+    destroyRuntime(): void { this.legend?.destroy(); this.audio?.destroy(); this.hints?.destroy(); this.promotion?.destroy(); this.result?.destroy(); }
     private isPortrait(): boolean { return this.scale.width / this.scale.height < 0.75; }
   }
 
@@ -391,7 +428,7 @@ function createSimulation(world: ScenarioWorld, difficulty: RunningDifficulty, r
   const scene = params.get('reviewScene');
   if (import.meta.env.DEV && (scene === 'dense' || scene === 'event' || scene === 'choice' || scene === 'climax' || scene === 'complete')) simulation.startReview(scene);
   const reviewChoice = params.get('reviewChoice');
-  if (import.meta.env.DEV && (reviewChoice === 'careerPlan' || reviewChoice === 'workOffer' || reviewChoice === 'workConversion' || reviewChoice === 'workPriority')) simulation.startChoiceReview(reviewChoice);
+  if (import.meta.env.DEV && (reviewChoice === 'careerPlan' || reviewChoice === 'workOffer' || reviewChoice === 'workConversion' || reviewChoice === 'workPriority' || reviewChoice === 'recovery')) simulation.startChoiceReview(reviewChoice);
   if (import.meta.env.DEV && world === 'master') {
     const year = Number(params.get('reviewMasterYear'));
     const plan = params.get('reviewCareerPlan');
@@ -413,3 +450,8 @@ function scenarioSeed(world: ScenarioWorld): number {
 }
 
 function isTextOff(): boolean { return new URLSearchParams(location.search).get('textOff') === '1'; }
+
+function publicQuality(value: string): string {
+  if (getLocale() === 'en') return value.replace('-', ' ');
+  return ({ clarity: '清晰', autonomy: '自主', resources: '资源', structure: '结构', development: '发展支持', stability: '稳定', exploration: '探索', 'high-pace': '高节奏', growth: '成长机会' } as Record<string, string>)[value] ?? value;
+}
