@@ -87,6 +87,7 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Unmatched feedback now excludes every target already consumed by success or automatic MISS before nearest-target selection. Sequence regressions make a consumed first Cloud/Bubble target closer than the next target and prove the early action is nevertheless classified against the next target.
 - Candidate retrieval now uses the maximum configured target window plus a 2 ms retrieval epsilon. The selected target's exact authoritative window remains type-specific: ±130 ms for taps/swipes/hold start and ±160 ms for hold release. The central Judge remains the sole judgement authority.
 - Release boundary integration coverage proves +130 ms and +160 ms enter the candidate range and return `OK`, while +161 ms still enters retrieval but returns `MISS` from the central Judge.
+- Exact detached-worktree verification at `606d522`: TypeScript lint PASS; 45 files / 292 tests PASS; `VITE_BASE=/BeatGarden/ npm run build` PASS. Rhythm main 236.03 kB / gzip 64.58 kB; AutoChart worker 4.61 kB. The unchanged out-of-scope Running `JourneyResult` warning remains 1.216 MB / gzip 324.98 kB.
 - The earlier delta submission accidentally attached a current working-tree `StageRunner.ts` containing uncommitted R2 display-only HUD work. This second submission must use files only from the isolated R1 commit worktree; no R2 code or claim is part of the R1 Gate packet.
 
 ## PLAN
