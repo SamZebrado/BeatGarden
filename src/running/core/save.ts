@@ -110,6 +110,7 @@ export function recordSuccessfulJourney(input: JourneyCompletionInput, storage: 
     journeyHistory: [...current.journeyHistory, created.record], achievements, storyMarks, aggregateStats: stats,
   });
   saveRunningData(save, storage);
+  if (storage && JSON.stringify(loadRunningSave(storage)) !== JSON.stringify(save)) throw new Error('Running journey persistence verification failed.');
   return { record: created.record, unlocked: created.record.medalsUnlocked, duplicate: false, save };
 }
 

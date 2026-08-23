@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ACHIEVEMENTS, JOURNEY_SCHEMA, MAX_JOURNEY_RECORDS, STORY_MARKS, type JourneyCompletionInput } from '../src/running/core/journal';
 import { DEFAULT_RUNNING_SAVE, RUNNING_STORAGE_KEY, loadRunningSave, recordRestActivity, recordSuccessfulJourney } from '../src/running/core/save';
 import { applyRunningSaveBundle, createRunningSaveBundle, type PortabilityStorage } from '../src/running/core/portability';
+import { commitSuccessfulJourney, CURRENT_RUN_STORAGE_KEY } from '../src/running/core/currentRun';
 
 function storage(initial: Record<string,string> = {}): PortabilityStorage & { values: Map<string,string> } { const values=new Map(Object.entries(initial)); return { values, getItem:key=>values.get(key)??null, setItem:(key,value)=>void values.set(key,value), removeItem:key=>void values.delete(key) }; }
 function input(id: string, world: 'phd'|'master'|'work'='phd'): JourneyCompletionInput { const order=Number(id.replace(/\D/g,'')||0); return { sourceRunId:id, completedAt:new Date(Date.UTC(2026,7,1,0,0,order)).toISOString(), world, difficulty:'garden', runDuration:100, finalStage:'complete', personCode:'CL-AU', routeChoices:['route'], relationship:null, build:{orbit:1,cadence:0,vitality:0}, resources:{energy:60,focus:70,spirit:80}, milestones:[`${world}:complete`], storyMarks:['held-boundary'], musicStyle:'classic' }; }
@@ -11,6 +12,17 @@ describe('Garden Journal durable authority',()=>{
     const target=storage(); const first=recordSuccessfulJourney(input('run-1'),target); const second=recordSuccessfulJourney(input('run-1'),target);
     expect(first.duplicate).toBe(false); expect(second.duplicate).toBe(true); expect(loadRunningSave(target).journeyHistory).toHaveLength(1);
     expect(loadRunningSave(target).achievements.filter(id=>id==='first-journey')).toEqual(['first-journey']);
+  });
+  it('retains the terminal checkpoint when Journey persistence fails and clears it after one verified retry',()=>{
+    const target=storage({[CURRENT_RUN_STORAGE_KEY]:'recoverable-terminal-checkpoint'}); let failMeta=true;
+    const setItem=target.setItem; target.setItem=(key,value)=>{ if(failMeta&&key===RUNNING_STORAGE_KEY) throw new Error('quota'); setItem(key,value); };
+    expect(()=>commitSuccessfulJourney(input('retryable-run'),target)).toThrow('quota');
+    expect(target.getItem(CURRENT_RUN_STORAGE_KEY)).toBe('recoverable-terminal-checkpoint');
+    expect(loadRunningSave(target).journeyHistory).toHaveLength(0);
+    failMeta=false; expect(commitSuccessfulJourney(input('retryable-run'),target).duplicate).toBe(false);
+    expect(target.getItem(CURRENT_RUN_STORAGE_KEY)).toBeNull();
+    expect(commitSuccessfulJourney(input('retryable-run'),target).duplicate).toBe(true);
+    expect(loadRunningSave(target).journeyHistory).toHaveLength(1);
   });
   it('drops the oldest records deterministically above the 200-record bound',()=>{
     const target=storage(); for(let index=0;index<MAX_JOURNEY_RECORDS+3;index+=1) recordSuccessfulJourney(input(`run-${index}`,(['phd','master','work'] as const)[index%3]),target);

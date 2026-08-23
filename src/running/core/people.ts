@@ -95,10 +95,15 @@ const PUBLIC_ACADEMIC: Record<DefaultAcademicPersonId, PublicAcademicProfile> = 
   'op-vl': { code: 'OP-VL', qualities: ['autonomy', 'exploration', 'low-contact'], uncertainty: 'medium' },
   'pr-hp': { code: 'PR-HP', qualities: ['prestige', 'resources', 'high-pace'], uncertainty: 'high' },
 };
+const LEGACY_PUBLIC_ACADEMIC: Record<LegacyAcademicPersonId, PublicAcademicProfile> = {
+  mei: { code: 'CL-AS', qualities: ['clarity', 'access', 'development'], uncertainty: 'low' },
+  rowan: { code: 'RS-DM', qualities: ['resources', 'structure', 'demand'], uncertainty: 'high' },
+  lin: { code: 'AU-LC', qualities: ['autonomy', 'exploration', 'low-contact'], uncertainty: 'medium' },
+};
 
 export function academicPublicProfile(personId: PersonId): PublicAcademicProfile {
   if (personId in PUBLIC_ACADEMIC) return PUBLIC_ACADEMIC[personId as DefaultAcademicPersonId];
-  return { code: PERSON_CORES[personId].name.en.toUpperCase(), qualities: ['legacy', 'known', 'stable'], uncertainty: 'low' };
+  return LEGACY_PUBLIC_ACADEMIC[personId as LegacyAcademicPersonId];
 }
 
 /** Deterministic selection without consuming gameplay RNG. */

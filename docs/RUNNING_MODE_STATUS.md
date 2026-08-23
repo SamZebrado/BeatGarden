@@ -25,9 +25,15 @@ ChatGPT review conversation.
   Journal is capped at 200 and Rhythm storage remains isolated. Detailed authority is
   in `JOURNAL_RECOVERY_AUDIO.md` and evidence boundaries are in
   `RESEARCH_FOUNDATIONS.md`.
-- Final local gates: `npm run lint` PASS; 271/271 tests in 41 files PASS;
+- Final local gates: `npm run lint` PASS; 275/275 tests in 42 files PASS;
   `VITE_BASE=/BeatGarden/ npm run build` PASS with only the established lazy-Phaser
   chunk warning; live `npm audit` reports 0 vulnerabilities.
+- The bounded Journey depth review returned no P0 and three P1 findings. The repair
+  escapes imported Journey free text before Journal HTML rendering, verifies the
+  Journey/meta write before clearing a recoverable terminal checkpoint, and gives
+  legacy `mei` / `rowan` / `lin` IDs anonymous public aliases without changing their
+  internal Person authority. Storage-failure, retry-idempotence, DOM-injection and
+  legacy-migration regressions are included in the final test count.
 - Real browser QA covered desktop, 390×844 and 844×390. It exercised a persisted
   completed Journey and result overlay, Journal/Medals/Story Marks, anonymous seeded
   academic/manager cards, all three Rest activities, recovery choice plus reload and

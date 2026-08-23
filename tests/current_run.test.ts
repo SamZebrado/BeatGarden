@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { clearCurrentRun, CURRENT_RUN_STORAGE_KEY, loadCurrentRun, saveCurrentRun, type CurrentRunV1 } from '../src/running/core/currentRun';
 import { RunningSimulation } from '../src/running/core/simulation';
 import { ScenarioSimulation } from '../src/running/core/scenarioSimulation';
-import { adaptAcademicPerson, type PersonId } from '../src/running/core/people';
+import { academicPublicProfile, adaptAcademicPerson, type PersonId } from '../src/running/core/people';
 
 function memoryStorage(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -168,6 +168,21 @@ describe('versioned current Running run', () => {
     expect(storage.values.get('beatgarden.settings.v1')).toBe('{"musicVolume":0.4}');
     expect(storage.values.get('beatgarden.running.v2')).toBe('{"version":2}');
     clearCurrentRun(storage);
+  });
+
+  it('migrates legacy academic candidates without exposing legacy human names', () => {
+    const simulation = new RunningSimulation(101);
+    const legacy: any = { version: 1, status: 'active', savedAt: 9, seed: 101, world: 'phd', difficulty: 'garden', simulation: simulation.exportState() };
+    delete legacy.simulation.phd.state.supervisorCandidates;
+    delete legacy.simulation.phd.state.recoveryOffered;
+    delete legacy.simulation.phd.state.recoveryOutcome;
+    delete legacy.simulation.phd.state.recoveredFromLow;
+    const restored = loadCurrentRun(memoryStorage({ [CURRENT_RUN_STORAGE_KEY]: JSON.stringify(legacy) }));
+    expect(restored?.world).toBe('phd');
+    const candidates = restored?.world === 'phd' ? restored.simulation.phd.state.supervisorCandidates : [];
+    expect(candidates).toEqual(['mei', 'rowan', 'lin']);
+    expect(candidates.map((id) => academicPublicProfile(id).code)).toEqual(['CL-AS', 'RS-DM', 'AU-LC']);
+    expect(candidates.map((id) => academicPublicProfile(id).code).join('|')).not.toMatch(/MEI|ROWAN|LIN/);
   });
 
   it.each([

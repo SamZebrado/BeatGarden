@@ -2,6 +2,8 @@ import type { RunningDifficulty } from './difficulty';
 import { MAX_RUNNING_ENEMIES, type RunningSimulationStateV1 } from './simulation';
 import type { ScenarioSimulationStateV1, ScenarioWorld } from './scenarioSimulation';
 import { isRelationshipState } from './personScience';
+import { recordSuccessfulJourney, type JourneyCompletionResult } from './save';
+import type { JourneyCompletionInput } from './journal';
 
 export const CURRENT_RUN_STORAGE_KEY = 'beatgarden.running.current.v1';
 
@@ -59,6 +61,13 @@ export function saveCurrentRun(run: CurrentRunV1, storage: CurrentRunStorage | n
 
 export function clearCurrentRun(storage: Pick<Storage, 'removeItem'> | null = browserStorage()): void {
   storage?.removeItem(CURRENT_RUN_STORAGE_KEY);
+}
+
+/** Commit and verify Journal authority before removing its recoverable terminal checkpoint. */
+export function commitSuccessfulJourney(input: JourneyCompletionInput, storage: CurrentRunStorage | null = browserStorage()): JourneyCompletionResult {
+  const completed = recordSuccessfulJourney(input, storage);
+  storage?.removeItem(CURRENT_RUN_STORAGE_KEY);
+  return completed;
 }
 
 export function isCurrentRunV1(value: unknown): value is CurrentRunV1 {

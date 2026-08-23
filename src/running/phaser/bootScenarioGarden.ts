@@ -7,10 +7,10 @@ import type { RunningDifficulty } from '../core/difficulty';
 import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
 import { RunningLegend, createScenarioLegendEntries } from '../RunningLegend';
-import { loadRunningSave, recordFailedJourney, recordSuccessfulJourney } from '../core/save';
+import { loadRunningSave, recordFailedJourney } from '../core/save';
 import { PromotionAction } from '../PromotionAction';
 import { beginCardPress, cardAtPoint, cardPressMovedTooFar, completesCardPress, scenarioChoiceCardRects, type CardPress, type ChoiceViewport } from './choiceCards';
-import { clearCurrentRun, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
+import { clearCurrentRun, commitSuccessfulJourney, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
 import { JourneyResult } from '../JourneyResult';
 import { academicPublicProfile, seededAcademicBackground } from '../core/people';
 import { MANAGERS, MANAGER_PUBLIC, WORK_OFFERS, seededManagerBackground } from '../core/lifePaths';
@@ -22,7 +22,7 @@ type ScenarioCurrentRun = Extract<CurrentRunV1, { world: ScenarioWorld }>;
 
 export async function bootScenarioGarden(root: HTMLElement, options: { world: ScenarioWorld; onExit: () => void; difficulty: RunningDifficulty; resume?: ScenarioCurrentRun }): Promise<RunningGameHandle> {
   const runSeed = options.resume?.seed ?? scenarioSeed(options.world);
-  const runInstance = options.resume?.savedAt ?? Date.now();
+  let runInstance = options.resume?.savedAt ?? Date.now();
   let sourceRunSerial = 0;
   root.replaceChildren();
   root.style.cssText = `width:100vw;height:100vh;overflow:hidden;background:${options.world === 'master' ? '#0b1830' : '#171b22'};touch-action:none;`;
@@ -48,6 +48,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
     private result!: JourneyResult;
     private previous: ScenarioSnapshot | null = null;
     private completionRecorded = false;
+    private completionRetryAt = 0;
     private touchCount = 0;
     private choicePress: CardPress | null = null;
     private checkpointToken = '';
@@ -96,14 +97,20 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       this.render(state);
     }
 
-    private restart(): void { clearCurrentRun(); this.simulation = createSimulation(options.world, options.difficulty); this.accumulator = 0; this.joystick = null; this.choicePress = null; this.checkpointToken = ''; this.previous = null; this.completionRecorded = false; sourceRunSerial += 1; this.promotion.hide(); this.result.hide(); this.saveNow(); }
+    private restart(): void { clearCurrentRun(); this.simulation = createSimulation(options.world, options.difficulty); this.accumulator = 0; this.joystick = null; this.choicePress = null; this.checkpointToken = ''; this.previous = null; this.completionRecorded = false; this.completionRetryAt = 0; runInstance = Date.now(); sourceRunSerial = 0; this.promotion.hide(); this.result.hide(); this.saveNow(); }
 
     saveNow(): void {
       const state = this.simulation.snapshot();
-      if (state.completed || state.gameOver) { clearCurrentRun(); return; }
+      if (state.gameOver || (state.completed && this.completionRecorded)) { clearCurrentRun(); return; }
       const simulation = this.simulation.exportState();
-      if (options.world === 'master') saveCurrentRun({ version: 1, status: 'active', savedAt: Date.now(), seed: runSeed, world: 'master', difficulty: state.difficulty, simulation });
-      else saveCurrentRun({ version: 1, status: 'active', savedAt: Date.now(), seed: runSeed, world: 'work', difficulty: state.difficulty, simulation });
+      try {
+        if (options.world === 'master') saveCurrentRun({ version: 1, status: 'active', savedAt: runInstance, seed: runSeed, world: 'master', difficulty: state.difficulty, simulation });
+        else saveCurrentRun({ version: 1, status: 'active', savedAt: runInstance, seed: runSeed, world: 'work', difficulty: state.difficulty, simulation });
+        delete overlay.dataset.checkpointError;
+      } catch (error) {
+        overlay.dataset.checkpointError = error instanceof Error ? error.message : String(error);
+        console.error('[BeatGarden] Running checkpoint rejected; gameplay continues.', error);
+      }
     }
 
     private readInput(): RunningInput {
@@ -370,10 +377,8 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         if (state.gameOver && !prior.gameOver) this.audio.cue('game-over');
       }
       if (state.event.phase !== 'idle') this.hints.show(state.event.kind === 'weekly' ? 'meeting' : state.world === 'master' ? 'milestone' : 'meeting', state.event.kind === 'weekly' ? 'running.hint.weeklyWork' : 'running.hint.milestone');
-      if (state.completed && !this.completionRecorded) {
-        clearCurrentRun();
-        this.completionRecorded = true;
-        this.audio.cue('complete');
+      if (state.completed && !this.completionRecorded && Date.now() >= this.completionRetryAt) {
+        this.completionRetryAt = Date.now() + 2000;
         const marks: StoryMarkId[] = [];
         const signals: AchievementId[] = state.world === 'master' ? ['master-three-years'] : ['delivery-crown'];
         if (state.recovery.outcome === 'takeBreak') { marks.push('gentle-pause'); signals.push('recovery-choice'); }
@@ -392,14 +397,21 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         const personId = state.masterPath?.supervisorPersonId ?? (state.workPath?.managerId ? MANAGERS[state.workPath.managerId].personId : null);
         const personCode = state.masterPath?.supervisorPersonId ? academicPublicProfile(state.masterPath.supervisorPersonId).code : state.workPath?.managerId ? MANAGER_PUBLIC[state.workPath.managerId].code : null;
         const relationship = personId ? exported.relationships?.[personId] ?? null : null;
-        const completed = recordSuccessfulJourney({ sourceRunId: `${state.world}:${runSeed}:${runInstance}:${sourceRunSerial}`, world: state.world, difficulty: state.difficulty, runDuration: state.time, finalStage: state.world === 'master' ? 'year-3:defense' : 'promotion', personCode, routeChoices: state.world === 'master' ? [state.masterPath?.careerPlan ?? 'none'] : [state.workPath?.managerId ?? 'none', state.routeFlags.changedDirection ? 'changed-direction' : 'stayed-path'], relationship, build: { orbit: state.orbitCount, cadence: 0, vitality: 0 }, resources: { energy: state.energy, focus: state.focus, spirit: state.spirit }, milestones: state.world === 'master' ? ['master:proposal', 'master:defense'] : ['work:conversion', 'work:promotion'], storyMarks: marks, musicStyle: loadRunningSave().musicStyle, achievementSignals: signals });
-        const refreshed = completed.save;
-        this.result.show(completed.record);
-        this.promotion.show({
-          world: state.world, completionNumber: refreshed.worldCompletions[state.world] ?? 1, difficulty: state.difficulty,
-          orbitCount: state.orbitCount, energy: state.energy, focus: state.focus, spirit: state.spirit,
-          activePriority: state.activePriority,
-        }, completed.record.recordId);
+        try {
+          const completed = commitSuccessfulJourney({ sourceRunId: `${state.world}:${runSeed}:${runInstance}:${sourceRunSerial}`, world: state.world, difficulty: state.difficulty, runDuration: state.time, finalStage: state.world === 'master' ? 'year-3:defense' : 'promotion', personCode, routeChoices: state.world === 'master' ? [state.masterPath?.careerPlan ?? 'none'] : [state.workPath?.managerId ?? 'none', state.routeFlags.changedDirection ? 'changed-direction' : 'stayed-path'], relationship, build: { orbit: state.orbitCount, cadence: 0, vitality: 0 }, resources: { energy: state.energy, focus: state.focus, spirit: state.spirit }, milestones: state.world === 'master' ? ['master:proposal', 'master:defense'] : ['work:conversion', 'work:promotion'], storyMarks: marks, musicStyle: loadRunningSave().musicStyle, achievementSignals: signals });
+          this.completionRecorded = true;
+          this.audio.cue('complete');
+          const refreshed = completed.save;
+          this.result.show(completed.record);
+          this.promotion.show({
+            world: state.world, completionNumber: refreshed.worldCompletions[state.world] ?? 1, difficulty: state.difficulty,
+            orbitCount: state.orbitCount, energy: state.energy, focus: state.focus, spirit: state.spirit,
+            activePriority: state.activePriority,
+          }, completed.record.recordId);
+        } catch (error) {
+          this.saveNow();
+          console.error('[BeatGarden] Journey persistence failed; terminal checkpoint retained for retry.', error);
+        }
       } else if (state.gameOver && !this.completionRecorded) {
         this.completionRecorded = true;
         recordFailedJourney(state.world);

@@ -26,6 +26,12 @@ Completion order is: persistent journey transaction → Journey summary → newl
 Medals → Story Marks → optional promoted-player Boss action. Boss creation patches the
 same JourneyRecord with its stable Boss ID.
 
+Journey/meta persistence is written and read back before the terminal current-run key
+is removed. A storage exception is contained by the scene, leaves the recoverable
+terminal checkpoint in place, and is retried idempotently from the same stable run ID.
+Imported `personCode` and `finalStage` values remain plain data and are HTML-escaped at
+the Journal presentation boundary.
+
 ## Cast and fictional context
 
 The built-in academic pool contains eight anonymous Person cores. PhD and Master each
@@ -37,6 +43,9 @@ non-exploitation facets and future behavior probabilities remain hidden.
 Work keeps exactly three anonymous manager offers and the established
 offers → trial → conversion → employed → promotion path. Academic and manager
 backgrounds contain no real name, institution or lab and do not mutate Person Core.
+Legacy checkpoints retain their `mei`, `rowan` and `lin` internal IDs for behavioral
+compatibility, but public presentation maps them to anonymous `CL-AS`, `RS-DM` and
+`AU-LC` aliases.
 
 ## Music
 

@@ -7,11 +7,11 @@ import { SemanticHints } from '../SemanticHints';
 import { RunningAudio } from '../RunningAudio';
 import { EmojiBeta } from '../EmojiBeta';
 import { RunningLegend, createPhdLegendEntries } from '../RunningLegend';
-import { loadRunningSave, recordFailedJourney, recordSuccessfulJourney, updateRunningSave } from '../core/save';
+import { loadRunningSave, recordFailedJourney, updateRunningSave } from '../core/save';
 import type { AnnualMilestoneKind } from '../core/phdSystems';
 import { PromotionAction } from '../PromotionAction';
 import { beginCardPress, cardAtPoint, cardPressMovedTooFar, completesCardPress, phdChoiceCardRects, upgradeCardRects, type CardPress, type ChoiceViewport } from './choiceCards';
-import { clearCurrentRun, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
+import { clearCurrentRun, commitSuccessfulJourney, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
 import { JourneyResult } from '../JourneyResult';
 import { academicPublicProfile, seededAcademicBackground } from '../core/people';
 import type { AchievementId, StoryMarkId } from '../core/journal';
@@ -20,7 +20,7 @@ const STEP = 1 / 60;
 
 export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => void; difficulty: RunningDifficulty; resume?: Extract<CurrentRunV1, { world: 'phd' }> }): Promise<RunningGameHandle> {
   const runSeed = options.resume?.seed ?? seedFromUrl();
-  const runInstance = options.resume?.savedAt ?? Date.now();
+  let runInstance = options.resume?.savedAt ?? Date.now();
   let sourceRunSerial = 0;
   root.replaceChildren();
   root.style.cssText = 'width:100vw;height:100vh;display:block;overflow:hidden;background:#071512;touch-action:none;';
@@ -53,6 +53,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     private result!: JourneyResult;
     private previous: RunningSnapshot | null = null;
     private completionRecorded = false;
+    private completionRetryAt = 0;
     private touchCount = 0;
     private pollutionTrail: Array<{ x: number; y: number }> = [];
     private lastPollutionSample = -1;
@@ -209,7 +210,9 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       this.choicePress = null;
       this.previous = null;
       this.completionRecorded = false;
-      sourceRunSerial += 1;
+      this.completionRetryAt = 0;
+      runInstance = Date.now();
+      sourceRunSerial = 0;
       this.pollutionTrail = [];
       this.lastPollutionSample = -1;
       this.checkpointToken = '';
@@ -220,9 +223,9 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
 
     saveNow(): void {
       const state = this.simulation.snapshot();
-      if (state.gameOver || state.phd.terminal === 'ended' || state.phd.terminal === 'graduated') { clearCurrentRun(); return; }
+      if (state.gameOver || state.phd.terminal === 'ended' || (state.phd.terminal === 'graduated' && this.completionRecorded)) { clearCurrentRun(); return; }
       try {
-        saveCurrentRun({ version: 1, status: 'active', savedAt: Date.now(), seed: runSeed, world: 'phd', difficulty: state.difficulty, simulation: this.simulation.exportState() });
+        saveCurrentRun({ version: 1, status: 'active', savedAt: runInstance, seed: runSeed, world: 'phd', difficulty: state.difficulty, simulation: this.simulation.exportState() });
         delete hudOverlay.dataset.checkpointError;
       } catch (error) {
         hudOverlay.dataset.checkpointError = error instanceof Error ? error.message : String(error);
@@ -740,10 +743,8 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
           updateRunningSave({ milestoneCompletions: [...save.milestoneCompletions, 'phd:pre-defense'] });
         }
       }
-      if (state.phd.terminal === 'graduated' && !this.completionRecorded) {
-        clearCurrentRun();
-        this.completionRecorded = true;
-        this.audio.cue('complete');
+      if (state.phd.terminal === 'graduated' && !this.completionRecorded && Date.now() >= this.completionRetryAt) {
+        this.completionRetryAt = Date.now() + 2000;
         const marks: StoryMarkId[] = [];
         const signals: AchievementId[] = ['qualifying-light'];
         if (state.phd.lastBoundaryReaction === 'respected') { marks.push('held-boundary'); signals.push('boundary-held'); }
@@ -756,15 +757,23 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         if (state.phd.recoveryOutcome === 'takeBreak') { marks.push('gentle-pause'); signals.push('recovery-choice'); }
         if (state.phd.recoveredFromLow) signals.push('back-from-low');
         const exported = this.simulation.exportState();
-        const completed = recordSuccessfulJourney({ sourceRunId: `phd:${runSeed}:${runInstance}:${sourceRunSerial}`, world: 'phd', difficulty: state.difficulty, runDuration: state.time, finalStage: `year-${state.phd.year}:graduated`, personCode: state.phd.supervisorPersonId ? academicPublicProfile(state.phd.supervisorPersonId).code : null, routeChoices: [state.phd.supervisorPersonId ?? 'none', state.phd.lifestyle?.id ?? 'no-lifestyle'], relationship: state.phd.relationship, build: exported.upgrades, resources: { energy: state.phd.energy, focus: state.phd.focus, spirit: state.phd.spirit }, milestones: ['phd:qualifying', 'phd:pre-defense', 'phd:defense'], storyMarks: marks, musicStyle: loadRunningSave().musicStyle, achievementSignals: signals });
-        const refreshed = completed.save;
-        updateRunningSave({ milestoneCompletions: [...refreshed.milestoneCompletions, 'phd:defense'] });
-        this.result.show(completed.record);
-        this.promotion.show({
-          world: 'phd', completionNumber: refreshed.worldCompletions.phd ?? 1, difficulty: state.difficulty,
-          orbitCount: state.orbitCount, energy: state.phd.energy, focus: state.phd.focus, spirit: state.phd.spirit,
-          evidence: state.phd.evidence, connection: state.phd.connection,
-        }, completed.record.recordId);
+        try {
+          const completed = commitSuccessfulJourney({ sourceRunId: `phd:${runSeed}:${runInstance}:${sourceRunSerial}`, world: 'phd', difficulty: state.difficulty, runDuration: state.time, finalStage: `year-${state.phd.year}:graduated`, personCode: state.phd.supervisorPersonId ? academicPublicProfile(state.phd.supervisorPersonId).code : null, routeChoices: [state.phd.supervisorPersonId ?? 'none', state.phd.lifestyle?.id ?? 'no-lifestyle'], relationship: state.phd.relationship, build: exported.upgrades, resources: { energy: state.phd.energy, focus: state.phd.focus, spirit: state.phd.spirit }, milestones: ['phd:qualifying', 'phd:pre-defense', 'phd:defense'], storyMarks: marks, musicStyle: loadRunningSave().musicStyle, achievementSignals: signals });
+          this.completionRecorded = true;
+          this.audio.cue('complete');
+          const refreshed = completed.save;
+          try { updateRunningSave({ milestoneCompletions: [...refreshed.milestoneCompletions, 'phd:defense'] }); }
+          catch (error) { console.error('[BeatGarden] Optional milestone persistence failed after Journey commit.', error); }
+          this.result.show(completed.record);
+          this.promotion.show({
+            world: 'phd', completionNumber: refreshed.worldCompletions.phd ?? 1, difficulty: state.difficulty,
+            orbitCount: state.orbitCount, energy: state.phd.energy, focus: state.phd.focus, spirit: state.phd.spirit,
+            evidence: state.phd.evidence, connection: state.phd.connection,
+          }, completed.record.recordId);
+        } catch (error) {
+          this.saveNow();
+          console.error('[BeatGarden] Journey persistence failed; terminal checkpoint retained for retry.', error);
+        }
       } else if (state.gameOver && !this.completionRecorded) {
         this.completionRecorded = true;
         recordFailedJourney('phd');

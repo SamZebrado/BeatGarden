@@ -19,4 +19,7 @@ describe('anonymous seeded default cast',()=>{
     const id=DEFAULT_ACADEMIC_CAST[0]; expect(academicRoleProfile(id,'phd-supervisor')).not.toEqual(academicRoleProfile(id,'master-supervisor'));
     expect(academicPersonBehavior(id,'phd-supervisor')).not.toEqual(academicPersonBehavior(id,'master-supervisor'));
   });
+  it('keeps all legacy academic IDs anonymous in public presentation',()=>{
+    expect((['mei','rowan','lin'] as const).map(id=>academicPublicProfile(id).code)).toEqual(['CL-AS','RS-DM','AU-LC']);
+  });
 });
