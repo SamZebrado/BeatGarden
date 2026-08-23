@@ -23,3 +23,34 @@ Runtime candidate: `af97fae`
 At `af97fae`: `npm ci` PASS; TypeScript lint PASS; 46 files / 299 tests PASS; Pages-base production build PASS. Rhythm main 251.82 kB / gzip 69.25 kB; AutoChart worker 4.61 kB. The unchanged out-of-scope Running chunk remains 1,216.79 kB / gzip 324.98 kB with its existing size warning.
 
 R5 is implemented and exact-verified, but it is not pre-accepted here. Independent Gate submission remains ordered after R3 and R4.
+
+## Bounded delta after R5 PARTIAL
+
+Delta runtime commit: `004146b`
+
+- Easy is now structurally tap-only: its Swipe and Hold chances are zero and all
+  non-Tap branches explicitly exclude Easy. A sustained mid-energy fixture
+  remains all-Tap across seeds 1, 2, 7, 21, 99 and 65535.
+- Phrase identity is now a phrase-local four-slot grammar, not a global note
+  index. Alternating `call` / `response` motifs repeat recognizable action
+  contours; later repeats vary Swipe direction in a controlled way. The test
+  directly compares two complete non-intro call sequences.
+- `android-pulse-generated-inputs.png` records the real Pulse Garden product
+  flow after generated input. Hard/seed 1 produced a right Swipe at 1.4977 s
+  and a conflict-free 0.8185 s Hold at 4.4931 s. Real CDP touch recorded one
+  `PERFECT` Swipe and two further `PERFECT` judgements for Hold start/release;
+  success counts advanced from 1 to 3 with `pointerType: touch`.
+- Android reused the single existing Chrome tab id `234` and then restored that
+  same tab to `CheapLive Black Screen`.
+- Android `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0`; no audible
+  sound was played.
+- `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
+- Exact detached worktree: `/private/tmp/beatgarden-r5-delta-004146b`
+- `npm ci`: PASS, 87 packages
+- `npm run lint`: PASS
+- `npm test -- --run`: PASS, 47 files / 307 tests
+- `VITE_BASE=/BeatGarden/ npm run build`: PASS
+- Rhythm main: 253.05 kB / gzip 69.60 kB
+- AutoChart worker: 4.61 kB
+- Existing out-of-scope Running chunk warning: 1,216.79 kB / gzip 324.98 kB
+- No file under `src/running/` changed.

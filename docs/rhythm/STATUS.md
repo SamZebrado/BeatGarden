@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop PASS after the bounded reduced-motion delta at `e502df2`. R5 AutoChart is implemented and exact-verified locally without pre-claiming its Gate.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop PASS after the bounded reduced-motion delta at `e502df2`. R5 AutoChart is PARTIAL with all three bounded blockers fixed and exact-verified at `004146b`.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -32,7 +32,7 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 ### Current product blockers
 
-1. R5: implementation and exact verification at `af97fae` are complete; submit for independent bounded review.
+1. R5: submit the bounded Easy/motif/end-to-end playability delta at `004146b` for independent closure review.
 
 ## LOG
 
@@ -174,11 +174,20 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Android `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0` before and after; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
 - Exact detached verification at `af97fae`: `npm ci` PASS; TypeScript lint PASS; 46 files / 299 tests PASS; Pages-base production build PASS. Rhythm main 251.82 kB / gzip 69.25 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
 
+### R5 AutoChart Gate PARTIAL and bounded playability delta
+
+- Independent review returned `RHYTHM V2 R5 AUTOCHART GATE: PARTIAL` with three bounded blockers: Easy could still generate Holds; `phraseIndex` was only a time bucket rather than a repeated motif grammar; and the evidence had not played a generated Swipe plus Hold/release through Pulse Garden.
+- Easy now has zero Swipe/Hold probability and every type-selection branch is explicitly guarded from Easy. A sustained mid-energy fixture proves every note remains a Tap across six deterministic seeds.
+- Phrase grammar now derives a four-slot phrase-local position from musical time and alternates reusable `call` / `response` motifs. Similar phrases repeat the same `[motifSlot, actionType]` contour; later repetitions vary Swipe direction in a controlled alternating pattern. The regression directly compares two complete non-intro call sequences.
+- The exact Hard/seed 1 synthetic product fixture exposes a right Swipe at song time 1.4977 s and a conflict-free 0.8185 s Hold at 4.4931 s. In the real Android product flow, CDP touch produced `PERFECT` for the generated Swipe and `PERFECT` for both authoritative Hold start and release; successful Judge counts advanced `1 → 3`, `pointerType` was `touch`, AudioContext was running and the imported source/time line remained authoritative.
+- Android reused the single existing Chrome tab id `234`, then returned that same tab to `CheapLive Black Screen`. `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0`; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
+- Exact detached verification at `004146b`: `npm ci` PASS (87 packages); TypeScript lint PASS; 47 files / 307 tests PASS; Pages-base production build PASS. Rhythm main 253.05 kB / gzip 69.60 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Submit exact R5 candidate `af97fae` plus evidence/status HEAD `6cb960c` for bounded independent review.
+1. Submit exact R5 bounded delta `004146b` plus its evidence/status commit for independent closure review.
 
 Timing invariant for all future slices:
 
