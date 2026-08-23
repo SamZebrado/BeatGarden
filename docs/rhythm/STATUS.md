@@ -118,13 +118,24 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Attachment delivery audit found a concrete Bridge false-positive: the R2 ledger marked eight files confirmed, while the nonce-owned real Chrome bubble exposed only five rendered attachment groups. The uploader had treated the message body's requested `ATTACHMENT_ACK` filename list as rendered-card evidence. A scoped Bridge regression now excludes whole-message text from attachment matching and passes 24/24 reliability tests; the BeatGarden Gate verdict used the model's inspected source/available attachments and exact pushed commits.
 - Per the approved R1→R5 sequence, work proceeds immediately to R3 Stage Differentiation.
 
+### R3 — Stage Differentiation implementation and smoke
+
+- Firefly Dock now authors call-and-response phrases, a deliberate six-beat Variation B rest, a readable nine-target climax stream and two-star outro. Successful nonautomatic launches persist as deterministic constellation nodes and links; the player-triggered launch arc remains the immediate causal payoff.
+- Bubble Kitchen now uses authored recipe/order phrases instead of a shared interval loop. Full-width lanes lead falling ingredient shapes into pot hit zones, current lanes remain explicit, accumulated successes visibly fill each pot and the climax adds kitchen-specific lighting without adding a memory-game requirement.
+- Cloud Post now has separate left/right destination routes, repeated-direction and alternating phrases, authored breathing rests, section-specific wind direction/speed, envelope approach geometry and a predictable climax mail stream.
+- Sleepy Greenhouse now uses hold durations `[2,3,2,4,3,2,4,1]`, paired press/release target geometry, lane-specific persistent plant growth, a duration-authoritative hold meter and sequential climax blooms.
+- Deterministic regressions prove all four stages span Intro/Main A/Variation B/Climax/Outro, preserve their specific pattern/rest/duration identities, keep targets before stage end and continue to use Scheduler/Transport/Judge authority.
+- Real desktop mouse evidence records a Firefly `PERFECT` with Combo 1, launch arc and the first persistent constellation node. Bubble, Cloud and Greenhouse rendered evidence shows distinct target trajectories and payoff geometry. A 390×844 narrow browser smoke kept instructions and controls reachable with no browser warnings/errors; the default viewport was restored afterward.
+- Exact detached verification at `ef87dff`: TypeScript lint PASS; 45 files / 294 tests PASS; Pages-base production build PASS. Rhythm main 243.37 kB / gzip 66.25 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No file under `src/running/` changed.
+- Exact Android runtime `ef87dff` on device `bbda35e` / Xiaomi `24091RPADC`: a real touch aligned to Bubble's authored first formal target recorded `pointerType: touch`, `GREAT`, Combo 1 and Groove 21.84 at 1163×632 CSS px / DPR 2.75. `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0` before and after; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Commit the bounded R3 stage-progression candidate without any R4/R5 or Running changes.
-2. Verify authored section identity, distinct target geometry/payoffs and real desktop/narrow plus muted Android touch behavior against the exact R3 candidate.
-3. Submit the exact R3 candidate for bounded independent review, then enter R4 automatically on PASS.
+1. Submit exact R3 candidate `ef87dff` plus its evidence-only closure for bounded independent review.
+2. If R3 is PARTIAL/FAIL, fix only the reported blocker and repeat exact desktop/touch verification.
+3. On R3 PASS, enter R4 Product Shell and Result Loop automatically.
 
 Timing invariant for all future slices:
 
