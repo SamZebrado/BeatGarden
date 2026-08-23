@@ -232,6 +232,12 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
 
     private choiceViewport(): ChoiceViewport {
       const view = this.cameras.main.worldView;
+      if (view.width <= 0 || view.height <= 0) {
+        const zoom = Math.max(Number.EPSILON, this.cameras.main.zoom);
+        const width = this.scale.width / zoom;
+        const height = this.scale.height / zoom;
+        return { left: this.cameras.main.scrollX, top: this.cameras.main.scrollY, width, height, centerX: this.cameras.main.scrollX + width / 2, centerY: this.cameras.main.scrollY + height / 2 };
+      }
       return { left: view.left, top: view.top, width: view.width, height: view.height, centerX: view.centerX, centerY: view.centerY };
     }
 
@@ -280,7 +286,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
           g.lineBetween(pulse.x + 3, pulse.y, pulse.x + radius, pulse.y);
           g.lineBetween(pulse.x, pulse.y - radius, pulse.x, pulse.y - 3);
           g.lineBetween(pulse.x, pulse.y + 3, pulse.x, pulse.y + radius);
-        } else g.strokeCircle(pulse.x, pulse.y, 12 + (0.35 - pulse.ttl) * 45);
+        } else g.strokeCircle(pulse.x, pulse.y, Math.max(1, 12 + (0.35 - pulse.ttl) * 45));
       }
       for (const contact of state.orbitContacts) {
         g.lineStyle(contact.defeated ? 5 : 3, 0x73f2aa, contact.defeated ? .95 : .68);
@@ -475,7 +481,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         g.fillTriangle(x, y - 9, x - 9, y + 7, x + 9, y + 7);
       }
       if (phd.activeProject) {
-        const ratio = phd.activeProject.progress / phd.activeProject.goal;
+        const ratio = Math.max(0, Math.min(1, phd.activeProject.progress / phd.activeProject.goal));
         g.lineStyle(5, 0x8bdcc1, 0.35 + ratio * 0.6).strokeCircle(state.player.x, state.player.y, 108 + ratio * 16);
       }
       if (phd.pollution > 0) {
@@ -645,7 +651,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
 
     private drawMeetingCue(g: Phaser.GameObjects.Graphics, state: RunningSnapshot): void {
       if (state.meeting.phase === 'idle') return;
-      const radius = state.meeting.phase === 'telegraph' ? 240 - state.meeting.remaining * 42 : 115;
+      const radius = Math.max(1, state.meeting.phase === 'telegraph' ? 240 - state.meeting.remaining * 42 : 115);
       g.lineStyle(state.meeting.phase === 'telegraph' ? 9 : 5, 0xffc96e, state.meeting.phase === 'telegraph' ? 0.75 : 0.28)
         .strokeCircle(state.player.x, state.player.y, radius);
       for (let index = 0; index < 8; index += 1) {
@@ -662,7 +668,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         const pulse = 28 + Math.sin(state.time * 10) * 12;
         g.lineStyle(10, color, 0.3 + Math.abs(Math.sin(state.time * 8)) * 0.5)
           .strokeRoundedRect(pulse, pulse, RUNNING_WORLD.width - pulse * 2, RUNNING_WORLD.height - pulse * 2, 36);
-        g.fillStyle(color, 0.14).fillCircle(state.player.x, state.player.y, 130 - milestone.remaining * 18);
+        g.fillStyle(color, 0.14).fillCircle(state.player.x, state.player.y, Math.max(1, 130 - milestone.remaining * 18));
       } else {
         g.lineStyle(8, color, 0.72).strokeRoundedRect(18, 18, RUNNING_WORLD.width - 36, RUNNING_WORLD.height - 36, 32);
         const width = 360;

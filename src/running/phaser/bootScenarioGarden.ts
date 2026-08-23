@@ -149,6 +149,12 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
 
     private choiceViewport(): ChoiceViewport {
       const view = this.cameras.main.worldView;
+      if (view.width <= 0 || view.height <= 0) {
+        const zoom = Math.max(Number.EPSILON, this.cameras.main.zoom);
+        const width = this.scale.width / zoom;
+        const height = this.scale.height / zoom;
+        return { left: this.cameras.main.scrollX, top: this.cameras.main.scrollY, width, height, centerX: this.cameras.main.scrollX + width / 2, centerY: this.cameras.main.scrollY + height / 2 };
+      }
       return { left: view.left, top: view.top, width: view.width, height: view.height, centerX: view.centerX, centerY: view.centerY };
     }
 
@@ -220,7 +226,7 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
         g.lineStyle(9, 0xffc56f, 0.8).lineBetween(x, 0, x, 720);
         for (let y = 65; y < 720; y += 110) g.fillStyle(0xffc56f, 0.75).fillTriangle(x, y, x - 16, y + 24, x + 16, y + 24);
       } else {
-        const radius = state.event.phase === 'telegraph' ? 130 + (3 - state.event.remaining) * 75 : 340;
+        const radius = Math.max(1, state.event.phase === 'telegraph' ? 130 + (3 - state.event.remaining) * 75 : 340);
         g.lineStyle(12, 0xd79cff, 0.75).strokeCircle(state.player.x, state.player.y, radius);
         g.lineStyle(5, 0xd79cff, 0.45).strokeCircle(state.player.x, state.player.y, radius + 50);
       }

@@ -44,7 +44,12 @@ ChatGPT review conversation.
   loop: the captured landscape viewport still had portrait canvas backing dimensions
   and a negative vertical offset. WebGL remained available with
   `isContextLost() === false`. Fixed-build Android rotation checks produced matching
-  portrait and landscape canvases and continued rendering after each transition.
+  portrait and landscape canvases and continued rendering after each transition. A
+  final Canvas-fallback probe also exposed a first-frame choice-layout exception: the
+  Canvas renderer saw a negative rounded-rectangle radius before `worldView` had its
+  first non-zero dimensions. Choice layout now falls back to scale/zoom dimensions for
+  that frame, and dynamic circle radii are defensively clamped. Neither guard changes
+  simulation state.
 - Projectile authority remains unchanged: projectiles are removed on impact and the
   graphics layer is cleared every frame. The yellow expanding impact ring was replaced
   by a short four-ray impact spark so it cannot read as a lingering projectile. Orbit
