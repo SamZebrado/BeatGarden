@@ -56,6 +56,27 @@ export function classifyGardenUnmatched(
   return 'WAIT';
 }
 
+export function nearestUnconsumedGardenTarget(
+  mechanic: GardenMechanic,
+  action: PointerAction,
+  targets: readonly ScheduledJudgeTarget[],
+  consumed: ReadonlySet<string>,
+  beatToAudioTime: (beat: number) => number,
+): ScheduledJudgeTarget | undefined {
+  const wantedKind: InputKind | null = action.type === 'tap' ? 'tap'
+    : action.type === 'holdStart' ? 'holdStart'
+      : action.type === 'holdEnd' ? 'holdRelease'
+        : action.type === 'swipe' ? (action.direction === 'left' ? 'swipeLeft' : 'swipeRight') : null;
+  return targets
+    .filter((target) => {
+      if (consumed.has(target.id)) return false;
+      if (mechanic === 'swipe') return target.inputKind === 'swipeLeft' || target.inputKind === 'swipeRight';
+      return wantedKind === null || target.inputKind === wantedKind;
+    })
+    .sort((a, b) => Math.abs(beatToAudioTime(a.beat) - action.audioTime)
+      - Math.abs(beatToAudioTime(b.beat) - action.audioTime))[0];
+}
+
 export function updateGardenPointerPreview(
   mechanic: GardenMechanic,
   current: GardenPointerState | null,
@@ -228,26 +249,20 @@ abstract class GardenStage implements StageDefinition {
   }
 
   public onUnmatchedInput(action: PointerAction, context: UnmatchedInputContext): void {
-    const wantedKind: InputKind | null = action.type === 'tap' ? 'tap'
-      : action.type === 'holdStart' ? 'holdStart'
-        : action.type === 'holdEnd' ? 'holdRelease'
-          : action.type === 'swipe' ? (action.direction === 'left' ? 'swipeLeft' : 'swipeRight') : null;
-    const candidates = context.targets.filter((target) => {
-      if (this.profile.mechanic === 'swipe') return target.inputKind === 'swipeLeft' || target.inputKind === 'swipeRight';
-      return wantedKind === null || target.inputKind === wantedKind;
-    });
-    const expected = candidates.sort((a, b) => {
-      const da = Math.abs((this.services?.transport.beatToAudioTime(a.beat) ?? action.audioTime) - action.audioTime);
-      const db = Math.abs((this.services?.transport.beatToAudioTime(b.beat) ?? action.audioTime) - action.audioTime);
-      return da - db;
-    })[0];
+    const expected = nearestUnconsumedGardenTarget(
+      this.profile.mechanic,
+      action,
+      context.targets,
+      this.consumed,
+      (beat) => this.services?.transport.beatToAudioTime(beat) ?? action.audioTime,
+    );
     const targetAudioTime = expected && this.services ? this.services.transport.beatToAudioTime(expected.beat) : action.audioTime;
     const kind = classifyGardenUnmatched(
       this.profile.mechanic,
       action,
       expected,
       action.audioTime - targetAudioTime,
-      context.okWindowSec,
+      expected ? context.windowForTarget(expected) : 0,
     );
     this.feedback = { kind, at: this.services?.transport.snapshot().audioTime ?? 0, lane: 1 };
   }

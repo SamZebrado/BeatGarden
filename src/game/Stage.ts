@@ -56,7 +56,7 @@ export interface UnmatchedInputContext {
   /** All authored targets for this run; the stage owns consumed-target filtering. */
   targets: readonly ScheduledJudgeTarget[];
   snap: TransportSnapshot;
-  okWindowSec: number;
+  windowForTarget: (target: ScheduledJudgeTarget) => number;
 }
 
 export interface StageDefinition {

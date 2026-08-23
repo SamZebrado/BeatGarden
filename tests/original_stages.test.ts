@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage, classifyGardenUnmatched, laneFromSurfaceX, localizedGardenFeedback, updateGardenPointerPreview } from '../src/stages/original/GardenStages';
+import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage, classifyGardenUnmatched, laneFromSurfaceX, localizedGardenFeedback, nearestUnconsumedGardenTarget, updateGardenPointerPreview } from '../src/stages/original/GardenStages';
 import { setLocale } from '../src/i18n/strings';
 import { FireflyDockStage } from '../src/stages/fireflyDock/FireflyDockStage';
 
@@ -115,5 +115,25 @@ describe('additional original stage content', () => {
     const moved = updateGardenPointerPreview('swipe', active, { ...down, type: 'move', x: 300 });
     expect(updateGardenPointerPreview('swipe', moved, { ...down, type: 'up', x: 300 })).toBeNull();
     expect(updateGardenPointerPreview('swipe', active, { ...down, type: 'cancel' })).toBeNull();
+  });
+
+  it('never derives Cloud or Bubble early feedback from a consumed prior target', () => {
+    const cloudAction = { type: 'swipe' as const, direction: 'left' as const, x: 450, y: 300, surfaceWidth: 900, surfaceHeight: 600, dx: -200, dy: 0, audioTime: 3.05, domTimeMs: 1 };
+    const cloudTargets = [
+      { type: 'judge-target' as const, id: 'cloud-done', beat: 6, inputKind: 'swipeRight' as const, meta: { direction: 'right' as const } },
+      { type: 'judge-target' as const, id: 'cloud-next', beat: 8, inputKind: 'swipeLeft' as const, meta: { direction: 'left' as const } },
+    ];
+    const cloudExpected = nearestUnconsumedGardenTarget('swipe', cloudAction, cloudTargets, new Set(['cloud-done']), (beat) => beat / 2);
+    expect(cloudExpected?.id).toBe('cloud-next');
+    expect(classifyGardenUnmatched('swipe', cloudAction, cloudExpected, cloudAction.audioTime - 4, .13)).toBe('TOO_EARLY');
+
+    const bubbleAction = { type: 'tap' as const, x: 450, y: 300, surfaceWidth: 900, surfaceHeight: 600, audioTime: 3.05, domTimeMs: 1 };
+    const bubbleTargets = [
+      { type: 'judge-target' as const, id: 'bubble-done', beat: 6, inputKind: 'tap' as const, meta: { lane: 0 } },
+      { type: 'judge-target' as const, id: 'bubble-next', beat: 8, inputKind: 'tap' as const, meta: { lane: 1 } },
+    ];
+    const bubbleExpected = nearestUnconsumedGardenTarget('laneTap', bubbleAction, bubbleTargets, new Set(['bubble-done']), (beat) => beat / 2);
+    expect(bubbleExpected?.id).toBe('bubble-next');
+    expect(classifyGardenUnmatched('laneTap', bubbleAction, bubbleExpected, bubbleAction.audioTime - 4, .13)).toBe('TOO_EARLY');
   });
 });

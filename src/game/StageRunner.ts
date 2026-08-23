@@ -27,6 +27,7 @@ import { getLocale, languageTargetAction, languageTargetLabel, t, toggleLocale }
 import { loadSettings } from '../settings/settings';
 import { saveBestScore } from '../settings/scores';
 import { hasCompletedTutorial, markTutorialCompleted } from './tutorialProgress';
+import { inputCandidateBeatRange, targetJudgeWindowSeconds } from './targetWindows';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
@@ -233,11 +234,10 @@ export class StageRunner {
       }
       if (this.phase !== 'playing' && this.phase !== 'tutorial') return;
       const snap = this.transport.snapshot();
-      // Collect pending judge targets (within ± ok+window).
+      // Candidate retrieval must cover every input kind. The central Judge
+      // remains authoritative for the selected target's exact window.
       const audioNow = action.audioTime;
-      const okSec = this.config.okWindowMs / 1000;
-      const fromBeat = this.transport.audioTimeToBeat(audioNow - okSec);
-      const toBeat = this.transport.audioTimeToBeat(audioNow + okSec + 0.1);
+      const { fromBeat, toBeat } = inputCandidateBeatRange(this.transport, audioNow, this.config);
       const targets = this.scheduler.getJudgeTargetsInWindow(fromBeat, toBeat);
       const mapped = this.stage.mapInputToTarget(action, targets, snap);
       if (mapped) {
@@ -247,7 +247,7 @@ export class StageRunner {
         this.stage.onUnmatchedInput?.(action, {
           targets: this.scheduler.getJudgeTargets(),
           snap,
-          okWindowSec: okSec,
+          windowForTarget: (target) => targetJudgeWindowSeconds(this.config, target),
         });
       }
     });

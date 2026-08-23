@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PARTIAL; both bounded feedback-causality blockers are fixed and awaiting delta review.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PARTIAL; the second bounded target-selection/window delta is implemented and awaiting exact-commit review.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -81,11 +81,19 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Isolated R1 delta regression: 43 files / 283 tests PASS; TypeScript lint PASS; production build PASS. Rhythm main 230.20 kB / gzip 62.79 kB; AutoChart worker 4.61 kB. Existing out-of-scope Running `JourneyResult` warning remains 1.216 MB / gzip 324.98 kB.
 - R2 Game Feel work is locally prepared but is not claimed or submitted while R1 remains PARTIAL.
 
+### R1 Delta review PARTIAL and second bounded delta
+
+- ChatGPT's first delta review remained `RHYTHM V2 CONTROL GATE: PARTIAL` with two source-level blockers: unmatched feedback could still select an already-consumed nearest target, and StageRunner candidate retrieval used the generic ±130 ms tap window before the central Judge could apply the Greenhouse release ±160 ms window.
+- Unmatched feedback now excludes every target already consumed by success or automatic MISS before nearest-target selection. Sequence regressions make a consumed first Cloud/Bubble target closer than the next target and prove the early action is nevertheless classified against the next target.
+- Candidate retrieval now uses the maximum configured target window plus a 2 ms retrieval epsilon. The selected target's exact authoritative window remains type-specific: ±130 ms for taps/swipes/hold start and ±160 ms for hold release. The central Judge remains the sole judgement authority.
+- Release boundary integration coverage proves +130 ms and +160 ms enter the candidate range and return `OK`, while +161 ms still enters retrieval but returns `MISS` from the central Judge.
+- The earlier delta submission accidentally attached a current working-tree `StageRunner.ts` containing uncommitted R2 display-only HUD work. This second submission must use files only from the isolated R1 commit worktree; no R2 code or claim is part of the R1 Gate packet.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Submit the bounded R1 feedback-causality delta and verify its real Chrome attachment cards.
+1. Submit the second bounded R1 target-selection/window delta from an isolated commit worktree and verify its real Chrome attachment cards.
 2. Obtain `RHYTHM V2 CONTROL GATE: PASS` before committing/submitting R2.
 3. Continue automatically through R2 Shared Game Feel after R1 PASS.
 
