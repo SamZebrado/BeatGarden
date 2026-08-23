@@ -244,7 +244,11 @@ export class StageRunner {
         this.judge.judgeTarget(mapped.target, action.audioTime, mapped.inputKind);
       } else {
         this.synth.play('uiClick', this.audio.now() + 0.002, undefined, 0.05, 0.25);
-        this.stage.onUnmatchedInput?.(action);
+        this.stage.onUnmatchedInput?.(action, {
+          targets: this.scheduler.getJudgeTargets(),
+          snap,
+          okWindowSec: okSec,
+        });
       }
     });
   }

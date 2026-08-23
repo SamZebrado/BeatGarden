@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Clarity is implemented and in browser/Android verification.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PARTIAL; both bounded feedback-causality blockers are fixed and awaiting delta review.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -71,13 +71,23 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Full regression: 43 files / 280 tests PASS. `VITE_BASE=/BeatGarden/ npm run build` PASS; Rhythm main 228.96 kB / gzip 62.42 kB, AutoChart worker 4.61 kB. The pre-existing out-of-scope Running JourneyResult warning remains 1.216 MB / gzip 324.98 kB.
 - Legacy `firefly`, `bubble`, `cloud`, `greenhouse`, `autochart` links boot without errors. Running launch still exposes the existing unfinished journey (`博士花园 · 花园 · 12s`); no Running action, storage clear, or source edit occurred. Browser warning/error log is empty.
 
+### R1 Control Gate PARTIAL and bounded delta
+
+- Real Chrome verified all eight submitted R1 attachment cards and ChatGPT returned `RHYTHM V2 CONTROL GATE: PARTIAL` with two feedback-causality blockers only.
+- Cloud pointer preview now clears on `pointerup` / `pointercancel`; completed or rejected swipes can no longer leave the contradictory “距离足够 · 松开” instruction on screen.
+- Unmatched input now compares the authored nearest target, authoritative target audio time, lane/direction and hold release role. Correct lane/direction at the wrong time reports too early/too late; wrong lane/direction is reported only inside the target timing window; Greenhouse release distinguishes early and late.
+- Deterministic coverage includes correct lane early/late, wrong lane, correct direction early/late, wrong direction, early release, late release, pointer-up clear and pointer-cancel clear.
+- Delta browser smoke captured a correctly directed early Cloud swipe showing only `时机太早 · 等目标进入判定区`, and an in-window opposite swipe showing only `方向不对 · 跟随箭头`; neither screen retains release guidance.
+- Isolated R1 delta regression: 43 files / 283 tests PASS; TypeScript lint PASS; production build PASS. Rhythm main 230.20 kB / gzip 62.79 kB; AutoChart worker 4.61 kB. Existing out-of-scope Running `JourneyResult` warning remains 1.216 MB / gzip 324.98 kB.
+- R2 Game Feel work is locally prepared but is not claimed or submitted while R1 remains PARTIAL.
+
 ## PLAN
 
 Next highest-value Rhythm slice:
 
-1. Submit the stored desktop/Android R1 evidence to the R1 Control Gate.
-2. Verify every submitted attachment card in the real Chrome user bubble; Bridge ledger state alone is insufficient.
-3. On PASS, proceed automatically to R2 Shared Game Feel. On PARTIAL/FAIL, repair the bounded R1 blocker and resubmit.
+1. Submit the bounded R1 feedback-causality delta and verify its real Chrome attachment cards.
+2. Obtain `RHYTHM V2 CONTROL GATE: PASS` before committing/submitting R2.
+3. Continue automatically through R2 Shared Game Feel after R1 PASS.
 
 Timing invariant for all future slices:
 

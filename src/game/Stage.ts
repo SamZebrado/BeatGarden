@@ -52,6 +52,13 @@ export interface PointerPreview {
   surfaceHeight: number;
 }
 
+export interface UnmatchedInputContext {
+  /** All authored targets for this run; the stage owns consumed-target filtering. */
+  targets: readonly ScheduledJudgeTarget[];
+  snap: TransportSnapshot;
+  okWindowSec: number;
+}
+
 export interface StageDefinition {
   /** Stable id, used in stage select + localStorage best scores. */
   id: string;
@@ -95,7 +102,7 @@ export interface StageDefinition {
    */
   onJudge?(result: JudgeResult, target: ScheduledJudgeTarget): void;
   /** Immediate causal feedback when a pointer action has no live target. */
-  onUnmatchedInput?(action: PointerAction): void;
+  onUnmatchedInput?(action: PointerAction, context: UnmatchedInputContext): void;
   /** Display-only pointer state. It must never be used as a judgement clock. */
   onPointerPreview?(preview: PointerPreview): void;
 

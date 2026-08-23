@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage, laneFromSurfaceX, localizedGardenFeedback } from '../src/stages/original/GardenStages';
+import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage, classifyGardenUnmatched, laneFromSurfaceX, localizedGardenFeedback, updateGardenPointerPreview } from '../src/stages/original/GardenStages';
 import { setLocale } from '../src/i18n/strings';
 import { FireflyDockStage } from '../src/stages/fireflyDock/FireflyDockStage';
 
@@ -85,5 +85,35 @@ describe('additional original stage content', () => {
       expect(['PERFECT', 'GREAT', 'OK', 'MISS'].map((kind) => localizedGardenFeedback(kind as 'PERFECT')))
         .toEqual(['PERFECT!', 'GREAT!', 'OK!', 'MISS!']);
     }
+  });
+
+  it('separates wrong lane/direction from correct controls at the wrong time', () => {
+    const tap = { type: 'tap' as const, x: 500, y: 300, surfaceWidth: 900, surfaceHeight: 600, audioTime: 1, domTimeMs: 1 };
+    const tapTarget = { type: 'judge-target' as const, id: 'tap', beat: 4, inputKind: 'tap' as const, meta: { lane: 1 } };
+    expect(classifyGardenUnmatched('laneTap', tap, tapTarget, -.4, .15)).toBe('TOO_EARLY');
+    expect(classifyGardenUnmatched('laneTap', tap, tapTarget, .4, .15)).toBe('TOO_LATE');
+    expect(classifyGardenUnmatched('laneTap', { ...tap, x: 50 }, tapTarget, 0, .15)).toBe('WRONG_LANE');
+
+    const swipe = { type: 'swipe' as const, direction: 'left' as const, x: 450, y: 300, surfaceWidth: 900, surfaceHeight: 600, dx: -200, dy: 0, audioTime: 1, domTimeMs: 1 };
+    const swipeTarget = { type: 'judge-target' as const, id: 'swipe', beat: 4, inputKind: 'swipeLeft' as const, meta: { lane: 1, direction: 'left' as const } };
+    expect(classifyGardenUnmatched('swipe', swipe, swipeTarget, -.4, .15)).toBe('TOO_EARLY');
+    expect(classifyGardenUnmatched('swipe', swipe, swipeTarget, .4, .15)).toBe('TOO_LATE');
+    expect(classifyGardenUnmatched('swipe', { ...swipe, direction: 'right' }, swipeTarget, 0, .15)).toBe('WRONG_DIRECTION');
+  });
+
+  it('distinguishes early and late greenhouse release', () => {
+    const release = { type: 'holdEnd' as const, pointerId: 1, x: 450, y: 300, surfaceWidth: 900, surfaceHeight: 600, audioTime: 1, domTimeMs: 1 };
+    const target = { type: 'judge-target' as const, id: 'release', beat: 6, inputKind: 'holdRelease' as const, meta: { lane: 1, role: 'release' as const } };
+    expect(classifyGardenUnmatched('hold', release, target, -.4, .15)).toBe('HOLD_EARLY');
+    expect(classifyGardenUnmatched('hold', release, target, .4, .15)).toBe('HOLD_LATE');
+  });
+
+  it('clears completed Cloud pointer previews so release guidance cannot persist', () => {
+    const down = { type: 'down' as const, x: 700, y: 300, surfaceWidth: 900, surfaceHeight: 600 };
+    const active = updateGardenPointerPreview('swipe', null, down);
+    expect(active?.down).toBe(true);
+    const moved = updateGardenPointerPreview('swipe', active, { ...down, type: 'move', x: 300 });
+    expect(updateGardenPointerPreview('swipe', moved, { ...down, type: 'up', x: 300 })).toBeNull();
+    expect(updateGardenPointerPreview('swipe', active, { ...down, type: 'cancel' })).toBeNull();
   });
 });

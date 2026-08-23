@@ -1,5 +1,5 @@
 import type { PointerAction } from '../../game/InputRouter';
-import type { PointerPreview, StageDefinition, StageRuntimeServices, StageTutorialStep, JudgeResult } from '../../game/Stage';
+import type { PointerPreview, StageDefinition, StageRuntimeServices, StageTutorialStep, JudgeResult, UnmatchedInputContext } from '../../game/Stage';
 import type { ScheduledEvent, ScheduledJudgeTarget } from '../../timing/Scheduler';
 import type { TransportSnapshot } from '../../timing/Transport';
 import { TIMING_CONFIG, type InputKind, type JudgementKind } from '../../timing/config';
@@ -8,7 +8,7 @@ import { t } from '../../i18n/strings';
 type StageId = 'bubble-kitchen' | 'cloud-post' | 'sleepy-greenhouse';
 type Palette = readonly [string, string, string, string];
 type TargetMeta = { lane: number; direction?: 'left' | 'right'; role?: 'start' | 'release' };
-type FeedbackKind = JudgementKind | 'WAIT' | 'WRONG_LANE' | 'WRONG_DIRECTION' | 'HOLD_EARLY';
+export type FeedbackKind = JudgementKind | 'WAIT' | 'WRONG_LANE' | 'WRONG_DIRECTION' | 'HOLD_EARLY' | 'HOLD_LATE' | 'TOO_EARLY' | 'TOO_LATE';
 
 type Profile = {
   id: StageId;
@@ -19,6 +19,8 @@ type Profile = {
   palette: Palette;
   mechanic: 'laneTap' | 'swipe' | 'hold';
 };
+type GardenMechanic = Profile['mechanic'];
+type GardenPointerState = { down: boolean; lane: number; startX: number; x: number; y: number };
 
 export function laneFromSurfaceX(x: number, surfaceWidth: number): number {
   return Math.max(0, Math.min(2, Math.floor((x / Math.max(1, surfaceWidth)) * 3)));
@@ -26,6 +28,51 @@ export function laneFromSurfaceX(x: number, surfaceWidth: number): number {
 
 export function localizedGardenFeedback(kind: JudgementKind): string {
   return t(`feedback.${kind}` as 'feedback.PERFECT');
+}
+
+export function classifyGardenUnmatched(
+  mechanic: GardenMechanic,
+  action: PointerAction,
+  expected: ScheduledJudgeTarget | undefined,
+  deltaSec: number,
+  okWindowSec: number,
+): FeedbackKind {
+  if (!expected) return 'WAIT';
+  if (mechanic === 'hold' && action.type === 'holdEnd') {
+    if (deltaSec < -okWindowSec) return 'HOLD_EARLY';
+    if (deltaSec > okWindowSec) return 'HOLD_LATE';
+    return 'WAIT';
+  }
+  if (deltaSec < -okWindowSec) return 'TOO_EARLY';
+  if (deltaSec > okWindowSec) return 'TOO_LATE';
+  if (mechanic === 'laneTap' && action.type === 'tap') {
+    const expectedLane = (expected.meta as TargetMeta | undefined)?.lane;
+    return expectedLane !== laneFromSurfaceX(action.x, action.surfaceWidth) ? 'WRONG_LANE' : 'WAIT';
+  }
+  if (mechanic === 'swipe' && action.type === 'swipe') {
+    const expectedDirection = (expected.meta as TargetMeta | undefined)?.direction;
+    return expectedDirection && action.direction !== expectedDirection ? 'WRONG_DIRECTION' : 'WAIT';
+  }
+  return 'WAIT';
+}
+
+export function updateGardenPointerPreview(
+  mechanic: GardenMechanic,
+  current: GardenPointerState | null,
+  preview: PointerPreview,
+): GardenPointerState | null {
+  const scaleX = TIMING_CONFIG.logicalWidth / Math.max(1, preview.surfaceWidth);
+  const scaleY = TIMING_CONFIG.logicalHeight / Math.max(1, preview.surfaceHeight);
+  const x = preview.x * scaleX;
+  const y = preview.y * scaleY;
+  const lane = laneFromSurfaceX(preview.x, preview.surfaceWidth);
+  if (preview.type === 'down') return { down: true, lane, startX: x, x, y };
+  if (preview.type === 'move' && current) return { ...current, lane, x, y };
+  if (preview.type === 'up' || preview.type === 'cancel') {
+    if (mechanic !== 'hold') return null;
+    return current ? { ...current, down: false, lane, x, y } : null;
+  }
+  return current;
 }
 
 const PROFILES: Record<StageId, Profile> = {
@@ -90,7 +137,7 @@ abstract class GardenStage implements StageDefinition {
   private readonly consumed = new Set<string>();
   private feedback: { kind: FeedbackKind; at: number; lane: number } | null = null;
   private successes: Array<{ at: number; lane: number; kind: JudgementKind }> = [];
-  private pointerPreview: { down: boolean; lane: number; startX: number; x: number; y: number } | null = null;
+  private pointerPreview: GardenPointerState | null = null;
 
   protected constructor(private readonly profile: Profile) {
     this.id = profile.id;
@@ -177,29 +224,36 @@ abstract class GardenStage implements StageDefinition {
     this.consumed.add(target.id);
     const now = this.services?.transport.snapshot().audioTime ?? 0;
     const lane = (target.meta as TargetMeta | undefined)?.lane ?? 1;
-    this.feedback = { kind: result.kind, at: now, lane };
     if (!result.automatic && result.kind !== 'MISS') this.successes.push({ at: now, lane, kind: result.kind });
   }
 
-  public onUnmatchedInput(action: PointerAction): void {
-    const kind: FeedbackKind = this.profile.mechanic === 'laneTap' && action.type === 'tap'
-      ? 'WRONG_LANE'
-      : this.profile.mechanic === 'swipe' && action.type === 'swipe'
-        ? 'WRONG_DIRECTION'
-        : this.profile.mechanic === 'hold' && action.type === 'holdEnd'
-          ? 'HOLD_EARLY' : 'WAIT';
+  public onUnmatchedInput(action: PointerAction, context: UnmatchedInputContext): void {
+    const wantedKind: InputKind | null = action.type === 'tap' ? 'tap'
+      : action.type === 'holdStart' ? 'holdStart'
+        : action.type === 'holdEnd' ? 'holdRelease'
+          : action.type === 'swipe' ? (action.direction === 'left' ? 'swipeLeft' : 'swipeRight') : null;
+    const candidates = context.targets.filter((target) => {
+      if (this.profile.mechanic === 'swipe') return target.inputKind === 'swipeLeft' || target.inputKind === 'swipeRight';
+      return wantedKind === null || target.inputKind === wantedKind;
+    });
+    const expected = candidates.sort((a, b) => {
+      const da = Math.abs((this.services?.transport.beatToAudioTime(a.beat) ?? action.audioTime) - action.audioTime);
+      const db = Math.abs((this.services?.transport.beatToAudioTime(b.beat) ?? action.audioTime) - action.audioTime);
+      return da - db;
+    })[0];
+    const targetAudioTime = expected && this.services ? this.services.transport.beatToAudioTime(expected.beat) : action.audioTime;
+    const kind = classifyGardenUnmatched(
+      this.profile.mechanic,
+      action,
+      expected,
+      action.audioTime - targetAudioTime,
+      context.okWindowSec,
+    );
     this.feedback = { kind, at: this.services?.transport.snapshot().audioTime ?? 0, lane: 1 };
   }
 
   public onPointerPreview(preview: PointerPreview): void {
-    const scaleX = TIMING_CONFIG.logicalWidth / Math.max(1, preview.surfaceWidth);
-    const scaleY = TIMING_CONFIG.logicalHeight / Math.max(1, preview.surfaceHeight);
-    const x = preview.x * scaleX;
-    const y = preview.y * scaleY;
-    const lane = laneFromSurfaceX(preview.x, preview.surfaceWidth);
-    if (preview.type === 'down') this.pointerPreview = { down: true, lane, startX: x, x, y };
-    else if (preview.type === 'move' && this.pointerPreview) this.pointerPreview = { ...this.pointerPreview, lane, x, y };
-    else if (this.pointerPreview) this.pointerPreview = { ...this.pointerPreview, down: false, lane, x, y };
+    this.pointerPreview = updateGardenPointerPreview(this.profile.mechanic, this.pointerPreview, preview);
   }
 
   public render(ctx: CanvasRenderingContext2D, snap: TransportSnapshot): void {
@@ -304,12 +358,15 @@ abstract class GardenStage implements StageDefinition {
     }
     ctx.globalAlpha = 1;
     if (this.feedback && now - this.feedback.at < .85) {
-      const guidance = this.feedback.kind === 'WAIT' || this.feedback.kind === 'WRONG_LANE' || this.feedback.kind === 'WRONG_DIRECTION' || this.feedback.kind === 'HOLD_EARLY';
+      const guidance = this.feedback.kind === 'WAIT' || this.feedback.kind === 'WRONG_LANE' || this.feedback.kind === 'WRONG_DIRECTION' || this.feedback.kind === 'HOLD_EARLY' || this.feedback.kind === 'HOLD_LATE' || this.feedback.kind === 'TOO_EARLY' || this.feedback.kind === 'TOO_LATE';
       const label = this.feedback.kind === 'WAIT' ? t('tutorial.waitForTarget')
         : this.feedback.kind === 'WRONG_LANE' ? t('tutorial.wrongLane')
           : this.feedback.kind === 'WRONG_DIRECTION' ? t('tutorial.wrongDirection')
             : this.feedback.kind === 'HOLD_EARLY' ? t('tutorial.holdEarly')
-              : localizedGardenFeedback(this.feedback.kind);
+              : this.feedback.kind === 'HOLD_LATE' ? t('tutorial.holdLate')
+                : this.feedback.kind === 'TOO_EARLY' ? t('tutorial.tooEarly')
+                  : this.feedback.kind === 'TOO_LATE' ? t('tutorial.tooLate')
+                    : localizedGardenFeedback(this.feedback.kind);
       ctx.fillStyle = 'rgba(5,8,28,.76)';
       ctx.beginPath(); ctx.roundRect(500, 875, 920, 112, 28); ctx.fill();
       ctx.fillStyle = this.feedback.kind === 'MISS' || guidance ? '#ffb3a9' : '#fff';
