@@ -2,7 +2,7 @@
 
 ## STATUS
 
-Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop and R5 AutoChart are implemented and exact-verified locally, without pre-claiming either Gate.**
+Current verified Rhythm state: **R0 Design Gate PASS. R1 Control Gate PASS. R2 Shared Game Feel Gate PASS. R3 Stage Differentiation PASS after the bounded persistence delta at `6b778bf`. R4 Product Shell / Result Loop is PARTIAL with its sole reduced-motion/test blocker fixed and exact-verified at `e502df2`; R5 AutoChart is implemented and exact-verified locally without pre-claiming its Gate.**
 
 Branch: `codex/rhythm-v2-product-polish`
 
@@ -32,7 +32,7 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 ### Current product blockers
 
-1. R4: implementation and exact verification at `2459de0` are complete; independent bounded review is next.
+1. R4: submit the bounded reduced-motion/test delta at `e502df2` for independent closure review.
 2. R5: implementation and exact verification at `af97fae` are complete; independent bounded review must remain ordered after R4.
 
 ## LOG
@@ -153,6 +153,13 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 - Exact detached verification at `2459de0`: `npm ci` PASS (87 packages, 0 vulnerabilities); TypeScript lint PASS; 46 files / 297 tests PASS; Pages-base production build PASS. Rhythm main 248.36 kB / gzip 68.07 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
 - Exact Android runtime `2459de0` on device `bbda35e` / Xiaomi `24091RPADC`: real CDP `touchStart` / `touchEnd` opened the result detail surface at 1163×632 CSS px / DPR 2.75 and exposed all secondary metrics. `STREAM_MUSIC` remained `Muted:true`, `streamVolume:0` before and after; no audible sound occurred. `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`.
 
+### R4 Product Loop Gate PARTIAL and bounded reduced-motion delta
+
+- Independent review returned `RHYTHM V2 R4 PRODUCT LOOP GATE: PARTIAL` with one bounded source-and-coverage blocker: the shell consulted only the OS media query, not BeatGarden's persisted `settings.reducedMotion`, and the exact R4 candidate lacked deterministic transition tests. The verdict explicitly kept the menu hierarchy, stage cards, result hierarchy/details, Next Stage/final-stage behavior, locale replacement, Android touch smoke and Running boundary closed.
+- `animateRhythmReveal()` is now the shared Rhythm reveal helper. Shell calls consult both persisted BeatGarden reduced-motion and the OS preference; StageRunner passes its already-combined reduced-motion decision. Normal motion remains exactly 220 ms and the first pointer finishes the animation.
+- Four deterministic tests cover saved BeatGarden reduced-motion suppression, OS reduced-motion suppression, exact 220 ms duration, first-pointer completion and an immediate result Retry click while the reveal is active.
+- Exact detached verification at `e502df2`: `npm ci` PASS (87 packages); TypeScript lint PASS; 47 files / 306 tests PASS; Pages-base production build PASS. Rhythm main 252.22 kB / gzip 69.34 kB; AutoChart worker 4.61 kB; unchanged out-of-scope Running warning 1.216 MB / gzip 324.98 kB. No Running source was edited.
+
 ### R5 — AutoChart phrase / playability implementation and smoke
 
 - Generated notes now carry an envelope-derived section, four-beat phrase index, accent flag and authored swipe direction. Phrase filtering adds deliberate 0.8 s rests and bounds uninterrupted action streaks by difficulty.
@@ -167,7 +174,7 @@ Baseline HEAD: `27739e7d6c621c661edfc3b55df981d9e3438f46`
 
 Next highest-value Rhythm slice:
 
-1. Submit exact R4 candidate `2459de0` plus evidence/status HEAD `ff82e91` for bounded independent review.
+1. Submit exact R4 bounded delta `e502df2` plus its evidence/status commit for independent closure review.
 2. On R4 PASS, submit exact R5 candidate `af97fae` plus evidence/status HEAD `6cb960c` for bounded independent review.
 
 Timing invariant for all future slices:

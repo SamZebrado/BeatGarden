@@ -40,3 +40,24 @@ Runtime commit under test: `2459de0`
 - `auditory calibration validity NOT ASSESSED because media volume was intentionally muted`
 
 `android-result-details.png` is the post-touch Android screenshot.
+
+## Bounded reduced-motion delta after R4 PARTIAL
+
+Delta runtime commit: `e502df2`
+
+- The sole source blocker is closed: the Rhythm shell reveal now honors both
+  persisted BeatGarden `settings.reducedMotion` and the OS
+  `prefers-reduced-motion` preference.
+- A shared Rhythm reveal helper preserves the exact 220 ms normal duration and
+  finishes on the first pointer without intercepting or delaying Retry.
+- Deterministic tests prove saved-setting suppression, OS suppression, 220 ms,
+  first-pointer completion, and immediate Retry during an active reveal.
+- Exact detached worktree: `/private/tmp/beatgarden-r4-delta-e502df2`
+- `npm ci`: PASS, 87 packages
+- `npm run lint`: PASS
+- `npm test -- --run`: PASS, 47 files / 306 tests
+- `VITE_BASE=/BeatGarden/ npm run build`: PASS
+- Rhythm main: 252.22 kB / gzip 69.34 kB
+- AutoChart worker: 4.61 kB
+- Existing out-of-scope Running chunk warning: 1,216.79 kB / gzip 324.98 kB
+- No file under `src/running/` changed.
