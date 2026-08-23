@@ -1,8 +1,8 @@
 # GATE 4 — Release Candidate / Full Project Review Record
 
-Status: official 2026-08-10 re-verdict `GATE 4: PASS` preserved; refreshed V2 GATE 2 is
-PASS and the refreshed GATE 4 first verdict is documentation-only PARTIAL. The bounded
-correction is ready for re-review. Final independent acceptance remains separate.
+Status: refreshed V2 `GATE 4: PASS` after the bounded documentation correction. The
+official 2026-08-10 re-verdict remains preserved as history. Final independent
+acceptance remains separate and pending.
 
 ## 2026-08-24 refreshed V2 RC closure packet
 
@@ -46,6 +46,20 @@ Refreshed `GATE 2: PASS` was returned for nonce
   retaining -50.0 ms / v3 only as 2026-08-10 history; distinguish runtime/test RC
   `60a115f` from deployment/provenance HEAD `7772b3b`.
 - This bounded docs-only delta is the complete response to the PARTIAL verdict.
+
+## 2026-08-24 refreshed corrected verdict — PASS
+
+- Request id: `mt6booy3-nvdwjnv8`.
+- Message id: `aig997yl9lh1pjv5pwww4l`.
+- Nonce: `MSG_OPENAI_CODEX_GATE4_DOCFIX_A410560_20260824A`; bubble confirmed exactly once.
+- Independent review accepted corrective SHA `a410560`, confirmed the correction changes
+  only the three requested documentation files, and confirmed the full post-runtime
+  `60a115f...a410560` boundary is docs/evidence-only.
+- Pages run `32667738981` was independently matched to exact head SHA `a410560`; build
+  job `97263716836` and deploy job `97263783811` both PASS.
+- Remaining GATE 4 blockers: none. Standalone PWA launch remains `UNVERIFIED` as an
+  external Chrome/WebAPK delivery residual, not converted into a false PASS.
+- Final independent acceptance remains separate and is not implied.
 
 ## Official re-verdict — PASS
 

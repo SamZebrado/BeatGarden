@@ -3,8 +3,8 @@
 ## OVERALL
 
 **REFRESHED RELEASE CANDIDATE — runtime/test RC `60a115f`, deployment/provenance HEAD
-`7772b3b`; Rhythm V2 R0–R5 PASS and refreshed GATE 2 PASS; refreshed GATE 4
-documentation correction pending.** Public GitHub Pages and the real Android production
+`a410560`; Rhythm V2 R0–R5 PASS, refreshed GATE 2 PASS and refreshed GATE 4
+PASS; final independent acceptance pending.** Public GitHub Pages and the real Android production
 matrix are evidenced at the refreshed V2 RC. Chrome recognizes the manifest and the
 user accepted the formal install confirmation, but no standalone package/launcher
 entry is observable, so standalone launch remains `UNVERIFIED` as an external,
@@ -81,8 +81,8 @@ never-used query URL and navigated to Firefly by physical touch.
 
 ## GitHub Pages
 
-**PASS.** GitHub Pages workflow run `32667446698` built and deployed documentation/
-provenance HEAD `7772b3b` successfully. Its deployed runtime is equivalent to the
+**PASS.** GitHub Pages workflow run `32667738981` built and deployed documentation/
+provenance HEAD `a410560` successfully. Its deployed runtime is equivalent to the
 validated runtime/test RC `60a115f`; the intervening compare is docs/evidence-only.
 `https://samzebrado.github.io/BeatGarden/` returned HTTPS 200, all production subpath
 assets returned 200 with correct types, and connected Chrome verified rendering,
@@ -132,8 +132,8 @@ muted calibration flow, orientation, lifecycle, and cold offline relaunch PASS.
 ## HEAD
 
 Runtime/test candidate: `60a115fafea5d7bd972eba44ea6054f3b364bb68`.
-GitHub main and Pages deployment/provenance HEAD at the refreshed GATE 4 submission:
-`7772b3b`. The `60a115f...7772b3b` compare modifies only `docs/` markdown, JSON evidence
+GitHub main and Pages deployment/provenance HEAD accepted by refreshed GATE 4:
+`a410560`. The `60a115f...a410560` compare modifies only `docs/` markdown, JSON evidence
 and PNG screenshots; it does not modify runtime, tests, dependencies, workflow/build
 inputs or application assets. Therefore the deployed artifact is runtime-equivalent to
-`60a115f`, while its deployment provenance HEAD is `7772b3b`.
+`60a115f`, while its accepted deployment provenance HEAD is `a410560`.
