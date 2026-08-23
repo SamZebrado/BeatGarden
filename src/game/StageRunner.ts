@@ -30,6 +30,7 @@ import { hasCompletedTutorial, markTutorialCompleted } from './tutorialProgress'
 import { FEEDBACK_DURATION_SEC, feedbackScale, GameFeel, rhythmSection } from './GameFeel';
 import { inputCandidateBeatRange, maxTargetJudgeWindowSeconds, targetJudgeWindowSeconds } from './targetWindows';
 import { isNewBest, resultGrade, resultTimingTendency } from './resultPresentation';
+import { animateRhythmReveal } from '../app/revealTransition';
 
 export interface StageRunnerOptions {
   root: HTMLElement;
@@ -687,12 +688,11 @@ cursor: pointer;
   }
 
   private animateReveal(element: HTMLElement): void {
-    if (this.reducedMotion || typeof element.animate !== 'function') return;
-    const animation = element.animate(
+    animateRhythmReveal(
+      element,
       [{ opacity: .25, transform: 'translateY(10px) scale(.985)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }],
-      { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' },
+      this.reducedMotion,
     );
-    element.addEventListener('pointerdown', () => animation.finish(), { once: true, capture: true });
   }
 
   private removeResultOverlay(): void {

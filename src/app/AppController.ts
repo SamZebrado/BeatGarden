@@ -10,6 +10,7 @@ import { StreamSafeView } from '../settings/StreamSafeView';
 import { loadBestScore } from '../settings/scores';
 import type { StringKey } from '../i18n/strings';
 import { resultGrade } from '../game/resultPresentation';
+import { animateRhythmReveal } from './revealTransition';
 
 type RhythmStage = FireflyDockStage | BubbleKitchenStage | CloudPostStage | SleepyGreenhouseStage;
 type StageCardSpec = {
@@ -155,11 +156,9 @@ export class AppController {
   }
 
   private animateReveal(element: HTMLElement): void {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || typeof element.animate !== 'function') return;
-    const animation = element.animate(
+    animateRhythmReveal(
+      element,
       [{ opacity: .35, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }],
-      { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' },
     );
-    element.addEventListener('pointerdown', () => animation.finish(), { once: true, capture: true });
   }
 }
