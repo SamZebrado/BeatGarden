@@ -40,7 +40,7 @@ describe('Master and Work scenario strategies', () => {
     const simulation = new ScenarioSimulation('master', 1);
     expect(simulation.snapshot().choice?.kind).toBe('masterSupervisor');
     expect(simulation.choose('mei')).toBe(true);
-    runUntilChoice(simulation, 7.1);
+    runUntilChoice(simulation, 20.1);
     const before = simulation.snapshot();
     expect(before.choice?.kind).toBe('masterTrack');
     expect(simulation.choose('jobSearch')).toBe(true);
@@ -55,7 +55,8 @@ describe('Master and Work scenario strategies', () => {
     expect(simulation.snapshot().choice?.kind).toBe('workOffer');
     expect(simulation.snapshot().choice?.options).toEqual(['offer-a', 'offer-b', 'offer-c']);
     expect(simulation.choose('offer-a')).toBe(true);
-    runUntilChoice(simulation, 5.1);
+    expect(simulation.exportState().nextChoiceAt).toBe(5);
+    simulation.startChoiceReview('workPriority');
     const before = simulation.snapshot();
     expect(before.choice?.kind).toBe('workPriority');
     expect(simulation.choose('acceptRush')).toBe(true);
@@ -70,8 +71,8 @@ describe('Master and Work scenario strategies', () => {
     const protectedRun = new ScenarioSimulation('work', 12);
     simulation.choose('offer-a');
     protectedRun.choose('offer-a');
-    runUntilChoice(simulation, 5.1);
-    runUntilChoice(protectedRun, 5.1);
+    simulation.startChoiceReview('workPriority');
+    protectedRun.startChoiceReview('workPriority');
     expect(simulation.choose('acceptRush')).toBe(true);
     expect(protectedRun.choose('protectFocus')).toBe(true);
     const start = simulation.snapshot();
@@ -93,8 +94,8 @@ describe('Master and Work scenario strategies', () => {
     const protectedRun = new ScenarioSimulation('work', 22);
     rush.choose('offer-a');
     protectedRun.choose('offer-a');
-    runUntilChoice(rush, 5.1);
-    runUntilChoice(protectedRun, 5.1);
+    rush.startChoiceReview('workPriority');
+    protectedRun.startChoiceReview('workPriority');
     rush.choose('acceptRush');
     protectedRun.choose('protectFocus');
     const protectedStart = protectedRun.snapshot();
@@ -140,5 +141,28 @@ describe('Master and Work scenario strategies', () => {
     run(work, 14);
     expect(work.snapshot().workPath?.promotionProgress).toBeGreaterThan(0);
     expect(work.snapshot().completed).toBe(false);
+  });
+
+  it('keeps same-frame path choices authoritative ahead of an eligible Recovery', () => {
+    const workBase = new ScenarioSimulation('work', 101, 'garden', { damageEnabled: false });
+    workBase.choose('offer-a');
+    const workState = workBase.exportState();
+    workState.time = workState.nextConversionAt - 1 / 120;
+    workState.calendar = 78;
+    workState.nextChoiceAt = 999;
+    const work = new ScenarioSimulation('work', 101, 'garden', { damageEnabled: false, restore: workState });
+    work.step(1 / 60, { x: 0, y: 0 });
+    expect(work.snapshot().choice?.kind).toBe('workConversion');
+    expect(work.snapshot().recovery.offered).toBe(false);
+
+    const masterBase = new ScenarioSimulation('master', 102, 'garden', { damageEnabled: false });
+    masterBase.startMasterPathReview(3);
+    const masterState = masterBase.exportState();
+    masterState.calendar = 78;
+    masterState.nextChoiceAt = 999;
+    const master = new ScenarioSimulation('master', 102, 'garden', { damageEnabled: false, restore: masterState });
+    master.step(1 / 60, { x: 0, y: 0 });
+    expect(master.snapshot().choice?.kind).toBe('careerPlan');
+    expect(master.snapshot().recovery.offered).toBe(false);
   });
 });

@@ -137,7 +137,7 @@ describe('versioned current Running run', () => {
   it('restores Work trial, active priority, market/experience, and resolved conversion without duplicate cost', () => {
     const original = new ScenarioSimulation('work', 37, 'garden', { damageEnabled: false });
     original.choose('offer-a');
-    runUntilScenarioChoice(original, 'workPriority', 400);
+    runUntilScenarioChoice(original, 'workPriority', 1600);
     expect(original.snapshot().choice?.kind).toBe('workPriority');
     original.choose('protectFocus');
     runScenario(original, 180);

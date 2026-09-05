@@ -93,12 +93,12 @@ export interface ScenarioSimulationStateV1 {
 
 const CONFIG = {
   master: {
-    eventAt: 13, eventEvery: 17, choiceAt: 7, choiceEvery: 18, climaxAt: 88,
+    eventAt: 13, eventEvery: 17, choiceAt: 20, choiceEvery: 28, climaxAt: 100,
     ambient: ['courseBlock', 'deadline'] as const, boss: 'exam' as const,
     progressTarget: 70, cycleSeconds: 15,
   },
   work: {
-    eventAt: 7, eventEvery: 9, choiceAt: 5, choiceEvery: 13, climaxAt: 58,
+    eventAt: 7, eventEvery: 9, choiceAt: 5, choiceEvery: 24, climaxAt: 75,
     ambient: ['request', 'notification'] as const, boss: 'delivery' as const,
     progressTarget: 78, cycleSeconds: 9,
   },
@@ -189,6 +189,9 @@ export class ScenarioSimulation {
     this.move(dt, input);
     if (this.world === 'master') this.updateMasterPath(dt);
     else this.updateWorkPath(dt);
+    // Path choices are one-shot progression authority. They must be resolved
+    // before Recovery or any lower-priority timer can replace the same slot.
+    if (this.choice) return;
     this.updatePressure(dt);
     this.updateEvent(dt);
     this.updateClimax(dt);
@@ -253,15 +256,15 @@ export class ScenarioSimulation {
       this.focus = bound(this.focus - 6 + offerViability(offer, this.marketStrength, this.experience) * 8);
       this.focus = bound(this.focus + behavior.signal * 3 - behavior.noise * 2);
       this.setRelationship(manager.personId, updateRelationship(relationship, { trust: relationship.trust + behavior.signal * .025 - behavior.noise * .02 }));
-      this.nextChoiceAt = this.time + 5;
-      this.nextConversionAt = this.time + 28;
+      this.nextChoiceAt = this.time + this.config.choiceAt;
+      this.nextConversionAt = this.time + 38;
     } else if (this.choice.kind === 'workConversion') {
       if (option === 'continue') {
         this.workStage = this.workConversionScore >= .42 ? 'employed' : 'trial';
         this.calendar = bound(this.calendar + 8);
         if (this.workStage === 'trial') {
           this.conversionChoiceShown = false;
-          this.nextConversionAt = this.time + 18;
+          this.nextConversionAt = this.time + 24;
         }
       } else {
         // Switching is possible but costs scarce Career Time, Calendar, Energy and Spirit.
@@ -309,7 +312,7 @@ export class ScenarioSimulation {
     }
     this.choice = null;
     this.nextChoiceAt = choiceKind === 'masterSupervisor' ? this.config.choiceAt
-      : choiceKind === 'workOffer' ? this.time + 5
+      : choiceKind === 'workOffer' ? this.time + this.config.choiceAt
         : this.time + this.config.choiceEvery;
     return true;
   }
@@ -354,7 +357,7 @@ export class ScenarioSimulation {
     if (this.world !== 'master') return;
     this.choice = null;
     this.masterSupervisor = 'mei';
-    this.time = year === 1 ? 8 : year === 2 ? 36 : 68;
+    this.time = year === 1 ? 20 : year === 2 ? 36 : 68;
     this.masterCareerPlan = careerPlan;
     this.masterProposalPhase = year === 3 ? 'complete' : 'none';
   }
@@ -716,7 +719,7 @@ export class ScenarioSimulation {
       if (this.world === 'master') this.completed = true;
       else {
         this.climaxPhase = 'none';
-        this.nextClimaxAt = this.time + 30;
+        this.nextClimaxAt = this.time + 40;
       }
     }
   }

@@ -1,5 +1,6 @@
 import { t } from '../i18n/strings';
 import { graduationRequirements } from './core/phdSystems';
+import { DESIGNATED_TARGET_MARKER, MILESTONE_TARGET_SEMANTICS } from './core/milestoneTargets';
 import type { RunningSnapshot } from './core/simulation';
 import type { ScenarioSnapshot } from './core/scenarioSimulation';
 
@@ -106,6 +107,10 @@ export function createPhdLegendEntries(state: RunningSnapshot, seenHints: readon
   if (phd.noise > 0 || phd.pollution > 0 || seen('noise')) entries.push(entry('≈·', 'running.legend.noise', 'running.legend.noiseDetail'));
   if (state.meeting.phase !== 'idle' || seen('meeting')) entries.push(entry('◉', 'running.legend.labMeeting', 'running.legend.labMeetingDetail'));
   if (phd.milestone || phd.annualMilestone || seen('milestone')) entries.push(entry('✦', 'running.legend.milestone', 'running.legend.milestoneDetail'));
+  if (phd.milestone) {
+    entries.push(entry(DESIGNATED_TARGET_MARKER, 'running.legend.target.marker', 'running.legend.target.markerDetail'));
+    for (const target of MILESTONE_TARGET_SEMANTICS[phd.milestone.kind].targets) entries.push(entry(target.symbol, target.nameKey, target.detailKey));
+  }
 
   entries.push(entry('✿', 'running.legend.plan', 'running.legend.planDetail'));
   entries.push(planEntry('✦', 'running.legend.plan.year1', 'running.legend.plan.year1Detail', phd.supervisorId ? 'complete' : 'current'));

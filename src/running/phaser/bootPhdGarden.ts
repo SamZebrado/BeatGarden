@@ -11,6 +11,7 @@ import { loadRunningSave, recordFailedJourney, updateRunningSave } from '../core
 import type { AnnualMilestoneKind } from '../core/phdSystems';
 import { PromotionAction } from '../PromotionAction';
 import { beginCardPress, cardAtPoint, cardPressMovedTooFar, completesCardPress, phdChoiceCardRects, upgradeCardRects, type CardPress, type ChoiceViewport } from './choiceCards';
+import { DESIGNATED_TARGET_MARKER, MILESTONE_TARGET_SEMANTICS, milestoneTargetDescriptor } from '../core/milestoneTargets';
 import { clearCurrentRun, commitSuccessfulJourney, saveCurrentRun, type CurrentRunV1 } from '../core/currentRun';
 import { JourneyResult } from '../JourneyResult';
 import { academicPublicProfile, seededAcademicBackground } from '../core/people';
@@ -335,8 +336,8 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       const objective = hudOverlay.querySelector<HTMLElement>('[data-role="milestone-objective"]')!;
       if (state.phd.milestone) {
         const title = state.phd.milestone.kind === 'qualifying' ? t('running.qualifying') : t('running.defense');
-        const detail = state.phd.milestone.kind === 'qualifying' ? t('running.milestone.qualifyingObjective') : t('running.milestone.defenseObjective');
-        objective.textContent = textOff ? `△?  ${state.phd.milestone.progress} / ${state.phd.milestone.target}` : `${title}\n${detail}   △?  ${state.phd.milestone.progress} / ${state.phd.milestone.target}`;
+        const detail = t(MILESTONE_TARGET_SEMANTICS[state.phd.milestone.kind].objectiveKey);
+        objective.textContent = textOff ? `${DESIGNATED_TARGET_MARKER}  ${state.phd.milestone.progress} / ${state.phd.milestone.target}` : `${title}\n${detail}   ${DESIGNATED_TARGET_MARKER}  ${state.phd.milestone.progress} / ${state.phd.milestone.target}`;
         objective.style.display = 'block';
       } else objective.style.display = 'none';
       hudOverlay.dataset.year = String(state.phd.year);
@@ -373,11 +374,12 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
     }
 
     private drawEnemy(g: Phaser.GameObjects.Graphics, enemy: RunningSnapshot['enemies'][number], state: RunningSnapshot): void {
+      const targetDescriptor = milestoneTargetDescriptor(enemy.kind);
       const color = enemy.flash > 0 ? 0xffffff : enemy.kind === 'mite' ? 0xee776f : enemy.kind === 'phone' ? 0x74cfff : enemy.kind === 'reviewer' ? 0xd47bed : enemy.kind === 'committee' ? 0xffdd72 : 0xffa54f;
       g.fillStyle(color, 0.2).fillCircle(enemy.x, enemy.y, enemy.radius + 8);
       g.fillStyle(color, 1);
-      if (enemy.kind === 'chair') g.fillRoundedRect(enemy.x - 24, enemy.y - 21, 48, 42, 8);
-      else if (enemy.kind === 'committee') {
+      if (targetDescriptor?.shape === 'rounded-rectangle') g.fillRoundedRect(enemy.x - 24, enemy.y - 21, 48, 42, 8);
+      else if (targetDescriptor?.shape === 'committee-circle') {
         g.fillCircle(enemy.x, enemy.y, 42);
         g.lineStyle(7, 0xfff1ad, 0.9).strokeCircle(enemy.x, enemy.y, 51);
         for (let index = 0; index < 5; index += 1) {
@@ -416,7 +418,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
         g.lineStyle(5, color, 1).strokeRoundedRect(enemy.x - 22, enemy.y - 16, 44, 32, 9);
         g.fillStyle(color, 1).fillTriangle(enemy.x - 6, enemy.y + 16, enemy.x + 7, enemy.y + 16, enemy.x, enemy.y + 27);
       }
-      else if (enemy.kind === 'reviewer') g.fillTriangle(enemy.x, enemy.y - 23, enemy.x - 21, enemy.y + 18, enemy.x + 21, enemy.y + 18);
+      else if (targetDescriptor?.shape === 'triangle') g.fillTriangle(enemy.x, enemy.y - 23, enemy.x - 21, enemy.y + 18, enemy.x + 21, enemy.y + 18);
       else g.fillCircle(enemy.x, enemy.y, enemy.radius);
       if (enemy.source === 'milestone') {
         const marker = enemy.radius + 14;

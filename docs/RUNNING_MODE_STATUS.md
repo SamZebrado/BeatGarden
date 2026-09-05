@@ -6,6 +6,45 @@ ChatGPT review conversation.
 
 ## STATUS
 
+### Target semantics and choice-cadence candidate — 2026-09-06
+
+- A0 fixed-seed normal-simulation measurements separated active simulation time from
+  modal reading time. Baseline ordinary choices recurred at 18 seconds in Master and
+  13 seconds in Work; PhD project prompts could occur one frame after a supervisor or
+  pre-defense decision because independent timers had become overdue.
+- A shared milestone-target descriptor now distinguishes body geometry from the
+  hollow `△` designated-target marker. The persistent objective and stage-specific
+  Legend use the same descriptor authority in Chinese and English. Defense identifies
+  the large circular target as the committee as a whole, not as the milestone itself.
+- Ordinary Master priority choices now begin at 20 seconds and use a 28-second cadence;
+  Work retains a connected five-second onboarding priority after the initial Offer,
+  then uses 24 seconds. Work conversion moves to
+  38 seconds and Delivery to 75 seconds. These changes add breathing room without
+  changing HP, enemy rosters, movement speed or target durability.
+- PhD's first project prompt moves to 20 seconds, subsequent project opportunities to
+  36 seconds, and lifestyle review to 80 seconds / 70-second recurrence. Qualifying,
+  pre-defense and defense decisions take priority over lifestyle; consequential
+  decisions defer overdue project/lifestyle prompts by 24 seconds rather than losing
+  them. Existing persisted absolute timers remain authoritative on resume.
+- High review found no P0 and three P1s. The repaired marker now matches the actually
+  drawn hollow `△`; all PhD modal sources coordinate through existing persisted
+  absolute clocks while the intentional pre-defense/revision/Defense sequence remains
+  connected; Scenario path choices now return before Recovery can overwrite them.
+- The designated High delta review (`mtooe5u0-7lfy8nby`) returned final PASS for
+  commit/release with no remaining P0/P1. Its two test-precision observations were
+  explicitly non-blocking; no further reviewer loop or scope expansion was requested.
+- Deterministic collision regressions preserve Work Conversion and Master Career Plan
+  on Recovery-eligible frames. The suite now covers 310 tests. Exact iframe viewport
+  checks passed at 390×844 and 844×390: objective and Legend had no horizontal
+  overflow, the Legend remained vertically scrollable, and committee semantics were
+  present at both sizes.
+- A bounded comparison used three seeds, Garden/Storm, and Recovery taken/declined.
+  PhD completed 10/12 candidate routes versus 10/12 baseline; Master completed 10/12
+  versus 6/12 baseline under the same deterministic evasive controller. Work completed
+  0/12 in both sets, so the harness does not justify a balance change; its candidate
+  runs retained the five-second connected onboarding priority and moved only repeated
+  priority prompts to 24 seconds. This limitation is disclosed for final review.
+
 ### Release-readiness and presentation checkpoint — 2026-08-24
 
 - The production build is 12.53 MB on disk, of which 10.88 MB is source maps that are

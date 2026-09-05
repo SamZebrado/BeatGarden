@@ -14,9 +14,9 @@ describe('PhD systems', () => {
 
   it('applies distinct project costs and rewards while bounding resources', () => {
     const system = new PhdSystems();
-    system.step(12, 1 / 60);
+    system.step(20, 1 / 60);
     expect(system.snapshot().choice?.kind).toBe('project');
-    expect(system.choose('replication', 12)).toBe(true);
+    expect(system.choose('replication', 20)).toBe(true);
     const started = system.snapshot();
     expect(started.energy).toBe(84);
     expect(started.focus).toBe(88);
@@ -92,8 +92,8 @@ describe('PhD systems', () => {
 
   it('allows an explicit project overdraft but converts it into Calendar, pollution, and Spirit consequences', () => {
     const system = new PhdSystems({ initialResources: { energy: 2, focus: 1, spirit: 40 } });
-    system.step(12, 1 / 60);
-    expect(system.choose('prestige', 12)).toBe(true);
+    system.step(20, 1 / 60);
+    expect(system.choose('prestige', 20)).toBe(true);
     const state = system.snapshot();
     expect(state.energy).toBe(0);
     expect(state.focus).toBe(0);
@@ -120,8 +120,6 @@ describe('PhD systems', () => {
     expect(system.snapshot().annualReviews).toBe(1);
     expect(system.snapshot().choice?.kind).toBe('supervisor');
     expect(system.choose('supportive', 45)).toBe(true);
-    system.step(45.1, 1 / 60);
-    expect(system.choose('replication', 45.1)).toBe(true);
     system.step(225, 1 / 60);
     expect(system.snapshot().year).toBe(6);
     expect(system.snapshot().annualReviews).toBe(2);
@@ -133,8 +131,6 @@ describe('PhD systems', () => {
     system.step(45, 1 / 60);
     expect(system.snapshot().seasonPulse).toBeGreaterThan(3.9);
     expect(system.choose('supportive', 45)).toBe(true);
-    system.step(45.1, 1 / 60);
-    expect(system.choose('replication', 45.1)).toBe(true);
     system.step(46, 1);
     expect(system.snapshot().seasonPulse).toBeLessThan(3.1);
     expect(system.snapshot().seasonPulse).toBeGreaterThanOrEqual(0);
@@ -150,28 +146,28 @@ describe('PhD systems', () => {
 
   it('uses distinct annual milestones, voluntary pre-defense, revisions, and a final Defense', () => {
     const system = new PhdSystems();
-    finishProject(system, 12, 'riskyIdea');
-    finishProject(system, 31, 'helping');
+    finishProject(system, 20, 'riskyIdea');
     system.step(45, 1 / 60);
     expect(system.snapshot().year).toBe(2);
     expect(system.snapshot().annualMilestone?.kind).toBe('firstYearTalk');
     expect(system.snapshot().choice?.kind).toBe('supervisor');
     expect(system.choose('supportive', 45)).toBe(true);
     for (let index = 0; index < 5; index += 1) system.onMeeting();
-    system.step(90, 1 / 60);
+    finishProject(system, 69, 'helping');
+    system.step(93, 1 / 60);
     expect(system.snapshot().year).toBe(3);
     expect(system.snapshot().annualMilestone?.kind).toBe('proposal');
     expect(system.snapshot().choice?.kind).toBe('lifestyle');
-    expect(system.choose('rest', 90)).toBe(true);
-    system.step(90.1, 1 / 60);
+    expect(system.choose('rest', 93)).toBe(true);
+    system.step(117, 1 / 60);
     expect(system.snapshot().choice?.kind).toBe('project');
-    expect(system.choose('replication', 90.1)).toBe(true);
+    expect(system.choose('replication', 117)).toBe(true);
     for (let index = 0; index < 20; index += 1) system.onDefeated();
-    system.step(135, 1 / 60);
+    system.step(141, 1 / 60);
     expect(system.snapshot().year).toBe(4);
     expect(system.snapshot().annualMilestone).toBeNull();
     expect(system.snapshot().choice?.kind).toBe('qualifying');
-    expect(system.choose('attempt', 135)).toBe(true);
+    expect(system.choose('attempt', 141)).toBe(true);
     expect(system.snapshot().qualifying).toBe('ready');
     expect(system.snapshot().milestone?.phase).toBe('preparation');
     system.step(136, 3.1);
@@ -204,8 +200,8 @@ describe('PhD systems', () => {
 
   it('presents the single Qualifying Exam at the Year-4 boundary even with fewer than two completed projects', () => {
     const system = new PhdSystems();
-    system.step(12, 1 / 60);
-    expect(system.choose('prestige', 12)).toBe(true);
+    system.step(20, 1 / 60);
+    expect(system.choose('prestige', 20)).toBe(true);
     expect(system.snapshot().completedProjects).toBe(0);
     system.step(45, 1 / 60);
     expect(system.choose('handsOff', 45)).toBe(true);
@@ -239,16 +235,44 @@ describe('PhD systems', () => {
     const system = new PhdSystems({ initialResources: { energy: 70, focus: 70, spirit: 70 } });
     system.startReviewAnnualMilestone(1);
     system.choose('supportive', 45);
-    system.step(70, 1 / 60);
+    system.step(80, 1 / 60);
     expect(system.snapshot().choice?.kind).toBe('lifestyle');
     expect(system.snapshot().choice?.options).toEqual(['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime']);
     const before = system.snapshot();
-    expect(system.choose('weekendOvertime', 70)).toBe(true);
+    expect(system.choose('weekendOvertime', 80)).toBe(true);
     const chosen = system.snapshot();
     expect(chosen.lifestyle?.id).toBe('weekendOvertime');
     expect(chosen.evidence).toBeGreaterThan(before.evidence);
     expect(chosen.energy).toBeLessThan(before.energy);
     expect(chosen.calendarLoad).toBeGreaterThan(before.calendarLoad);
+  });
+
+  it('coordinates ordinary modal clocks without delaying the connected pre-defense to Defense sequence', () => {
+    const projectFirst = new PhdSystems();
+    projectFirst.step(20, 1 / 60);
+    expect(projectFirst.choose('replication', 20)).toBe(true);
+    expect(projectFirst.exportState().nextLifestyleAt).toBeGreaterThanOrEqual(44);
+    projectFirst.startReviewAnnualMilestone(3);
+    projectFirst.step(21, 1 / 60);
+    expect(projectFirst.snapshot().choice).toBeNull();
+    projectFirst.step(44, 1 / 60);
+    expect(projectFirst.snapshot().choice?.kind).toBe('qualifying');
+
+    const lifestyleFirst = new PhdSystems();
+    lifestyleFirst.startReviewAnnualMilestone(1);
+    lifestyleFirst.choose('supportive', 45);
+    lifestyleFirst.step(80, 1 / 60);
+    expect(lifestyleFirst.snapshot().choice?.kind).toBe('lifestyle');
+    lifestyleFirst.choose('rest', 80);
+    expect(lifestyleFirst.exportState().nextProjectAt).toBeGreaterThanOrEqual(104);
+
+    const connected = new PhdSystems();
+    connected.startReviewProgression('defenseGate');
+    connected.step(1, 1 / 60);
+    expect(connected.snapshot().choice?.kind).toBe('preDefense');
+    connected.choose('attempt', 1);
+    connected.step(13.1, 12.1);
+    expect(connected.snapshot().choice?.kind).toBe('defense');
   });
 
   it('turns Year Nine into a bounded final year instead of an infinite capped label', () => {

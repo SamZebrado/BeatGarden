@@ -136,10 +136,10 @@ export class PhdSystems {
     thesisStage: 'seed', qualifying: 'locked', annualMilestone: null, preDefense: 'hidden', revisionRemaining: 0, defense: 'hidden', choice: null, milestone: null,
     graduated: false, terminal: 'ongoing',
   };
-  private nextProjectAt = 12;
+  private nextProjectAt = 20;
   private nextQualifyingPrompt = 0;
   private nextDefensePrompt = 0;
-  private nextLifestyleAt = 68;
+  private nextLifestyleAt = 80;
   private pausedAcademicTime = 0;
   private contributions = new Set<ProjectId>();
 
@@ -225,12 +225,6 @@ export class PhdSystems {
       return;
     }
 
-    if (this.state.year >= 2 && !this.state.lifestyle && time >= this.nextLifestyleAt) {
-      this.state.choice = { kind: 'lifestyle', options: ['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime'] };
-      this.nextLifestyleAt = time + 58;
-      return;
-    }
-
     if (this.state.qualifying === 'ready' && time >= this.nextQualifyingPrompt) {
       this.state.choice = { kind: 'qualifying', options: ['attempt', 'defer'] };
       return;
@@ -241,6 +235,11 @@ export class PhdSystems {
     }
     if (this.state.defense === 'ready' && time >= this.nextDefensePrompt) {
       this.state.choice = { kind: 'defense', options: ['attempt', 'defer'] };
+      return;
+    }
+    if (this.state.year >= 2 && !this.state.lifestyle && time >= this.nextLifestyleAt) {
+      this.state.choice = { kind: 'lifestyle', options: ['rest', 'exercise', 'social', 'mindfulness', 'weekendOvertime'] };
+      this.nextLifestyleAt = time + 70;
       return;
     }
     if (!this.state.activeProject && time >= this.nextProjectAt) {
@@ -327,6 +326,16 @@ export class PhdSystems {
     else if (choice.kind === 'qualifying') this.resolveQualifying(option, time);
     else if (choice.kind === 'preDefense') this.resolvePreDefense(option, time);
     else this.resolveDefense(option, time);
+    // Coordinate the existing persisted absolute clocks: resolving one modal
+    // keeps unrelated eligible decisions from opening a few frames later, but
+    // never discards them. Pre-defense -> revisions -> Defense stays connected.
+    const breathingRoomUntil = time + 24;
+    if (choice.kind !== 'project') this.nextProjectAt = Math.max(this.nextProjectAt, breathingRoomUntil);
+    if (choice.kind !== 'lifestyle') this.nextLifestyleAt = Math.max(this.nextLifestyleAt, breathingRoomUntil);
+    if (choice.kind !== 'qualifying' && choice.kind !== 'preDefense' && choice.kind !== 'defense') {
+      this.nextQualifyingPrompt = Math.max(this.nextQualifyingPrompt, breathingRoomUntil);
+      this.nextDefensePrompt = Math.max(this.nextDefensePrompt, breathingRoomUntil);
+    }
     return true;
   }
 
@@ -427,7 +436,7 @@ export class PhdSystems {
     this.state.spirit = bound(this.state.spirit - (energyDebt + focusDebt) * 0.55);
     this.state.activeProject = { id, progress: 0, goal: config.goal };
     this.state.choice = null;
-    this.nextProjectAt = time + 18;
+    this.nextProjectAt = time + 36;
   }
 
   private completeProject(id: ProjectId): void {

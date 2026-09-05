@@ -129,7 +129,7 @@ describe('shared Person and life-path authority', () => {
     expect(simulation.snapshot().workPath?.stage).toBe('trial');
     expect(simulation.snapshot().workPath?.managerId).toBe('opaque-driver');
     const initialMarket = simulation.snapshot().workPath!.marketStrength;
-    advance(simulation, 30, 'workConversion');
+    advance(simulation, 40, 'workConversion');
     const trial = simulation.snapshot();
     expect(trial.choice?.kind).toBe('workConversion');
     expect(trial.workPath!.experience).toBeGreaterThan(0);
