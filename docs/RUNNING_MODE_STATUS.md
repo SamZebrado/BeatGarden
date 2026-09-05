@@ -6,6 +6,26 @@ ChatGPT review conversation.
 
 ## STATUS
 
+### Slowly Island B0 contract — 2026-09-06
+
+- Read the current Notion project overview, execution PLAN, and Slowly Island proposal
+  directly. A1/A2 remain closed at `85fcc8a`; B0 became the active contract stage.
+- Froze `docs/SLOWLY_ISLAND_B0_CONTRACT.md` as a product, state, persistence,
+  privacy, accessibility, routing, lifecycle, and module-boundary contract. No Slowly
+  Island runtime or gameplay was added in B0.
+- Initial High review `mtovijal-bxthr384` returned no P0, three P1 contract
+  ambiguities, and one P2 path-label issue. The revision explicitly separated
+  `CareerWorld` from the wider route domain; fixed CurrentRunV2/bundle/difficulty
+  rules; bounded private-text discard, validation, rollback, orphan, and render
+  safety; and named the actual offline warm-cache surfaces.
+- High delta review `mtovsemn-1wqgczlb` verified exact contract SHA-256
+  `18cbd69cf8cd7a7ec41b97bbd01a5cc2196c238d9908035003af7a4853dc9ac9`
+  and returned **B0 PASS**, with P0/P1/P2 all zero. B1 may begin only as the bounded
+  empathy-cabin vertical slice; deferred islands, cross-world buffs, Boss changes,
+  and Rhythm changes remain forbidden.
+- The Notion overview, PLAN, and Slowly Island status were updated and read back to
+  record A1/A2 closure, the frozen B0 evidence, and B1 as the current stage.
+
 ### Target semantics and choice-cadence candidate — 2026-09-06
 
 - A0 fixed-seed normal-simulation measurements separated active simulation time from
