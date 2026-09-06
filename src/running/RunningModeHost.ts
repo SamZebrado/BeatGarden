@@ -4,7 +4,6 @@ import { resetSemanticHints } from './SemanticHints';
 import { warmRunningOfflineCache } from '../pwa/warmRunningCache';
 import type { RunningDifficulty } from './core/difficulty';
 import { clearCurrentRun, loadCurrentRun, type CurrentRunV1 } from './core/currentRun';
-import { SettingsView } from '../settings/SettingsView';
 
 export interface RunningGameHandle { destroy(): void; saveNow?(): void }
 
@@ -31,7 +30,7 @@ export class RunningModeHost {
     window.addEventListener('pagehide', this.onPageHide);
     const current = loadCurrentRun();
     if (current) { this.showResumeChoice(current); return; }
-    if (this.actions.initialWorld === 'phd' || this.actions.initialWorld === 'master' || this.actions.initialWorld === 'work') void this.launchWorld(this.actions.initialWorld);
+    if (this.actions.initialWorld === 'phd' || this.actions.initialWorld === 'master' || this.actions.initialWorld === 'work' || this.actions.initialWorld === 'slowly') void this.launchWorld(this.actions.initialWorld);
     else this.showWorldSelect();
   }
 
@@ -52,13 +51,15 @@ export class RunningModeHost {
     panel.style.cssText = 'width:min(560px,calc(100% - 32px));padding:28px;border:1px solid #6a9685;border-radius:24px;background:#10231f;text-align:center;box-shadow:0 24px 80px #0007;';
     const snapshot = run.simulation as { time?: number };
     const worldName = t(`running.${run.world}` as const);
-    const detail = t('running.resumeDetail').replace('{world}', worldName).replace('{difficulty}', t(`running.difficulty.${run.difficulty}`)).replace('{time}', `${Math.max(0, Math.floor(snapshot.time ?? 0))}s`);
+    const difficulty = run.world === 'slowly' ? 'N/A' : t(`running.difficulty.${run.difficulty}`);
+    const detail = t('running.resumeDetail').replace('{world}', worldName).replace('{difficulty}', difficulty).replace('{time}', `${Math.max(0, Math.floor(snapshot.time ?? 0))}s`);
     panel.innerHTML = `<div style="font-size:52px">↻</div><h1 style="font-size:clamp(28px,7vw,42px);margin:12px 0">${t('running.resumeTitle')}</h1><p style="color:#cce0d9;line-height:1.6">${detail}</p><div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:24px"><button data-role="continue-run" style="padding:13px 20px;border-radius:999px;border:1px solid #92edb5;background:#1d5a43;color:#fff;font-weight:700;cursor:pointer">${t('running.continueRun')}</button><button data-role="start-new-run" style="padding:13px 20px;border-radius:999px;border:1px solid #68877e;background:#17342d;color:#fff;cursor:pointer">${t('running.startNewRun')}</button></div>`;
     panel.querySelector<HTMLButtonElement>('[data-role="continue-run"]')!.addEventListener('click', () => void this.launchWorld(run.world, run));
-    panel.querySelector<HTMLButtonElement>('[data-role="start-new-run"]')!.addEventListener('click', () => {
+    panel.querySelector<HTMLButtonElement>('[data-role="start-new-run"]')!.addEventListener('click', async () => {
+      if (run.world === 'slowly') { const { deletePrivateRecord } = await import('./slowly/core/slowlyPersistence'); deletePrivateRecord(run.simulation.runId); }
       clearCurrentRun();
       const requested = this.actions.initialWorld;
-      if (requested === 'phd' || requested === 'master' || requested === 'work') void this.launchWorld(requested);
+      if (requested === 'phd' || requested === 'master' || requested === 'work' || requested === 'slowly') void this.launchWorld(requested);
       else this.showWorldSelect();
     });
     this.root.appendChild(panel);
@@ -72,7 +73,7 @@ export class RunningModeHost {
     const page = document.createElement('main');
     page.dataset.role = 'running-world-select';
     page.style.cssText = 'width:min(980px,calc(100% - 32px));min-height:100%;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 0 max(28px,env(safe-area-inset-bottom));color:#fff;font-family:system-ui;display:flex;flex-direction:column;justify-content:center;';
-    const world = (id: 'master' | 'work', name: string, detail: string, icon: string, color: string) => `<button data-role="${id}" style="min-height:150px;padding:22px;border-radius:22px;border:1px solid ${color};background:#10231f;color:#fff;text-align:left;cursor:pointer"><span style="font-size:30px">${icon}</span><strong style="display:block;font-size:23px;margin-top:8px">${name}</strong><span style="display:block;margin-top:7px;color:#cce0d9">${detail}</span></button>`;
+    const world = (id: 'master' | 'work' | 'slowly', name: string, detail: string, icon: string, color: string) => `<button data-role="${id}" style="min-height:150px;padding:22px;border-radius:22px;border:1px solid ${color};background:#10231f;color:#fff;text-align:left;cursor:pointer"><span style="font-size:30px">${icon}</span><strong style="display:block;font-size:23px;margin-top:8px">${name}</strong><span style="display:block;margin-top:7px;color:#cce0d9">${detail}</span></button>`;
     const locked = (name: string, icon: string) => `<div aria-disabled="true" style="min-height:128px;padding:22px;border-radius:22px;border:1px solid #45615a;background:#10231f;color:#8ea59e;filter:saturate(.55)"><span style="font-size:30px">${icon}</span><strong style="display:block;font-size:23px;margin-top:8px">${name}</strong><span style="display:block;margin-top:7px">🔒 ${t('running.locked')}</span></div>`;
     page.innerHTML = `
       <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><button data-role="back" style="padding:10px 16px;border-radius:999px;border:1px solid #5f7c73;background:#10231f;color:#fff">← ${t('mode.backToModes')}</button><button data-role="language" aria-label="${languageTargetAction()}" title="${languageTargetAction()}" style="padding:10px 16px;border-radius:999px;border:1px solid #5f7c73;background:#10231f;color:#fff">${languageTargetLabel()}</button></div>
@@ -80,20 +81,21 @@ export class RunningModeHost {
       <div aria-label="${t('running.difficulty')}" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;margin-bottom:20px">${(['sprout', 'garden', 'storm'] as const).map((difficulty) => `<button data-difficulty="${difficulty}" aria-pressed="${difficulty === this.actions.difficulty}" style="padding:10px 16px;border-radius:999px;border:1px solid ${difficulty === this.actions.difficulty ? '#92edb5' : '#45615a'};background:${difficulty === this.actions.difficulty ? '#1d5a43' : '#10231f'};color:#fff;cursor:pointer">${t(`running.difficulty.${difficulty}`)}</button>`).join('')}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:16px;margin-top:24px">
         <button data-role="phd" style="min-height:160px;padding:24px;border-radius:24px;border:1px solid #61c78b;background:linear-gradient(145deg,#185943,#18354c);color:#fff;text-align:left;cursor:pointer"><span style="font-size:36px">🌳</span><strong style="display:block;font-size:27px;margin-top:10px">${t('running.phd')}</strong><span style="display:block;color:#d7f8e4;font-size:16px;margin-top:9px">${t('running.phdDetail')}</span></button>
-        ${world('master', t('running.master'), t('running.masterDetail'), '📘', '#6fbce8')}${world('work', t('running.work'), t('running.workDetail'), '▦', '#e4b764')}${locked(t('running.cultivation'), '◇')}
+        ${world('master', t('running.master'), t('running.masterDetail'), '📘', '#6fbce8')}${world('work', t('running.work'), t('running.workDetail'), '▦', '#e4b764')}${world('slowly', t('running.slowly'), t('running.slowlyDetail'), '◌', '#9ed7c1')}${locked(t('running.cultivation'), '◇')}
       </div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px"><button data-role="journal" style="padding:11px 16px;border-radius:999px;border:1px solid #89c7a9;background:#17372e;color:#fff;cursor:pointer">📖 ${t('running.journal')}</button><button data-role="rest-corner" style="padding:11px 16px;border-radius:999px;border:1px solid #89c7a9;background:#17372e;color:#fff;cursor:pointer">🌿 ${t('running.restCorner')}</button><button data-role="settings" style="padding:11px 16px;border-radius:999px;border:1px solid #7b9e91;background:#10231f;color:#fff;cursor:pointer">⚙ ${t('settings.title')}</button><button data-role="boss-studio" style="padding:11px 16px;border-radius:999px;border:1px solid #7b9e91;background:#10231f;color:#fff;cursor:pointer">⬡ ${t('running.bossStudio')}</button><button data-role="reset-hints" style="padding:11px 16px;border-radius:999px;border:1px solid #55736a;background:#10231f;color:#cce0d9;cursor:pointer">↺ ${t('running.resetHints')}</button></div>`;
     page.querySelector<HTMLButtonElement>('[data-role="back"]')!.addEventListener('click', this.actions.onBack);
     page.querySelector<HTMLButtonElement>('[data-role="language"]')!.addEventListener('click', () => { toggleLocale(); this.showWorldSelect(); });
     page.querySelector<HTMLButtonElement>('[data-role="phd"]')!.addEventListener('click', () => this.actions.onWorldChanged('phd'));
     page.querySelector<HTMLButtonElement>('[data-role="master"]')!.addEventListener('click', () => this.actions.onWorldChanged('master'));
     page.querySelector<HTMLButtonElement>('[data-role="work"]')!.addEventListener('click', () => this.actions.onWorldChanged('work'));
+    page.querySelector<HTMLButtonElement>('[data-role="slowly"]')!.addEventListener('click', () => this.actions.onWorldChanged('slowly'));
     page.querySelector<HTMLButtonElement>('[data-role="journal"]')!.addEventListener('click', async () => { const { GardenJournal } = await import('./GardenJournal'); new GardenJournal(this.root, () => this.showWorldSelect()); });
     page.querySelector<HTMLButtonElement>('[data-role="rest-corner"]')!.addEventListener('click', async () => { const { RestCorner } = await import('./RestCorner'); new RestCorner(this.root, () => this.showWorldSelect()); });
-    page.querySelector<HTMLButtonElement>('[data-role="settings"]')!.addEventListener('click', () => new SettingsView(this.root, () => {
+    page.querySelector<HTMLButtonElement>('[data-role="settings"]')!.addEventListener('click', async () => { const { SettingsView } = await import('../settings/SettingsView'); new SettingsView(this.root, () => {
       const imported = loadCurrentRun();
       if (imported) this.showResumeChoice(imported);
       else this.showWorldSelect();
-    }));
+    }); });
     page.querySelector<HTMLButtonElement>('[data-role="boss-studio"]')!.addEventListener('click', async () => {
       const { BossStudio } = await import('./BossStudio');
       new BossStudio(this.root, () => this.showWorldSelect()).show();
@@ -103,20 +105,24 @@ export class RunningModeHost {
     this.root.appendChild(page);
   }
 
-  private async launchWorld(world: 'phd' | 'master' | 'work', resume?: CurrentRunV1): Promise<void> {
+  private async launchWorld(world: 'phd' | 'master' | 'work' | 'slowly', resume?: CurrentRunV1): Promise<void> {
     if (this.loading) return;
     this.loading = true;
     this.showLoading();
     try {
-      if (world === 'phd') {
+      if (world === 'slowly') {
+        const module = await import('./slowly/SlowlyIslandHost');
+        this.game = new module.SlowlyIslandHost(this.root, () => this.actions.onWorldChanged(null), resume?.world === 'slowly' ? resume : undefined);
+      } else if (world === 'phd') {
         const module = await import('./phaser/bootPhdGarden');
         this.game = await module.bootPhdGarden(this.root, { onExit: () => this.actions.onWorldChanged(null), difficulty: resume?.difficulty ?? this.actions.difficulty, ...(resume?.world === 'phd' ? { resume } : {}) });
       } else {
         const module = await import('./phaser/bootScenarioGarden');
-        this.game = await module.bootScenarioGarden(this.root, { world, onExit: () => this.actions.onWorldChanged(null), difficulty: resume?.difficulty ?? this.actions.difficulty, ...(resume && resume.world !== 'phd' ? { resume } : {}) });
+        this.game = await module.bootScenarioGarden(this.root, { world, onExit: () => this.actions.onWorldChanged(null), difficulty: resume?.difficulty ?? this.actions.difficulty, ...(resume?.world === world ? { resume } : {}) });
       }
       const save = loadRunningSave();
-      updateRunningSave({ lastWorld: world, totalRuns: save.totalRuns + (resume ? 0 : 1), difficultyRecords: { ...save.difficultyRecords, [world]: resume?.difficulty ?? this.actions.difficulty } });
+      if (world === 'slowly') updateRunningSave({ totalRuns: save.totalRuns + (resume ? 0 : 1) });
+      else updateRunningSave({ lastWorld: world, totalRuns: save.totalRuns + (resume ? 0 : 1), difficultyRecords: { ...save.difficultyRecords, [world]: resume?.difficulty ?? this.actions.difficulty } });
       await warmAllRunningWorldsForOfflineUse();
     } catch (error) {
       this.loading = false;
@@ -135,7 +141,7 @@ export class RunningModeHost {
     this.root.appendChild(status);
   }
 
-  private showLoadFailure(offline: boolean, world: 'phd' | 'master' | 'work'): void {
+  private showLoadFailure(offline: boolean, world: 'phd' | 'master' | 'work' | 'slowly'): void {
     this.root.replaceChildren();
     const panel = document.createElement('main');
     panel.style.cssText = 'margin:auto;width:min(520px,calc(100% - 32px));padding:28px;border:1px solid #536f66;border-radius:22px;background:#10231f;color:#fff;font-family:system-ui;text-align:center;';
@@ -150,7 +156,7 @@ async function warmAllRunningWorldsForOfflineUse(): Promise<void> {
   try {
     // Running remains lazy from Rhythm. Once the player enters Running online,
     // fetch both renderer families so every shipped world survives a cold start.
-    await Promise.all([import('./phaser/bootPhdGarden'), import('./phaser/bootScenarioGarden')]);
+    await Promise.all([import('./phaser/bootPhdGarden'), import('./phaser/bootScenarioGarden'), import('./slowly/SlowlyIslandHost')]);
     await warmRunningOfflineCache();
   } catch {
     // Best-effort only: the already-running world must remain playable.

@@ -39,10 +39,11 @@ describe('Running data portability', () => {
     const source = memoryStorage({ [RUNNING_STORAGE_KEY]: JSON.stringify(DEFAULT_RUNNING_SAVE), [CURRENT_RUN_STORAGE_KEY]: JSON.stringify(current) });
     const parsed = parseRunningSaveBundle(JSON.stringify(createRunningSaveBundle(source)));
     expect(parsed.ok).toBe(true);
-    if (!parsed.ok || !parsed.value.currentRun) return;
+    if (!parsed.ok || parsed.value.currentRun?.world !== 'phd') return;
     const destination = memoryStorage({ rhythm: 'keep-me' });
     applyRunningSaveBundle(parsed.value, destination);
     const imported = JSON.parse(destination.getItem(CURRENT_RUN_STORAGE_KEY)!) as CurrentRunV1;
+    if (imported.difficulty === null) return;
     const restored = new RunningSimulation(imported.seed, { difficulty: imported.difficulty, restore: imported.simulation as ReturnType<RunningSimulation['exportState']> });
     run(original, 720, 1000);
     run(restored, 720, 1000);
@@ -87,6 +88,17 @@ describe('Running data portability', () => {
     const parsed = parseRunningSaveBundle(JSON.stringify(bundle));
     expect(parsed.ok).toBe(true);
     if (parsed.ok) expect(parsed.value.meta.customPeople).toEqual([]);
+  });
+
+  it('removes orphan private text after an ordinary replacement import', () => {
+    const privateKey='beatgarden.running.slowly.private.v1';
+    const linked={version:1,id:'slowly-linked',situation:'kept',mirror:'',bridge:'',companionPrompt:'',updatedAt:1};
+    const orphan={...linked,id:'slowly-orphan',situation:'removed'};
+    const reflection={schema:'beatgarden-reflection.v1' as const,recordId:'slowly-linked',endedAt:'2026-09-06T00:00:00.000Z',outcome:'completed' as const,phaseReached:'record' as const,feelingIds:[],needIds:[],summary:null,companion:null,gameVersion:'0.1.0'};
+    const storage=memoryStorage({[privateKey]:JSON.stringify({version:1,records:[linked,orphan]})});
+    const bundle={schema:SAVE_BUNDLE_SCHEMA,version:1 as const,exportedAt:new Date().toISOString(),meta:{...DEFAULT_RUNNING_SAVE,reflections:[reflection]},currentRun:null};
+    applyRunningSaveBundle(bundle,storage);
+    expect(JSON.parse(storage.getItem(privateKey)!).records).toEqual([linked]);
   });
 
   it('migrates old current-run relationship omissions but rejects unknown nested content', () => {

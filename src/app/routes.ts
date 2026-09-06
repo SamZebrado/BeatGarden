@@ -20,7 +20,7 @@ export function routeSearch(route: RootRoute): string {
   if (route.kind === 'running') {
     const params = new URLSearchParams({ mode: 'running' });
     if (route.world) params.set('world', route.world);
-    if (route.difficulty !== 'garden') params.set('difficulty', route.difficulty);
+    if (route.world !== 'slowly' && route.difficulty !== 'garden') params.set('difficulty', route.difficulty);
     return `?${params.toString()}`;
   }
   return window.location.pathname;

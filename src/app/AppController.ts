@@ -4,7 +4,6 @@ import { languageTargetAction, languageTargetLabel, t, toggleLocale } from '../i
 import { FireflyDockStage } from '../stages/fireflyDock/FireflyDockStage';
 import { BubbleKitchenStage, CloudPostStage, SleepyGreenhouseStage } from '../stages/original/GardenStages';
 import { CalibrationView } from '../settings/CalibrationView';
-import { SettingsView } from '../settings/SettingsView';
 import { AudioTestView } from '../settings/AudioTestView';
 import { StreamSafeView } from '../settings/StreamSafeView';
 import { loadBestScore } from '../settings/scores';
@@ -108,8 +107,9 @@ export class AppController {
     new CalibrationView(this.root, this.showMenu);
   };
 
-  showSettings = (): void => {
+  showSettings = async (): Promise<void> => {
     this.prepareRoot();
+    const { SettingsView } = await import('../settings/SettingsView');
     new SettingsView(this.root, this.showMenu);
   };
 

@@ -4,11 +4,12 @@ import type { ScenarioSimulationStateV1, ScenarioWorld } from './scenarioSimulat
 import { isRelationshipState } from './personScience';
 import { recordSuccessfulJourney, type JourneyCompletionResult } from './save';
 import type { JourneyCompletionInput } from './journal';
+import { isSlowlyJourneyStateV1, type SlowlyJourneyStateV1 } from './slowlySchema';
 
 export const CURRENT_RUN_STORAGE_KEY = 'beatgarden.running.current.v1';
 
 interface CurrentRunBaseV1 {
-  version: 1;
+  version: 1 | 2;
   status: 'active';
   savedAt: number;
   seed: number;
@@ -17,7 +18,8 @@ interface CurrentRunBaseV1 {
 
 export type CurrentRunV1 =
   | CurrentRunBaseV1 & { world: 'phd'; simulation: RunningSimulationStateV1 }
-  | CurrentRunBaseV1 & { world: ScenarioWorld; simulation: ScenarioSimulationStateV1 };
+  | CurrentRunBaseV1 & { world: ScenarioWorld; simulation: ScenarioSimulationStateV1 }
+  | Omit<CurrentRunBaseV1, 'difficulty'> & { version: 2; world: 'slowly'; difficulty: null; simulation: SlowlyJourneyStateV1 };
 
 type CurrentRunStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
@@ -51,12 +53,14 @@ export function migrateCurrentRunV1(value: unknown): unknown {
     if (simulation.protectFocusUsed === undefined) simulation.protectFocusUsed = false;
     if (simulation.changedDirection === undefined) simulation.changedDirection = false;
   }
+  if (migrated.world === 'phd' || migrated.world === 'master' || migrated.world === 'work') migrated.version = 2;
   return migrated;
 }
 
 export function saveCurrentRun(run: CurrentRunV1, storage: CurrentRunStorage | null = browserStorage()): void {
-  if (!isCurrentRunV1(run)) throw new Error('Refusing to persist an invalid Running snapshot.');
-  storage?.setItem(CURRENT_RUN_STORAGE_KEY, JSON.stringify(run));
+  const normalized = migrateCurrentRunV1(run);
+  if (!isCurrentRunV1(normalized)) throw new Error('Refusing to persist an invalid Running snapshot.');
+  storage?.setItem(CURRENT_RUN_STORAGE_KEY, JSON.stringify(normalized));
 }
 
 export function clearCurrentRun(storage: Pick<Storage, 'removeItem'> | null = browserStorage()): void {
@@ -71,10 +75,12 @@ export function commitSuccessfulJourney(input: JourneyCompletionInput, storage: 
 }
 
 export function isCurrentRunV1(value: unknown): value is CurrentRunV1 {
-  if (!record(value) || value.version !== 1 || value.status !== 'active' || !world(value.world) || !difficulty(value.difficulty)) return false;
+  if (!record(value) || (value.version !== 1 && value.version !== 2) || value.status !== 'active' || !world(value.world)) return false;
   if (!exactKeys(value, ['version', 'status', 'savedAt', 'seed', 'world', 'difficulty', 'simulation'])) return false;
   if (!safeInteger(value.seed, 0, 0xffffffff) || !finite(value.savedAt, 0, 1e16) || !record(value.simulation)) return false;
   if (!safeTree(value, 0)) return false;
+  if (value.world === 'slowly') return value.version === 2 && value.difficulty === null && isSlowlyJourneyStateV1(value.simulation);
+  if (!difficulty(value.difficulty)) return false;
   return value.world === 'phd' ? validPhdSimulation(value.simulation) : validScenarioSimulation(value.simulation, value.world);
 }
 
@@ -278,7 +284,7 @@ function enumValue(value: unknown, allowed: readonly unknown[]): boolean { retur
 function finite(value: unknown, min: number, max: number): value is number { return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max; }
 function safeInteger(value: unknown, min: number, max: number): value is number { return Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max; }
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
-function world(value: unknown): value is CurrentRunV1['world'] { return value === 'phd' || value === 'master' || value === 'work'; }
+function world(value: unknown): value is CurrentRunV1['world'] { return value === 'phd' || value === 'master' || value === 'work' || value === 'slowly'; }
 function difficulty(value: unknown): value is RunningDifficulty { return value === 'sprout' || value === 'garden' || value === 'storm'; }
 function safeTree(value: unknown, depth: number): boolean {
   if (depth > 9) return false;

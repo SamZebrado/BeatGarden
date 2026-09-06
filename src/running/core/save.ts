@@ -1,29 +1,30 @@
 import type { RunningDifficulty } from './difficulty';
 import { parseBossConfig } from './bossSchema';
-import type { RunningWorld } from './types';
+import type { CareerWorld } from './types';
 import { parsePersonCore, type PersonCoreV1 } from './personScience';
 import { DEFAULT_AGGREGATE_STATS, journeyRecord, sanitizeAchievementIds, sanitizeAggregateStats, sanitizeJourneyHistory, sanitizeStoryMarkIds, type AchievementId, type DynamicIntensity, type JourneyCompletionInput, type JourneyRecordV1, type MusicStyle, type RestActivityId, type RunningAggregateStats, type StoryMarkId } from './journal';
-export type { RunningWorld } from './types';
+import { isReflectionRecordV1, type ReflectionRecordV1 } from './slowlySchema';
+export type { CareerWorld } from './types';
 
 export const RUNNING_STORAGE_KEY_V1 = 'beatgarden.running.v1';
 export const RUNNING_STORAGE_KEY = 'beatgarden.running.v2';
-export interface RunningSaveV1 { version: 1; lastWorld: RunningWorld | null; totalRuns: number }
+export interface RunningSaveV1 { version: 1; lastWorld: CareerWorld | null; totalRuns: number }
 export interface StoredBossMetadata {
   id: string;
   displayName: string;
   origin: 'builtin' | 'custom' | 'promoted-player';
-  worlds: RunningWorld[];
+  worlds: CareerWorld[];
   updatedAt: string;
   data: unknown;
 }
 export interface RunningSaveV2 {
-  version: 2;
-  lastWorld: RunningWorld | null;
+  version: 2 | 3;
+  lastWorld: CareerWorld | null;
   totalRuns: number;
-  worldCompletions: Partial<Record<RunningWorld, number>>;
+  worldCompletions: Partial<Record<CareerWorld, number>>;
   milestoneCompletions: string[];
   unlockedContent: string[];
-  difficultyRecords: Partial<Record<RunningWorld, RunningDifficulty>>;
+  difficultyRecords: Partial<Record<CareerWorld, RunningDifficulty>>;
   seenHints: string[];
   customBosses: StoredBossMetadata[];
   customPeople: PersonCoreV1[];
@@ -36,13 +37,14 @@ export interface RunningSaveV2 {
   runningMusicVolume: number;
   runningSfxVolume: number;
   dynamicIntensity: DynamicIntensity;
+  reflections: ReflectionRecordV1[];
 }
 
 export const DEFAULT_RUNNING_SAVE: Readonly<RunningSaveV2> = {
-  version: 2, lastWorld: null, totalRuns: 0, worldCompletions: {}, milestoneCompletions: [],
+  version: 3, lastWorld: null, totalRuns: 0, worldCompletions: {}, milestoneCompletions: [],
   unlockedContent: [], difficultyRecords: {}, seenHints: [], customBosses: [], customPeople: [], audioMuted: false,
   journeyHistory: [], achievements: [], storyMarks: [], aggregateStats: { ...DEFAULT_AGGREGATE_STATS, failedRuns: {}, completedByStyle: {}, restActivities: [] },
-  musicStyle: 'classic', runningMusicVolume: .8, runningSfxVolume: .9, dynamicIntensity: 'full',
+  musicStyle: 'classic', runningMusicVolume: .8, runningSfxVolume: .9, dynamicIntensity: 'full', reflections: [],
 };
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -50,7 +52,7 @@ type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 export function loadRunningSave(storage: StorageLike | null = browserStorage()): RunningSaveV2 {
   if (!storage) return freshDefault();
   const current = parseStored<Partial<RunningSaveV2>>(storage.getItem(RUNNING_STORAGE_KEY));
-  if (current?.version === 2) return sanitizeV2(current);
+  if (current?.version === 2 || current?.version === 3) return sanitizeV2(current);
   const legacy = parseStored<Partial<RunningSaveV1>>(storage.getItem(RUNNING_STORAGE_KEY_V1));
   if (legacy?.version === 1) {
     const migrated = sanitizeV2({ ...DEFAULT_RUNNING_SAVE, lastWorld: validWorld(legacy.lastWorld) ? legacy.lastWorld : null, totalRuns: validCount(legacy.totalRuns) });
@@ -65,7 +67,7 @@ export function saveRunningData(value: RunningSaveV2, storage: StorageLike | nul
 }
 
 export function updateRunningSave(patch: Partial<Omit<RunningSaveV2, 'version'>>, storage: StorageLike | null = browserStorage()): RunningSaveV2 {
-  const next = sanitizeV2({ ...loadRunningSave(storage), ...patch, version: 2 });
+  const next = sanitizeV2({ ...loadRunningSave(storage), ...patch, version: 3 });
   saveRunningData(next, storage);
   return next;
 }
@@ -76,7 +78,7 @@ export function markHintSeen(id: string, storage: StorageLike | null = browserSt
   saveRunningData({ ...save, seenHints: [...save.seenHints, id] }, storage);
 }
 
-export function markWorldCompleted(world: RunningWorld, difficulty: RunningDifficulty, storage: StorageLike | null = browserStorage()): void {
+export function markWorldCompleted(world: CareerWorld, difficulty: RunningDifficulty, storage: StorageLike | null = browserStorage()): void {
   const save = loadRunningSave(storage);
   saveRunningData({ ...save, worldCompletions: { ...save.worldCompletions, [world]: (save.worldCompletions[world] ?? 0) + 1 },
     difficultyRecords: { ...save.difficultyRecords, [world]: difficulty }, unlockedContent: unique([...save.unlockedContent, `${world}:complete`, 'boss-studio']) }, storage);
@@ -89,7 +91,7 @@ export function recordSuccessfulJourney(input: JourneyCompletionInput, storage: 
   const current = loadRunningSave(storage);
   const existing = current.journeyHistory.find((record) => record.recordId === input.sourceRunId.toLowerCase().replace(/[^a-z0-9._:-]/g, '-').slice(0, 80));
   if (existing) return { record: existing, unlocked: [], duplicate: true, save: current };
-  const completedWorlds = (Object.entries(current.worldCompletions) as Array<[RunningWorld, number]>).filter(([, count]) => count > 0).map(([world]) => world);
+  const completedWorlds = (Object.entries(current.worldCompletions) as Array<[CareerWorld, number]>).filter(([, count]) => count > 0).map(([world]) => world);
   const created = journeyRecord(input, current.achievements, current.aggregateStats, completedWorlds);
   const stats: RunningAggregateStats = {
     ...current.aggregateStats,
@@ -114,7 +116,7 @@ export function recordSuccessfulJourney(input: JourneyCompletionInput, storage: 
   return { record: created.record, unlocked: created.record.medalsUnlocked, duplicate: false, save };
 }
 
-export function recordFailedJourney(world: RunningWorld, storage: StorageLike | null = browserStorage()): void {
+export function recordFailedJourney(world: CareerWorld, storage: StorageLike | null = browserStorage()): void {
   const save = loadRunningSave(storage);
   updateRunningSave({ aggregateStats: { ...save.aggregateStats, failedRuns: { ...save.aggregateStats.failedRuns, [world]: (save.aggregateStats.failedRuns[world] ?? 0) + 1 }, completedByStyle: { ...save.aggregateStats.completedByStyle }, restActivities: [...save.aggregateStats.restActivities] } }, storage);
 }
@@ -140,6 +142,24 @@ export function attachPromotedBossToJourney(recordId: string | null, bossId: str
   return updateRunningSave({ journeyHistory: history, achievements: unique([...save.achievements, ...unlocks]) as AchievementId[] }, storage);
 }
 
+export function recordSlowlyReflection(record: ReflectionRecordV1, storage: StorageLike | null = browserStorage()): RunningSaveV2 {
+  if (!isReflectionRecordV1(record)) throw new Error('Invalid Slowly Island reflection record.');
+  const save = loadRunningSave(storage);
+  const reflections = [...save.reflections.filter((item) => item.recordId !== record.recordId), structuredClone(record)]
+    .sort((a, b) => a.endedAt.localeCompare(b.endedAt) || a.recordId.localeCompare(b.recordId)).slice(-200);
+  const written = updateRunningSave({ reflections }, storage);
+  if (storage) {
+    const verified = loadRunningSave(storage).reflections.find((item) => item.recordId === record.recordId);
+    if (JSON.stringify(verified) !== JSON.stringify(record)) throw new Error('Slowly Island reflection persistence verification failed.');
+  }
+  return written;
+}
+
+export function deleteSlowlyReflection(recordId: string, storage: StorageLike | null = browserStorage()): RunningSaveV2 {
+  const save = loadRunningSave(storage);
+  return updateRunningSave({ reflections: save.reflections.filter((item) => item.recordId !== recordId) }, storage);
+}
+
 function sanitizeV2(value: Partial<RunningSaveV2>): RunningSaveV2 {
   const worlds = ['phd', 'master', 'work'] as const;
   const difficulties = ['sprout', 'garden', 'storm'] as const;
@@ -152,22 +172,23 @@ function sanitizeV2(value: Partial<RunningSaveV2>): RunningSaveV2 {
     if (difficulties.includes(difficulty as RunningDifficulty)) difficultyRecords[world] = difficulty!;
   }
   const aggregateStats = sanitizeAggregateStats(value.aggregateStats);
-  return { version: 2, lastWorld: validWorld(value.lastWorld) ? value.lastWorld : null, totalRuns: validCount(value.totalRuns), worldCompletions,
+  return { version: 3, lastWorld: validWorld(value.lastWorld) ? value.lastWorld : null, totalRuns: validCount(value.totalRuns), worldCompletions,
     milestoneCompletions: cleanIds(value.milestoneCompletions), unlockedContent: cleanIds(value.unlockedContent), difficultyRecords,
     seenHints: cleanIds(value.seenHints), customBosses: Array.isArray(value.customBosses) ? value.customBosses.map(sanitizeBossMetadata).filter((boss): boss is StoredBossMetadata => boss !== null).slice(0, 50) : [],
     customPeople: Array.isArray(value.customPeople) ? value.customPeople.map(sanitizePerson).filter((person): person is PersonCoreV1 => person !== null).slice(0, 50) : [], audioMuted: value.audioMuted === true,
     journeyHistory: sanitizeJourneyHistory(value.journeyHistory), achievements: sanitizeAchievementIds(value.achievements), storyMarks: sanitizeStoryMarkIds(value.storyMarks), aggregateStats,
     musicStyle: validMusicStyle(value.musicStyle) ? value.musicStyle : 'classic', runningMusicVolume: validUnit(value.runningMusicVolume) ? value.runningMusicVolume : .8,
-    runningSfxVolume: validUnit(value.runningSfxVolume) ? value.runningSfxVolume : .9, dynamicIntensity: validIntensity(value.dynamicIntensity) ? value.dynamicIntensity : 'full' };
+    runningSfxVolume: validUnit(value.runningSfxVolume) ? value.runningSfxVolume : .9, dynamicIntensity: validIntensity(value.dynamicIntensity) ? value.dynamicIntensity : 'full',
+    reflections: Array.isArray(value.reflections) ? [...new Map(value.reflections.filter(isReflectionRecordV1).map((item) => [item.recordId, structuredClone(item)])).values()].slice(-200) : [] };
 }
 
 export function parseRunningSaveV2(value: unknown): { ok: true; value: RunningSaveV2 } | { ok: false; errors: string[] } {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, errors: ['meta: expected object.'] };
   const record = value as Record<string, unknown>;
-  const allowed = ['version', 'lastWorld', 'totalRuns', 'worldCompletions', 'milestoneCompletions', 'unlockedContent', 'difficultyRecords', 'seenHints', 'customBosses', 'customPeople', 'audioMuted', 'journeyHistory', 'achievements', 'storyMarks', 'aggregateStats', 'musicStyle', 'runningMusicVolume', 'runningSfxVolume', 'dynamicIntensity'];
+  const allowed = ['version', 'lastWorld', 'totalRuns', 'worldCompletions', 'milestoneCompletions', 'unlockedContent', 'difficultyRecords', 'seenHints', 'customBosses', 'customPeople', 'audioMuted', 'journeyHistory', 'achievements', 'storyMarks', 'aggregateStats', 'musicStyle', 'runningMusicVolume', 'runningSfxVolume', 'dynamicIntensity', 'reflections'];
   const unknown = Object.keys(record).filter((key) => !allowed.includes(key));
   if (unknown.length) return { ok: false, errors: unknown.map((key) => `meta.${key}: unknown field.`) };
-  if (record.version !== 2) return { ok: false, errors: ['meta.version: expected 2.'] };
+  if (record.version !== 2 && record.version !== 3) return { ok: false, errors: ['meta.version: expected 2 or 3.'] };
   // customPeople is an additive v2 field. Accept pre-Person-System v2 saves and
   // migrate them in memory while keeping every supplied field strictly checked.
   const candidate = { ...record,
@@ -180,6 +201,8 @@ export function parseRunningSaveV2(value: unknown): { ok: true; value: RunningSa
     ...(record.runningMusicVolume === undefined ? { runningMusicVolume: .8 } : {}),
     ...(record.runningSfxVolume === undefined ? { runningSfxVolume: .9 } : {}),
     ...(record.dynamicIntensity === undefined ? { dynamicIntensity: 'full' } : {}),
+    ...(record.reflections === undefined ? { reflections: [] } : {}),
+    version: 3,
   };
   const normalized = sanitizeV2(candidate as Partial<RunningSaveV2>);
   if (canonical(candidate) !== canonical(normalized)) return { ok: false, errors: ['meta: invalid or out-of-range Running data.'] };
@@ -197,7 +220,7 @@ function sanitizeBossMetadata(value: unknown): StoredBossMetadata | null {
   return { id: parsed.value.id, displayName: parsed.value.name.en, origin: parsed.value.origin, worlds: [...parsed.value.worlds], updatedAt: boss.updatedAt, data: parsed.value };
 }
 function sanitizePerson(value: unknown): PersonCoreV1 | null { const parsed = parsePersonCore(value); return parsed.ok ? parsed.value : null; }
-function validWorld(value: unknown): value is RunningWorld { return value === 'phd' || value === 'master' || value === 'work'; }
+function validWorld(value: unknown): value is CareerWorld { return value === 'phd' || value === 'master' || value === 'work'; }
 function validMusicStyle(value: unknown): value is MusicStyle { return value === 'classic' || value === 'chiptune' || value === 'organic'; }
 function validIntensity(value: unknown): value is DynamicIntensity { return value === 'full' || value === 'soft' || value === 'off'; }
 function validUnit(value: unknown): value is number { return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1; }
@@ -206,7 +229,7 @@ function safeId(value: unknown): value is string { return typeof value === 'stri
 function cleanIds(value: unknown): string[] { return Array.isArray(value) ? unique(value.filter(safeId)).slice(0, 300) : []; }
 function unique(values: string[]): string[] { return [...new Set(values)]; }
 function parseStored<T>(value: string | null): T | null { try { return JSON.parse(value ?? 'null') as T | null; } catch { return null; } }
-function freshDefault(): RunningSaveV2 { return { ...DEFAULT_RUNNING_SAVE, worldCompletions: {}, milestoneCompletions: [], unlockedContent: [], difficultyRecords: {}, seenHints: [], customBosses: [], customPeople: [], journeyHistory: [], achievements: [], storyMarks: [], aggregateStats: { ...DEFAULT_AGGREGATE_STATS, failedRuns: {}, completedByStyle: {}, restActivities: [] } }; }
+function freshDefault(): RunningSaveV2 { return { ...DEFAULT_RUNNING_SAVE, worldCompletions: {}, milestoneCompletions: [], unlockedContent: [], difficultyRecords: {}, seenHints: [], customBosses: [], customPeople: [], journeyHistory: [], achievements: [], storyMarks: [], reflections: [], aggregateStats: { ...DEFAULT_AGGREGATE_STATS, failedRuns: {}, completedByStyle: {}, restActivities: [] } }; }
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`).join(',')}}`;

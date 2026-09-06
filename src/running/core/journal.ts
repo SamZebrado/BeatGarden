@@ -1,6 +1,6 @@
 import type { RunningDifficulty } from './difficulty';
 import type { RelationshipStateV1 } from './personScience';
-import type { RunningWorld } from './types';
+import type { CareerWorld } from './types';
 
 export const JOURNEY_SCHEMA = 'beatgarden-journey.v1' as const;
 export const MAX_JOURNEY_RECORDS = 200;
@@ -14,7 +14,7 @@ export interface JourneyRecordV1 {
   schema: typeof JOURNEY_SCHEMA;
   recordId: string;
   completedAt: string;
-  world: RunningWorld;
+  world: CareerWorld;
   difficulty: RunningDifficulty;
   outcome: 'completed';
   runDuration: number;
@@ -33,7 +33,7 @@ export interface JourneyRecordV1 {
 }
 
 export interface RunningAggregateStats {
-  failedRuns: Partial<Record<RunningWorld, number>>;
+  failedRuns: Partial<Record<CareerWorld, number>>;
   completedByStyle: Partial<Record<MusicStyle, number>>;
   restSessions: number;
   restActivities: RestActivityId[];
@@ -118,7 +118,7 @@ export const DEFAULT_AGGREGATE_STATS: Readonly<RunningAggregateStats> = {
 export interface JourneyCompletionInput {
   sourceRunId: string;
   completedAt?: string;
-  world: RunningWorld;
+  world: CareerWorld;
   difficulty: RunningDifficulty;
   runDuration: number;
   finalStage: string;
@@ -134,7 +134,7 @@ export interface JourneyCompletionInput {
   gameVersion?: string;
 }
 
-export function journeyRecord(input: JourneyCompletionInput, alreadyUnlocked: readonly AchievementId[], stats: RunningAggregateStats, completedWorlds: readonly RunningWorld[]): { record: JourneyRecordV1; unlocked: AchievementId[] } {
+export function journeyRecord(input: JourneyCompletionInput, alreadyUnlocked: readonly AchievementId[], stats: RunningAggregateStats, completedWorlds: readonly CareerWorld[]): { record: JourneyRecordV1; unlocked: AchievementId[] } {
   const completedAt = input.completedAt ?? new Date().toISOString();
   const signals = new Set<AchievementId>(['first-journey', ...(input.achievementSignals ?? [])]);
   if (input.difficulty === 'storm') signals.add('storm-clear');
@@ -206,7 +206,7 @@ function uniqueEnum<T extends string>(value: unknown, allowed: readonly T[], max
 function safeRecordId(value: string): string { const safe = value.toLowerCase().replace(/[^a-z0-9._:-]/g, '-').slice(0, 80); return safe || 'journey'; }
 function safeText(value: string, max: number): string { return value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max); }
 function validDate(value: unknown): value is string { return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.isFinite(Date.parse(value)); }
-function isWorld(value: unknown): value is RunningWorld { return value === 'phd' || value === 'master' || value === 'work'; }
+function isWorld(value: unknown): value is CareerWorld { return value === 'phd' || value === 'master' || value === 'work'; }
 function isDifficulty(value: unknown): value is RunningDifficulty { return value === 'sprout' || value === 'garden' || value === 'storm'; }
 function isMusicStyle(value: unknown): value is MusicStyle { return value === 'classic' || value === 'chiptune' || value === 'organic'; }
 function finiteIn(value: unknown, min: number, max: number): value is number { return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max; }

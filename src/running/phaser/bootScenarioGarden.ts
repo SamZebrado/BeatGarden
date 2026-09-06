@@ -104,8 +104,8 @@ export async function bootScenarioGarden(root: HTMLElement, options: { world: Sc
       if (state.gameOver || (state.completed && this.completionRecorded)) { clearCurrentRun(); return; }
       const simulation = this.simulation.exportState();
       try {
-        if (options.world === 'master') saveCurrentRun({ version: 1, status: 'active', savedAt: runInstance, seed: runSeed, world: 'master', difficulty: state.difficulty, simulation });
-        else saveCurrentRun({ version: 1, status: 'active', savedAt: runInstance, seed: runSeed, world: 'work', difficulty: state.difficulty, simulation });
+        if (options.world === 'master') saveCurrentRun({ version: 2, status: 'active', savedAt: runInstance, seed: runSeed, world: 'master', difficulty: state.difficulty, simulation });
+        else saveCurrentRun({ version: 2, status: 'active', savedAt: runInstance, seed: runSeed, world: 'work', difficulty: state.difficulty, simulation });
         delete overlay.dataset.checkpointError;
       } catch (error) {
         overlay.dataset.checkpointError = error instanceof Error ? error.message : String(error);

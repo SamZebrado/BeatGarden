@@ -226,7 +226,7 @@ export async function bootPhdGarden(root: HTMLElement, options: { onExit: () => 
       const state = this.simulation.snapshot();
       if (state.gameOver || state.phd.terminal === 'ended' || (state.phd.terminal === 'graduated' && this.completionRecorded)) { clearCurrentRun(); return; }
       try {
-        saveCurrentRun({ version: 1, status: 'active', savedAt: runInstance, seed: runSeed, world: 'phd', difficulty: state.difficulty, simulation: this.simulation.exportState() });
+        saveCurrentRun({ version: 2, status: 'active', savedAt: runInstance, seed: runSeed, world: 'phd', difficulty: state.difficulty, simulation: this.simulation.exportState() });
         delete hudOverlay.dataset.checkpointError;
       } catch (error) {
         hudOverlay.dataset.checkpointError = error instanceof Error ? error.message : String(error);

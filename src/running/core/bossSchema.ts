@@ -1,4 +1,4 @@
-import type { RunningWorld } from './types';
+import type { CareerWorld } from './types';
 
 export const BOSS_SCHEMA_VERSION = 'beatgarden-boss.v1' as const;
 export const ATTACK_PATTERNS = ['radial-pulse', 'directed-burst', 'orbiting-pressure', 'lane-sweep', 'interrupt-ring'] as const;
@@ -9,7 +9,7 @@ export interface BossConfigV1 {
   id: string;
   name: { en: string; 'zh-CN'?: string };
   origin: 'builtin' | 'custom' | 'promoted-player';
-  worlds: RunningWorld[];
+  worlds: CareerWorld[];
   appearance: { shape: 'circle' | 'triangle' | 'square' | 'hexagon'; icon: string; palette: string[] };
   stats: { hp: number; speed: number; scale: number };
   traits: { expertise: number; resources: number; clarity: number; autonomySupport: number; emotionalSafety: number; fairness: number; boundaryRespect: number; projectMatch: number };
@@ -55,7 +55,7 @@ export function parseBossConfig(input: string): BossValidation {
 }
 
 export interface PromotedPlayerSnapshot {
-  world: RunningWorld;
+  world: CareerWorld;
   completionNumber: number;
   difficulty: 'sprout' | 'garden' | 'storm';
   orbitCount: number;
@@ -90,8 +90,8 @@ export function promotedPlayerBoss(snapshot: PromotedPlayerSnapshot): BossConfig
 
 function percent(value: number): number { return Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0)); }
 function ratio(value: number): number { return Math.round(percent(value)) / 100; }
-function worldName(world: RunningWorld): string { return world === 'phd' ? 'PhD' : world === 'master' ? 'Master' : 'Work'; }
-function worldZhName(world: RunningWorld): string { return world === 'phd' ? '博士' : world === 'master' ? '硕士' : '工作'; }
+function worldName(world: CareerWorld): string { return world === 'phd' ? 'PhD' : world === 'master' ? 'Master' : 'Work'; }
+function worldZhName(world: CareerWorld): string { return world === 'phd' ? '博士' : world === 'master' ? '硕士' : '工作'; }
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
 function unknownKeys(value: Record<string, unknown>, allowed: readonly string[], path: string, errors: string[]): void { for (const key of Object.keys(value)) if (!allowed.includes(key)) errors.push(`${path}.${key}: unknown field; executable or extension content is not allowed.`); }

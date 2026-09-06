@@ -162,7 +162,7 @@ describe('versioned current Running run', () => {
     const simulation = new RunningSimulation(99);
     const run: CurrentRunV1 = { version: 1, status: 'active', savedAt: Date.now(), seed: 99, world: 'phd', difficulty: 'garden', simulation: simulation.exportState() };
     saveCurrentRun(run, storage);
-    expect(loadCurrentRun(storage)).toEqual(run);
+    expect(loadCurrentRun(storage)).toEqual({ ...run, version: 2 });
     storage.setItem(CURRENT_RUN_STORAGE_KEY, JSON.stringify({ ...run, simulation: { ...run.simulation, enemies: new Array(65).fill(run.simulation.player) } }));
     expect(loadCurrentRun(storage)).toBeNull();
     expect(storage.values.get('beatgarden.settings.v1')).toBe('{"musicVolume":0.4}');

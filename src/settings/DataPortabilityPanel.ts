@@ -116,12 +116,13 @@ export class DataPortabilityPanel {
   }
 }
 
-export function formatSavePreview(preview: { world: string | null; difficulty: string | null; simulationTime: number | null; totalRuns: number; people: number; bosses: number; journeys?: number; medals?: number; storyMarks?: number; musicStyle?: string; restSessions?: number }): string {
-  const run = preview.world && preview.difficulty && preview.simulationTime !== null
-    ? t('settings.restoreRun').replace('{world}', localizeRunValue(preview.world)).replace('{difficulty}', localizeRunValue(preview.difficulty)).replace('{time}', `${Math.floor(preview.simulationTime)}s`)
+export function formatSavePreview(preview: { world: string | null; difficulty: string | null; simulationTime: number | null; totalRuns: number; people: number; bosses: number; journeys?: number; medals?: number; storyMarks?: number; musicStyle?: string; restSessions?: number; reflections?: number }): string {
+  const run = preview.world
+    ? t('settings.restoreRun').replace('{world}', localizeRunValue(preview.world)).replace('{difficulty}', preview.difficulty ? localizeRunValue(preview.difficulty) : 'N/A').replace('{time}', preview.simulationTime === null ? 'N/A' : `${Math.floor(preview.simulationTime)}s`)
     : t('settings.noCurrentRun');
-  const journal = getLocale() === 'zh-CN' ? `生涯 ${preview.journeys ?? 0} · 勋章 ${preview.medals ?? 0} · 印记 ${preview.storyMarks ?? 0} · 休息 ${preview.restSessions ?? 0} · 音乐 ${preview.musicStyle ?? 'classic'}` : `Journeys ${preview.journeys ?? 0} · Medals ${preview.medals ?? 0} · Marks ${preview.storyMarks ?? 0} · Rest ${preview.restSessions ?? 0} · Music ${preview.musicStyle ?? 'classic'}`;
-  return `${t('settings.replaceProgress')} · ${preview.totalRuns}\n${run}\n${journal}\n${t('settings.contentCounts').replace('{people}', String(preview.people)).replace('{bosses}', String(preview.bosses))}`;
+  const journal = getLocale() === 'zh-CN' ? `生涯 ${preview.journeys ?? 0} · 慢慢岛 ${preview.reflections ?? 0} · 勋章 ${preview.medals ?? 0} · 印记 ${preview.storyMarks ?? 0} · 休息 ${preview.restSessions ?? 0} · 音乐 ${preview.musicStyle ?? 'classic'}` : `Journeys ${preview.journeys ?? 0} · Slowly Island ${preview.reflections ?? 0} · Medals ${preview.medals ?? 0} · Marks ${preview.storyMarks ?? 0} · Rest ${preview.restSessions ?? 0} · Music ${preview.musicStyle ?? 'classic'}`;
+  const privacy = getLocale() === 'zh-CN' ? '慢慢岛私人文字不在此导出中' : 'Slowly Island private text is excluded from this export';
+  return `${t('settings.replaceProgress')} · ${preview.totalRuns}\n${run}\n${journal}\n${privacy}\n${t('settings.contentCounts').replace('{people}', String(preview.people)).replace('{bosses}', String(preview.bosses))}`;
 }
 
 export function downloadJson(name: string, value: unknown): void {
@@ -132,7 +133,7 @@ function saveFilename(): string { return `BeatGarden-save-${new Date().toISOStri
 function contentFilename(): string { return `BeatGarden-custom-content-${new Date().toISOString().slice(0, 10)}.json`; }
 function localizeRunValue(value: string): string {
   const keys: Record<string, Parameters<typeof t>[0]> = {
-    phd: 'running.phd', master: 'running.master', work: 'running.work',
+    phd: 'running.phd', master: 'running.master', work: 'running.work', slowly: 'running.slowly',
     sprout: 'running.difficulty.sprout', garden: 'running.difficulty.garden', storm: 'running.difficulty.storm',
   };
   return keys[value] ? t(keys[value]) : value;

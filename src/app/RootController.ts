@@ -1,25 +1,27 @@
 import { AppController } from './AppController';
 import { ModeSelectView } from './ModeSelectView';
 import { resolveRootRoute, routeSearch, type RootRoute } from './routes';
-import { RunningModeHost } from '../running/RunningModeHost';
+import type { RunningModeHost } from '../running/RunningModeHost';
 
 export class RootController {
-  private readonly onPopState = (): void => this.renderCurrentRoute();
+  private readonly onPopState = (): void => { void this.renderCurrentRoute(); };
   private runningHost: RunningModeHost | null = null;
+  private renderGeneration = 0;
 
   constructor(private readonly root: HTMLElement) {}
 
   start(): void {
     window.addEventListener('popstate', this.onPopState);
-    this.renderCurrentRoute();
+    void this.renderCurrentRoute();
   }
 
   private navigate = (route: RootRoute): void => {
     window.history.pushState({}, '', routeSearch(route));
-    this.renderCurrentRoute();
+    void this.renderCurrentRoute();
   };
 
-  private renderCurrentRoute(): void {
+  private async renderCurrentRoute(): Promise<void> {
+    const generation = ++this.renderGeneration;
     this.runningHost?.destroy();
     this.runningHost = null;
     const route = resolveRootRoute(window.location.search);
@@ -28,6 +30,8 @@ export class RootController {
       return;
     }
     if (route.kind === 'running') {
+      const { RunningModeHost } = await import('../running/RunningModeHost');
+      if (generation !== this.renderGeneration) return;
       this.runningHost = new RunningModeHost(this.root, {
         initialWorld: route.world,
         difficulty: route.difficulty,

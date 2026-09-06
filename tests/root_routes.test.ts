@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveRootRoute } from '../src/app/routes';
+import { resolveRootRoute, routeSearch } from '../src/app/routes';
 
 describe('root mode routing', () => {
   it('boots mode select by default', () => {
@@ -18,6 +18,11 @@ describe('root mode routing', () => {
     expect(resolveRootRoute('?mode=running&world=phd&difficulty=sprout')).toEqual({ kind: 'running', world: 'phd', difficulty: 'sprout' });
     expect(resolveRootRoute('?mode=running&world=master&difficulty=storm')).toEqual({ kind: 'running', world: 'master', difficulty: 'storm' });
     expect(resolveRootRoute('?mode=running&world=work&difficulty=unknown')).toEqual({ kind: 'running', world: 'work', difficulty: 'garden' });
+    expect(resolveRootRoute('?mode=running&world=slowly&difficulty=storm')).toEqual({ kind: 'running', world: 'slowly', difficulty: 'storm' });
+  });
+
+  it('does not serialize a career difficulty into Slowly Island routes', () => {
+    expect(routeSearch({ kind: 'running', world: 'slowly', difficulty: 'storm' })).toBe('?mode=running&world=slowly');
   });
 
   it('gives a legacy screen precedence over mode', () => {

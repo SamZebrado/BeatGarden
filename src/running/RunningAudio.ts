@@ -1,7 +1,8 @@
 import { AudioEngine } from '../audio/AudioEngine';
 import { Synth, type SoundName } from '../audio/Synth';
 import { t } from '../i18n/strings';
-import { loadRunningSave, updateRunningSave, type RunningWorld } from './core/save';
+import { loadRunningSave, updateRunningSave } from './core/save';
+import type { CareerWorld } from './core/types';
 import type { DynamicIntensity, MusicStyle } from './core/journal';
 
 type RunningAudioEngine = Pick<AudioEngine, 'state' | 'now' | 'unlockFromUserGesture' | 'setMusicVolume' | 'setSfxVolume' | 'close'>;
@@ -48,7 +49,7 @@ export class RunningAudio {
   private readonly gesture = () => { if (!this.muted) void this.unlock(); };
   private readonly keyGesture = () => { if (!this.muted) void this.unlock(); };
 
-  constructor(private readonly root: HTMLElement, private readonly world: RunningWorld, dependencies: RunningAudioDependencies = {}) {
+  constructor(private readonly root: HTMLElement, private readonly world: CareerWorld, dependencies: RunningAudioDependencies = {}) {
     const running = loadRunningSave();
     this.style = running.musicStyle;
     this.intensity = running.dynamicIntensity;
@@ -159,4 +160,4 @@ export class RunningAudio {
   }
 }
 
-export function musicIntervalMs(world: RunningWorld, style: MusicStyle = 'classic'): number { return RUNNING_MUSIC_IDENTITIES[world].spacing * RUNNING_MUSIC_STYLES[style].spacingScale * 1000; }
+export function musicIntervalMs(world: CareerWorld, style: MusicStyle = 'classic'): number { return RUNNING_MUSIC_IDENTITIES[world].spacing * RUNNING_MUSIC_STYLES[style].spacingScale * 1000; }

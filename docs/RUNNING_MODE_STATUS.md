@@ -6,6 +6,38 @@ ChatGPT review conversation.
 
 ## STATUS
 
+### Slowly Island B1 vertical-slice candidate — 2026-09-06
+
+- Added Slowly Island as a lazy fourth Running route while preserving a separate
+  `CareerWorld` authority for PhD/Master/Work Journey, failure, difficulty, completion,
+  achievement, and Boss semantics. Rhythm's initial dependency graph remains separate.
+- Implemented the bounded no-failure path: optional Situation, 36 bilingual feelings,
+  24 bilingual Needs, one optional Need/Strategy/Insight Companion, editable Mirror or
+  Bridge draft, Action/Rest/Today-is-enough, and compact reflection recording. Undo,
+  Show all, Skip, Back, and a Save/Discard/Stay exit are explicit player actions.
+- Added version-2 current-run discrimination with `difficulty:null` for Slowly and
+  additive legacy career migration. Running meta now normalizes version 2 to version 3
+  with a distinct capped `ReflectionRecordV1` history; existing career completion and
+  medals remain unchanged. The ordinary save bundle remains v1, accepts old content,
+  normalizes current runs, previews Slowly difficulty as N/A, and excludes private text.
+- Private Situation/expression text is opt-in, local-only, exact-schema validated,
+  bounded to 4,000 code points per field / 50 records / 256 KiB, verified after write,
+  and removed on discard. Journal compact summaries and private reveals use DOM
+  `textContent`; reflection deletion also removes its private body.
+- A read-only provenance audit found no local IslandSlonelyFall checkout or auditable
+  upstream vocabulary/licence. No external vocabulary was copied. The 36/24 bilingual
+  list is an original BeatGarden editorial candidate; future upstream reuse remains
+  blocked on exact source, commit, licence, and attribution evidence.
+- Local evidence currently passes TypeScript lint and 327/327 tests. Production build
+  and all hard size budgets pass; Slowly UI is a 7.52 kB gzip lazy chunk, with its
+  1.17 kB private-storage helper also lazy. Rhythm's cold entry is now 60.0 kB gzip
+  and contains no Slowly runtime module. Real browser play
+  completed the full Chinese journey with private text, Companion, optional Rest, and
+  a markup-shaped Journal summary without DOM injection. Reduced-motion checks at
+  390x844 and 844x390 had no horizontal overflow, 44 px minimum controls, and exposed
+  18/36 initial feeling candidates respectively. High review is still required before
+  this candidate can be released.
+
 ### Slowly Island B0 contract — 2026-09-06
 
 - Read the current Notion project overview, execution PLAN, and Slowly Island proposal
@@ -25,6 +57,7 @@ ChatGPT review conversation.
   and Rhythm changes remain forbidden.
 - The Notion overview, PLAN, and Slowly Island status were updated and read back to
   record A1/A2 closure, the frozen B0 evidence, and B1 as the current stage.
+
 
 ### Target semantics and choice-cadence candidate — 2026-09-06
 

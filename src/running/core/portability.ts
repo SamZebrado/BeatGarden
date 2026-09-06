@@ -4,6 +4,8 @@ import { parsePersonCore, type PersonCoreV1 } from './personScience';
 import { DEFAULT_RUNNING_SAVE, RUNNING_STORAGE_KEY, loadRunningSave, parseRunningSaveV2, type RunningSaveV2, type StoredBossMetadata } from './save';
 import { RunningSimulation } from './simulation';
 import { ScenarioSimulation } from './scenarioSimulation';
+import { isSlowlyJourneyStateV1 } from './slowlySchema';
+import { cleanupOrphanPrivateRecords } from '../slowly/core/slowlyPersistence';
 
 export const SAVE_BUNDLE_SCHEMA = 'beatgarden-save-bundle.v1' as const;
 export const CUSTOM_CONTENT_SCHEMA = 'beatgarden-custom-content.v1' as const;
@@ -36,6 +38,7 @@ export interface ImportPreview {
   storyMarks: number;
   musicStyle: RunningSaveV2['musicStyle'];
   restSessions: number;
+  reflections: number;
 }
 
 export interface PortabilityStorage {
@@ -48,7 +51,8 @@ export function createRunningSaveBundle(storage: PortabilityStorage = localStora
   const reader = { getItem: (key: string) => storage.getItem(key), setItem: () => undefined };
   const meta = loadRunningSave(reader);
   const rawCurrent = parseJson(storage.getItem(CURRENT_RUN_STORAGE_KEY));
-  const currentRun = isCurrentRunV1(rawCurrent) ? structuredClone(rawCurrent) : null;
+  const migratedCurrent = migrateCurrentRunV1(rawCurrent);
+  const currentRun = isCurrentRunV1(migratedCurrent) ? normalizeCurrentRun(migratedCurrent) : null;
   return { schema: SAVE_BUNDLE_SCHEMA, version: 1, exportedAt: new Date().toISOString(), meta: structuredClone(meta), currentRun };
 }
 
@@ -73,7 +77,7 @@ export function parseRunningSaveBundle(json: string): { ok: true; value: Running
 
 export function previewRunningBundle(bundle: RunningSaveBundleV1): ImportPreview {
   const simulation = bundle.currentRun?.simulation as { time?: number } | undefined;
-  return { world: bundle.currentRun?.world ?? null, difficulty: bundle.currentRun?.difficulty ?? null, simulationTime: typeof simulation?.time === 'number' ? simulation.time : null, totalRuns: bundle.meta.totalRuns, people: bundle.meta.customPeople.length, bosses: bundle.meta.customBosses.length, journeys: bundle.meta.journeyHistory.length, medals: bundle.meta.achievements.length, storyMarks: bundle.meta.storyMarks.length, musicStyle: bundle.meta.musicStyle, restSessions: bundle.meta.aggregateStats.restSessions };
+  return { world: bundle.currentRun?.world ?? null, difficulty: bundle.currentRun?.difficulty ?? null, simulationTime: typeof simulation?.time === 'number' ? simulation.time : null, totalRuns: bundle.meta.totalRuns, people: bundle.meta.customPeople.length, bosses: bundle.meta.customBosses.length, journeys: bundle.meta.journeyHistory.length, medals: bundle.meta.achievements.length, storyMarks: bundle.meta.storyMarks.length, musicStyle: bundle.meta.musicStyle, restSessions: bundle.meta.aggregateStats.restSessions, reflections: bundle.meta.reflections.length };
 }
 
 /** Fully validate before writing; roll back both Running keys on any write/verify failure. */
@@ -92,6 +96,9 @@ export function applyRunningSaveBundle(bundle: RunningSaveBundleV1, storage: Por
       || (validated.value.currentRun ? !isCurrentRunV1(verifiedCurrent) || JSON.stringify(verifiedCurrent) !== JSON.stringify(validated.value.currentRun) : verifiedCurrent !== null)) {
       throw new Error('Imported Running state did not verify.');
     }
+    const linkedIds = new Set(validated.value.meta.reflections.map((record) => record.recordId));
+    if (validated.value.currentRun?.world === 'slowly') linkedIds.add(validated.value.currentRun.simulation.runId);
+    cleanupOrphanPrivateRecords(linkedIds, storage);
   } catch (error) {
     restoreKey(storage, RUNNING_STORAGE_KEY, previousMeta);
     restoreKey(storage, CURRENT_RUN_STORAGE_KEY, previousCurrent);
@@ -153,6 +160,7 @@ export function applyCustomContentBundle(bundle: CustomContentBundleV1, storage:
 function restoreKey(storage: PortabilityStorage, key: string, value: string | null): void { try { if (value === null) storage.removeItem(key); else storage.setItem(key, value); } catch { /* best-effort rollback after the original storage failure */ } }
 function normalizeCurrentRun(run: CurrentRunV1): CurrentRunV1 | null {
   const supplied = structuredClone(run) as CurrentRunV1;
+  if (run.world === 'slowly') return isSlowlyJourneyStateV1(run.simulation) ? structuredClone(run) : null;
   const simulation = run.world === 'phd'
     ? new RunningSimulation(run.seed, { difficulty: run.difficulty, restore: run.simulation }).exportState()
     : new ScenarioSimulation(run.world, run.seed, run.difficulty, { restore: run.simulation }).exportState();

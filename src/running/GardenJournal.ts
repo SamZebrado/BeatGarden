@@ -1,6 +1,7 @@
 import { getLocale, t } from '../i18n/strings';
 import { ACHIEVEMENTS, STORY_MARKS, achievement, type JourneyRecordV1 } from './core/journal';
-import { loadRunningSave } from './core/save';
+import { deleteSlowlyReflection, loadRunningSave } from './core/save';
+import { deletePrivateRecord, readPrivateRecord } from './slowly/core/slowlyPersistence';
 
 export class GardenJournal {
   constructor(private readonly root: HTMLElement, private readonly onBack: () => void) { this.render(); }
@@ -27,12 +28,43 @@ export class GardenJournal {
     }).join('');
     page.innerHTML = `<button data-role="back" style="padding:10px 14px;border:0;background:transparent;color:#cce0d9;font-size:16px">← ${t('menu.back')}</button><header style="margin:24px 0 28px"><div style="font-size:42px">📖</div><h1 style="font-size:clamp(34px,8vw,52px);margin:8px 0">${zh ? '生涯档案' : 'Garden Journal'}</h1><p style="color:#bcd0c9">${zh ? `${records.length} 段旅程 · ${save.achievements.length}/${ACHIEVEMENTS.length} 枚勋章 · ${save.storyMarks.length} 个故事印记` : `${records.length} journeys · ${save.achievements.length}/${ACHIEVEMENTS.length} medals · ${save.storyMarks.length} Story Marks`}</p></header>
       <section aria-labelledby="history-title"><h2 id="history-title">${zh ? '游玩历史' : 'Run History'}</h2><div style="display:grid;gap:12px">${history}</div></section>
+      <section data-role="reflection-history" aria-labelledby="reflection-title" style="margin-top:34px"><h2 id="reflection-title">${zh ? '慢慢岛记录' : 'Slowly Island reflections'}</h2><p style="color:#a9c5bc">${zh ? '只显示你明确保存的简短摘要；私人正文默认隐藏且不进入普通导出。' : 'Only compact summaries you chose to save appear here. Private text stays separate.'}</p><div data-role="reflection-list" style="display:grid;gap:12px;margin-top:14px"></div></section>
       <section aria-labelledby="medals-title" style="margin-top:34px"><h2 id="medals-title">${zh ? '成就勋章' : 'Medals'}</h2><p style="color:#a9c5bc">${zh ? '勋章只改变表达与纪念，不提供永久战斗数值。' : 'Medals are expressive only and never grant permanent combat power.'}</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:10px;margin-top:14px">${medals}</div></section>
       <section aria-labelledby="marks-title" style="margin-top:34px"><h2 id="marks-title">${zh ? '故事印记' : 'Story Marks'}</h2><p style="color:#a9c5bc">${zh ? '记录有趣经历，不代表游戏对选择作出道德评分。' : 'Interesting events, not moral grades for your choices.'}</p><div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:14px">${marks}</div></section>`;
     page.querySelector('[data-role="back"]')!.addEventListener('click', () => this.onBack());
+    const reflectionList = page.querySelector<HTMLElement>('[data-role="reflection-list"]')!;
+    for (const reflection of [...save.reflections].reverse()) {
+      const card = document.createElement('article');
+      card.dataset.reflectionId = reflection.recordId;
+      card.style.cssText = 'padding:17px;border:1px solid #5a8073;border-radius:18px;background:#10231f';
+      const title = document.createElement('strong');
+      title.textContent = `${zh ? '慢慢岛' : 'Slowly Island'} · ${reflection.outcome === 'completed' ? (zh ? '走完这一段' : 'Completed') : (zh ? '今天到这里' : 'Ended here')}`;
+      const detail = document.createElement('p');
+      detail.style.cssText = 'margin:8px 0 0;color:#cce0d9;white-space:pre-wrap;overflow-wrap:anywhere';
+      detail.textContent = reflection.summary ?? (zh ? '未保存摘要' : 'No summary saved');
+      const controls = document.createElement('div'); controls.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px';
+      const reveal = document.createElement('button'); reveal.type = 'button'; reveal.textContent = zh ? '显示私人正文' : 'Reveal private text';
+      reveal.style.cssText = 'padding:8px 12px;border:1px solid #64877c;border-radius:999px;background:#10231f;color:#fff';
+      reveal.addEventListener('click', () => {
+          const privateRecord = readPrivateRecord(reflection.recordId);
+          const body = document.createElement('p'); body.dataset.role = 'private-reflection'; body.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;color:#dcefe8';
+          body.textContent = privateRecord ? [privateRecord.situation, privateRecord.mirror, privateRecord.bridge, privateRecord.companionPrompt].filter(Boolean).join('\n\n') : (zh ? '没有保存私人正文' : 'No private text saved');
+          reveal.replaceWith(body);
+      });
+      if(readPrivateRecord(reflection.recordId)){controls.append(reveal);const removePrivate=document.createElement('button');removePrivate.type='button';removePrivate.dataset.role='delete-private-text';removePrivate.textContent=zh?'停止保留私人正文':'Stop keeping private text';removePrivate.style.cssText='padding:8px 12px;border:1px solid #8b8062;border-radius:999px;background:#292619;color:#fff';removePrivate.addEventListener('click',()=>{deletePrivateRecord(reflection.recordId);this.render();});controls.append(removePrivate);}
+      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = zh ? '删除记录' : 'Delete record';
+      remove.style.cssText = 'padding:8px 12px;border:1px solid #8b6962;border-radius:999px;background:#291b19;color:#fff';
+      remove.addEventListener('click', () => { deletePrivateRecord(reflection.recordId); deleteSlowlyReflection(reflection.recordId); this.render(); });
+      controls.append(remove);
+      card.append(title, detail, controls);
+      reflectionList.append(card);
+    }
+    if (!save.reflections.length) reflectionList.append(this.emptyReflection(zh));
     this.root.appendChild(page);
     this.root.scrollTop = 0;
   }
+
+  private emptyReflection(zh: boolean): HTMLElement { const text = document.createElement('p'); text.style.color = '#a9c5bc'; text.textContent = zh ? '慢慢岛的完成或中途结束记录会留在这里。' : 'Completed or early-ended Slowly Island records will appear here.'; return text; }
 }
 
 function historyCard(record: JourneyRecordV1, zh: boolean): string {
