@@ -10,6 +10,9 @@ Running Mode does not automatically turn supervisors, deadlines or jobs into ene
 skins. It models some of the causal structure around them instead: workload, Signal
 and Noise, relationships, boundaries, uncertainty, assigned labor and career stages.
 
+Implementation is paused pending hands-on human playtesting. The existing game is
+available to play; the current posture is feedback and bug-fix maintenance.
+
 ## Two ways to play
 
 ### Rhythm Mode
